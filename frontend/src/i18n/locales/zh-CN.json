@@ -12,5 +12,11 @@
   "hero.secondary": "浏览模型",
   "hero.metric.models": "可用模型",
   "hero.metric.access": "直连 API 访问",
-  "hero.metric.language": "首发语言"
+  "hero.metric.language": "首发语言",
+  "dashboard.title": "控制台概览",
+  "dashboard.balance": "可用余额",
+  "dashboard.used": "已用额度",
+  "dashboard.requests": "请求次数",
+  "dashboard.loading": "正在读取账户数据…",
+  "dashboard.error": "暂时无法加载控制台数据。"
 }

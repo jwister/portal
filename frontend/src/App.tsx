@@ -1,10 +1,15 @@
 import { useTranslation } from 'react-i18next'
 
 import { setStoredLanguage, type PortalLanguage } from './i18n'
+import { DashboardPage } from './features/console/DashboardPage'
 
 export function App() {
   const { i18n, t } = useTranslation()
   const nextLanguage: PortalLanguage = i18n.language === 'zh-CN' ? 'en' : 'zh-CN'
+
+  if (window.location.pathname === '/console/dashboard') {
+    return <DashboardPage />
+  }
 
   const changeLanguage = async (): Promise<void> => {
     setStoredLanguage(nextLanguage)

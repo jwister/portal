@@ -55,3 +55,16 @@ h1 { font-family: Georgia, serif; font-size: clamp(3.1rem, 8vw, 7.2rem); font-we
   .metric-strip { grid-template-columns: 1fr; }
   .metric-strip div { border-bottom: 1px solid rgba(233, 228, 216, .17); border-right: 0; }
 }
+
+.console-page { min-height: 100vh; padding: clamp(2rem, 7vw, 6rem); background: #0d1010; color: #e9e4d8; }
+.console-heading { border-bottom: 1px solid rgba(233, 228, 216, .17); margin-bottom: clamp(2rem, 6vw, 5rem); padding-bottom: 1.4rem; }
+.console-heading p { color: #52dab7; font-family: ui-monospace, monospace; font-size: .72rem; letter-spacing: .13em; margin: 0 0 .8rem; }
+.console-heading h1 { font-size: clamp(2.8rem, 6vw, 5.2rem); max-width: none; }
+.instrument-grid { display: grid; gap: 1px; grid-template-columns: 1.4fr 1fr 1fr; background: rgba(233, 228, 216, .16); border: 1px solid rgba(233, 228, 216, .16); }
+.instrument { background: #131817; min-height: 17rem; padding: 1.5rem; position: relative; }
+.instrument span { color: rgba(233, 228, 216, .6); display: block; font-size: .72rem; letter-spacing: .11em; text-transform: uppercase; }
+.instrument strong { display: block; font-family: Georgia, serif; font-size: clamp(3rem, 5vw, 5.5rem); font-weight: 400; letter-spacing: -.06em; margin-top: 3rem; }
+.instrument--primary { background: linear-gradient(145deg, #1e3e36, #131817 70%); }
+.instrument--primary i { background: repeating-linear-gradient(90deg, #52dab7 0 16px, transparent 16px 22px); bottom: 1.75rem; height: 2px; left: 1.5rem; position: absolute; right: 1.5rem; }
+.console-message { color: rgba(233, 228, 216, .7); font-family: Georgia, serif; font-size: 1.4rem; }
+@media (max-width: 700px) { .instrument-grid { grid-template-columns: 1fr; } .instrument { min-height: 12rem; } .instrument strong { margin-top: 1.7rem; } }

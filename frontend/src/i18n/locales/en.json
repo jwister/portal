@@ -12,5 +12,11 @@
   "hero.secondary": "Browse models",
   "hero.metric.models": "models ready",
   "hero.metric.access": "direct API access",
-  "hero.metric.language": "languages at launch"
+  "hero.metric.language": "languages at launch",
+  "dashboard.title": "Console overview",
+  "dashboard.balance": "Available balance",
+  "dashboard.used": "Quota consumed",
+  "dashboard.requests": "Requests served",
+  "dashboard.loading": "Reading current account signal…",
+  "dashboard.error": "Unable to load your console data."
 }
