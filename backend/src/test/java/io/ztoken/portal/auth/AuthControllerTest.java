@@ -11,6 +11,7 @@ import org.springframework.boot.test.web.client.TestRestTemplate;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.http.HttpEntity;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
 
@@ -23,6 +24,9 @@ class AuthControllerTest {
 
     @Autowired
     private TestRestTemplate http;
+
+    @Autowired
+    private io.ztoken.portal.session.PortalSessionService sessions;
 
     @AfterAll
     static void stopNewApi() throws Exception {
@@ -61,5 +65,25 @@ class AuthControllerTest {
         assertThat(request.getPath()).isEqualTo("/api/user/login");
         assertThat(requestBody).contains("\"username\":\"alice\"");
         assertThat(requestBody).doesNotContain("newapi-access-token");
+    }
+
+    @Test
+    void currentProfileComesFromThePortalSessionCookie() {
+        String sessionId = sessions.create(new io.ztoken.portal.session.NewApiIdentity(7L, "alice"), "access-token").getId();
+        HttpHeaders headers = new HttpHeaders();
+        headers.add(HttpHeaders.COOKIE, "PORTAL_SESSION=" + sessionId);
+
+        ResponseEntity<AuthProfile> response = http.exchange("/api/auth/me", org.springframework.http.HttpMethod.GET,
+                new HttpEntity<>(headers), AuthProfile.class);
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
+        assertThat(response.getBody()).isEqualTo(new AuthProfile(7L, "alice"));
+    }
+
+    @Test
+    void currentProfileRejectsMissingSessionCookie() {
+        ResponseEntity<String> response = http.getForEntity("/api/auth/me", String.class);
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.UNAUTHORIZED);
     }
 }
