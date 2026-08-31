@@ -3,6 +3,7 @@ package io.ztoken.portal.newapi;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.ztoken.portal.config.PortalProperties;
+import io.ztoken.portal.console.DashboardSummary;
 import io.ztoken.portal.session.NewApiIdentity;
 import io.ztoken.portal.session.PortalPrincipal;
 import org.springframework.http.HttpHeaders;
@@ -39,13 +40,27 @@ public class NewApiHttpClient implements NewApiClient {
 
     @Override
     public NewApiIdentity getSelf(PortalPrincipal principal) {
+        return identityFrom(getSelfData(principal));
+    }
+
+    @Override
+    public DashboardSummary getDashboard(PortalPrincipal principal) {
+        JsonNode user = getSelfData(principal);
+        return new DashboardSummary(
+                user.path("quota").asLong(),
+                user.path("used_quota").asLong(),
+                user.path("request_count").asLong()
+        );
+    }
+
+    private JsonNode getSelfData(PortalPrincipal principal) {
         JsonNode root = client.get()
                 .uri("/api/user/self")
                 .headers(headers -> applyUserHeaders(headers, principal))
                 .retrieve()
                 .bodyToMono(JsonNode.class)
                 .block(Duration.ofSeconds(10));
-        return identityFrom(requireData(root));
+        return requireData(root);
     }
 
     private JsonNode post(String path, Map<String, String> body, PortalPrincipal principal) {

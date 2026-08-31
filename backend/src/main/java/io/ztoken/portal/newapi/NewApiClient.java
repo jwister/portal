@@ -2,10 +2,13 @@ package io.ztoken.portal.newapi;
 
 import io.ztoken.portal.session.NewApiIdentity;
 import io.ztoken.portal.session.PortalPrincipal;
+import io.ztoken.portal.console.DashboardSummary;
 
 public interface NewApiClient {
 
     NewApiLogin login(String username, String password);
 
     NewApiIdentity getSelf(PortalPrincipal principal);
+
+    DashboardSummary getDashboard(PortalPrincipal principal);
 }
