@@ -22,7 +22,12 @@
   "auth.title": "Welcome back.",
   "auth.copy": "Sign in to inspect your balance, keys, and API usage.",
   "auth.username": "Username",
+  "auth.email": "Email",
   "auth.password": "Password",
   "auth.submit": "Sign in",
-  "auth.error": "Your sign-in details could not be verified."
+  "auth.error": "Your sign-in details could not be verified.",
+  "register.title": "Start with a clear ledger.",
+  "register.copy": "Create a NewAPI account for model access and your personal console.",
+  "register.submit": "Create account",
+  "register.error": "Your account could not be created."
 }
