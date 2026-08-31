@@ -29,4 +29,15 @@ Object.defineProperty(HTMLCanvasElement.prototype, 'toDataURL', {
   value: () => 'data:image/png;base64,',
 })
 
+class TestResizeObserver {
+  observe(): void {}
+  unobserve(): void {}
+  disconnect(): void {}
+}
+
+Object.defineProperty(globalThis, 'ResizeObserver', {
+  configurable: true,
+  value: TestResizeObserver,
+})
+
 afterEach(cleanup)
