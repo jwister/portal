@@ -66,6 +66,8 @@ NewAPI remains the only account authority.
 
 The BFF exposes only explicit customer routes; it must not become a generic NewAPI proxy. NewAPI administrator credentials are held only in deployment secrets and may only be used by the payment credit service.
 
+For GitHub and Google OAuth, configure NewAPI `ServerAddress` to the public portal URL. GitHub and Google then return to `PORTAL_PUBLIC_URL/oauth/github` or `PORTAL_PUBLIC_URL/oauth/oidc`; the React callback calls the BFF, which forwards the one-time code/state to the corresponding documented NewAPI OAuth endpoint and converts the returned NewAPI auth bundle into a portal session.
+
 ## NewAPI integration
 
 The BFF uses documented NewAPI management APIs and sends the appropriate NewAPI authorization headers server-side.
