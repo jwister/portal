@@ -4,6 +4,7 @@ import { SignUpPage } from './features/auth/SignUpPage'
 import { TokensPage } from './features/console/TokensPage'
 import { PublicHeader } from './components/PublicHeader'
 import { HomePage } from './features/home/HomePage'
+import { ModelsPage } from './features/catalog/ModelsPage'
 
 export function App() {
   if (window.location.pathname === '/console/dashboard') {
@@ -20,6 +21,10 @@ export function App() {
 
   if (window.location.pathname === '/console/tokens') {
     return <TokensPage />
+  }
+
+  if (window.location.pathname === '/models') {
+    return <><PublicHeader /><ModelsPage /></>
   }
 
   return <><PublicHeader /><HomePage /></>

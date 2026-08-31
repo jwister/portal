@@ -11,6 +11,16 @@ export interface TokenSummary {
   remainingQuota: number
 }
 
+export interface ModelCatalogItem {
+  name: string
+  vendor: string
+  group: string
+  inputPrice: number | null
+  outputPrice: number | null
+  cachePrice: number | null
+  priceAvailable: boolean
+}
+
 export async function getDashboard(): Promise<DashboardSummary> {
   const response = await fetch('/api/console/dashboard', { credentials: 'include' })
   if (!response.ok) {
@@ -25,5 +35,12 @@ export async function getTokens(): Promise<TokenSummary[]> {
     throw new Error('Token request failed')
   }
   const body = await response.json() as { items: TokenSummary[] }
+  return body.items
+}
+
+export async function getModelCatalog(): Promise<ModelCatalogItem[]> {
+  const response = await fetch('/api/catalog/models', { credentials: 'include' })
+  if (!response.ok) throw new Error('Catalog request failed')
+  const body = await response.json() as { items: ModelCatalogItem[] }
   return body.items
 }

@@ -69,4 +69,16 @@
   "home.ctaCopy": "Start with one unified endpoint and find the right model mix.",
   "home.ctaAction": "Get API Key",
   "home.footer": "A unified AI API platform for developers"
+  ,"models.badge": "MODEL CATALOG",
+  "models.title": "Models",
+  "models.copy": "{{count}} enabled models with clear prices and capabilities.",
+  "models.search": "Search models",
+  "models.allVendors": "All vendors",
+  "models.count": "{{count}} models",
+  "models.input": "Input",
+  "models.output": "Output",
+  "models.cache": "Cache",
+  "models.copyName": "Copy model name",
+  "models.priceUnavailable": "Price unavailable",
+  "models.error": "Unable to load the model catalog."
 }

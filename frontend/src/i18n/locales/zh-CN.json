@@ -69,4 +69,16 @@
   "home.ctaCopy": "从一个统一入口开始，探索适合你的模型组合。",
   "home.ctaAction": "获取 API Key",
   "home.footer": "面向开发者的统一 AI API 平台"
+  ,"models.badge": "模型目录",
+  "models.title": "模型广场",
+  "models.copy": "当前已启用 {{count}} 个模型，清晰比较价格与能力。",
+  "models.search": "搜索模型",
+  "models.allVendors": "全部供应商",
+  "models.count": "{{count}} 个模型",
+  "models.input": "输入",
+  "models.output": "输出",
+  "models.cache": "缓存",
+  "models.copyName": "复制模型名",
+  "models.priceUnavailable": "价格暂不可用",
+  "models.error": "暂时无法加载模型目录。"
 }
