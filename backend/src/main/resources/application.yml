@@ -1,0 +1,15 @@
+spring:
+  application:
+    name: ztoken-portal
+  datasource:
+    url: ${PORTAL_DB_URL:jdbc:mysql://localhost:3306/ztoken_portal?useUnicode=true&characterEncoding=utf8&serverTimezone=UTC}
+    username: ${PORTAL_DB_USERNAME:ztoken_portal}
+    password: ${PORTAL_DB_PASSWORD:}
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    open-in-view: false
+  flyway:
+    enabled: true
+server:
+  port: ${PORTAL_PORT:8080}
