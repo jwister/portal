@@ -34,6 +34,9 @@ public class NewApiHttpClient implements NewApiClient {
     @Override
     public NewApiLogin login(String username, String password) {
         JsonNode root = post("/api/user/login", Map.of("username", username, "password", password), null);
+        if (root == null || !root.path("success").asBoolean(false)) {
+            throw new NewApiAuthenticationException();
+        }
         JsonNode data = requireData(root);
         String accessToken = data.path("access_token").asText();
         JsonNode user = data.path("user");

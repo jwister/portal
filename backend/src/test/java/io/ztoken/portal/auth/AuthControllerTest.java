@@ -68,6 +68,20 @@ class AuthControllerTest {
     }
 
     @Test
+    void rejectedNewApiLoginReturnsUnauthorizedWithoutUpstreamMessage() throws Exception {
+        NEW_API.enqueue(new MockResponse()
+                .setHeader(HttpHeaders.CONTENT_TYPE, "application/json")
+                .setBody("{\"success\":false,\"message\":\"Username or password is incorrect\"}"));
+
+        ResponseEntity<String> response = http.postForEntity("/api/auth/login", new LoginRequest("alice", "incorrect"), String.class);
+
+        NEW_API.takeRequest();
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.UNAUTHORIZED);
+        assertThat(response.getBody()).contains("NEWAPI_AUTH_FAILED");
+        assertThat(response.getBody()).doesNotContain("Username or password is incorrect");
+    }
+
+    @Test
     void registerForwardsEmailAccountDetailsToNewApi() throws Exception {
         NEW_API.enqueue(new MockResponse()
                 .setHeader(HttpHeaders.CONTENT_TYPE, "application/json")
