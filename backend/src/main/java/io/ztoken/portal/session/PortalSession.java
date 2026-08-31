@@ -3,7 +3,6 @@ package io.ztoken.portal.session;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.Id;
-import jakarta.persistence.Lob;
 import jakarta.persistence.Table;
 
 import java.time.Instant;
@@ -22,8 +21,7 @@ public class PortalSession {
     @Column(nullable = false, length = 255)
     private String username;
 
-    @Lob
-    @Column(name = "encrypted_access_token", nullable = false)
+    @Column(name = "encrypted_access_token", nullable = false, length = 4096)
     private String encryptedAccessToken;
 
     @Column(name = "expires_at", nullable = false)
