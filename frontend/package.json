@@ -9,6 +9,8 @@
     "test": "vitest run"
   },
   "dependencies": {
+    "@douyinfe/semi-icons": "^2.84.0",
+    "@douyinfe/semi-ui": "^2.84.0",
     "@tanstack/react-query": "^5.66.8",
     "@tanstack/react-router": "^1.120.5",
     "axios": "^1.8.4",

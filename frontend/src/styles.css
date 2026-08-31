@@ -5,6 +5,14 @@
   font-synthesis: none;
 }
 
+:root {
+  --semi-color-primary: #3389e8;
+  --semi-color-primary-hover: #226fc7;
+  --semi-color-primary-light-default: #eaf4ff;
+  --semi-border-radius-small: 8px;
+  --semi-border-radius-medium: 12px;
+}
+
 * { box-sizing: border-box; }
 body { margin: 0; min-width: 320px; background: #101312; }
 a { color: inherit; text-decoration: none; }
@@ -21,6 +29,11 @@ button { font: inherit; }
 }
 
 .site-header { align-items: center; border-bottom: 1px solid rgba(233, 228, 216, .17); display: flex; justify-content: space-between; min-height: 5.5rem; }
+.public-header { border-bottom: 1px solid #eef0f2; margin: 0 calc(-1 * clamp(1.25rem, 5vw, 5rem)); padding: 0 clamp(1.25rem, 5vw, 5rem); }
+.public-nav.semi-navigation { background: transparent; min-height: 68px; }
+.public-nav .semi-navigation-header { margin-right: auto; }
+.semi-brand { align-items: center; color: #17191d; display: inline-flex; font-family: Georgia, serif; font-size: 18px; font-weight: 700; gap: 8px; letter-spacing: -.02em; }
+.semi-brand span { align-items: center; background: linear-gradient(135deg, #58c5ff, #6e74f6); border-radius: 7px; color: white; display: inline-flex; font-family: ui-monospace, monospace; font-size: 11px; height: 20px; justify-content: center; width: 20px; }
 .brand { align-items: center; display: inline-flex; font-family: Georgia, serif; font-size: 1.25rem; gap: .55rem; letter-spacing: .03em; }
 .brand-mark { align-items: center; background: #52dab7; color: #101312; display: inline-flex; font-family: Georgia, serif; font-size: 1.15rem; font-weight: 700; height: 1.75rem; justify-content: center; width: 1.75rem; }
 nav { display: flex; gap: clamp(.75rem, 2.3vw, 2rem); margin-left: auto; margin-right: clamp(1rem, 4vw, 3rem); }

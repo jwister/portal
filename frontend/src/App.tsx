@@ -5,6 +5,7 @@ import { DashboardPage } from './features/console/DashboardPage'
 import { SignInPage } from './features/auth/SignInPage'
 import { SignUpPage } from './features/auth/SignUpPage'
 import { TokensPage } from './features/console/TokensPage'
+import { PublicHeader } from './components/PublicHeader'
 
 export function App() {
   const { i18n, t } = useTranslation()
@@ -33,25 +34,7 @@ export function App() {
 
   return (
     <main className="site-shell">
-      <header className="site-header">
-        <a className="brand" href="/" aria-label={t('brand.name')}>
-          <span className="brand-mark" aria-hidden="true">Z</span>
-          <span>{t('brand.name')}</span>
-        </a>
-        <nav aria-label="Primary navigation">
-          <a href="/models">{t('nav.models')}</a>
-          <a href="https://docs.newapi.pro/zh/docs/api" target="_blank" rel="noreferrer">{t('nav.docs')}</a>
-          <a href="/purchase">{t('nav.purchase')}</a>
-          <a href="/sign-in">{t('auth.submit')}</a>
-          <a href="/sign-up">{t('register.submit')}</a>
-        </nav>
-        <div className="header-actions">
-          <button className="language-switch" type="button" onClick={changeLanguage}>
-            {nextLanguage === 'zh-CN' ? '中文' : 'EN'}
-          </button>
-          <a className="console-link" href="/sign-in">{t('nav.console')}</a>
-        </div>
-      </header>
+      <PublicHeader />
 
       <section className="hero" aria-labelledby="hero-title">
         <div className="hero-copy">

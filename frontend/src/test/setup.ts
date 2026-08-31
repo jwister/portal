@@ -14,4 +14,19 @@ Object.defineProperty(globalThis, 'localStorage', {
   },
 })
 
+Object.defineProperty(HTMLCanvasElement.prototype, 'getContext', {
+  configurable: true,
+  value: () => ({
+    clearRect: () => undefined,
+    fillRect: () => undefined,
+    fillStyle: '',
+    getImageData: () => ({ data: new Uint8ClampedArray(4) }),
+  }),
+})
+
+Object.defineProperty(HTMLCanvasElement.prototype, 'toDataURL', {
+  configurable: true,
+  value: () => 'data:image/png;base64,',
+})
+
 afterEach(cleanup)
