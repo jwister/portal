@@ -8,6 +8,8 @@ public interface NewApiClient {
 
     NewApiLogin login(String username, String password);
 
+    void register(String username, String email, String password);
+
     NewApiIdentity getSelf(PortalPrincipal principal);
 
     DashboardSummary getDashboard(PortalPrincipal principal);

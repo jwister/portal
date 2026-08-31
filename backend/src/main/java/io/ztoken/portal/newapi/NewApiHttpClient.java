@@ -39,6 +39,12 @@ public class NewApiHttpClient implements NewApiClient {
     }
 
     @Override
+    public void register(String username, String email, String password) {
+        JsonNode root = post("/api/user/register", Map.of("username", username, "email", email, "password", password), null);
+        requireSuccess(root);
+    }
+
+    @Override
     public NewApiIdentity getSelf(PortalPrincipal principal) {
         return identityFrom(getSelfData(principal));
     }
@@ -77,14 +83,18 @@ public class NewApiHttpClient implements NewApiClient {
     }
 
     private JsonNode requireData(JsonNode root) {
-        if (root == null || !root.path("success").asBoolean(false)) {
-            throw new NewApiException("NewAPI rejected the request");
-        }
+        requireSuccess(root);
         JsonNode data = root.path("data");
         if (data.isMissingNode() || data.isNull()) {
             throw new NewApiException("NewAPI response did not include data");
         }
         return data;
+    }
+
+    private void requireSuccess(JsonNode root) {
+        if (root == null || !root.path("success").asBoolean(false)) {
+            throw new NewApiException("NewAPI rejected the request");
+        }
     }
 
     private NewApiIdentity identityFrom(JsonNode user) {

@@ -68,6 +68,21 @@ class AuthControllerTest {
     }
 
     @Test
+    void registerForwardsEmailAccountDetailsToNewApi() throws Exception {
+        NEW_API.enqueue(new MockResponse()
+                .setHeader(HttpHeaders.CONTENT_TYPE, "application/json")
+                .setBody("{\"success\":true,\"data\":null}"));
+
+        ResponseEntity<Void> response = http.postForEntity("/api/auth/register",
+                new RegisterRequest("alice", "alice@example.com", "password"), Void.class);
+
+        RecordedRequest request = NEW_API.takeRequest();
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.NO_CONTENT);
+        assertThat(request.getPath()).isEqualTo("/api/user/register");
+        assertThat(request.getBody().readUtf8()).contains("\"email\":\"alice@example.com\"");
+    }
+
+    @Test
     void currentProfileComesFromThePortalSessionCookie() {
         String sessionId = sessions.create(new io.ztoken.portal.session.NewApiIdentity(7L, "alice"), "access-token").getId();
         HttpHeaders headers = new HttpHeaders();

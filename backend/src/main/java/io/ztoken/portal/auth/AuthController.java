@@ -45,6 +45,12 @@ public class AuthController {
         return ResponseEntity.noContent().header(HttpHeaders.SET_COOKIE, cookie.toString()).build();
     }
 
+    @PostMapping("/register")
+    public ResponseEntity<Void> register(@Valid @RequestBody RegisterRequest request) {
+        newApiClient.register(request.username(), request.email(), request.password());
+        return ResponseEntity.noContent().build();
+    }
+
     @GetMapping("/me")
     public AuthProfile currentProfile(@CookieValue(value = "PORTAL_SESSION", required = false) String sessionId) {
         PortalPrincipal principal = sessions.require(sessionId);
