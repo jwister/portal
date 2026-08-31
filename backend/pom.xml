@@ -20,6 +20,7 @@
         <java.version>17</java.version>
         <frontend.source.directory>${project.basedir}/../frontend</frontend.source.directory>
         <frontend.build.directory>${project.build.directory}/frontend-build</frontend.build.directory>
+        <skip.frontend>false</skip.frontend>
     </properties>
 
     <dependencies>
@@ -112,6 +113,7 @@
                 <configuration>
                     <workingDirectory>${frontend.build.directory}</workingDirectory>
                     <installDirectory>${project.build.directory}/frontend-node</installDirectory>
+                    <skip>${skip.frontend}</skip>
                 </configuration>
                 <executions>
                     <execution>

@@ -6,6 +6,8 @@ import io.ztoken.portal.config.PortalProperties;
 import io.ztoken.portal.console.DashboardSummary;
 import io.ztoken.portal.console.TokenList;
 import io.ztoken.portal.console.TokenSummary;
+import io.ztoken.portal.catalog.ModelCatalog;
+import io.ztoken.portal.catalog.ModelCatalogItem;
 import io.ztoken.portal.session.NewApiIdentity;
 import io.ztoken.portal.session.PortalPrincipal;
 import org.springframework.http.HttpHeaders;
@@ -84,6 +86,29 @@ public class NewApiHttpClient implements NewApiClient {
                 ))
                 .toList();
         return new TokenList(tokens);
+    }
+
+    @Override
+    public ModelCatalog getModelCatalog() {
+        JsonNode root = client.get().uri("/api/pricing").retrieve().bodyToMono(JsonNode.class).block(Duration.ofSeconds(10));
+        JsonNode models = requireData(root);
+        if (!models.isArray()) throw new NewApiException("NewAPI pricing response did not include models");
+        List<ModelCatalogItem> items = StreamSupport.stream(models.spliterator(), false).map(model -> {
+            Double input = model.hasNonNull("model_price") ? model.path("model_price").asDouble() : null;
+            Double completionRatio = model.hasNonNull("completion_ratio") ? model.path("completion_ratio").asDouble() : null;
+            Double cacheRatio = model.hasNonNull("cache_ratio") ? model.path("cache_ratio").asDouble() : null;
+            boolean available = input != null && completionRatio != null && model.path("quota_type").asInt() == 0;
+            return new ModelCatalogItem(
+                    model.path("model_name").asText(),
+                    model.path("vendor_name").asText("Independent"),
+                    model.path("enable_groups").isArray() && !model.path("enable_groups").isEmpty() ? model.path("enable_groups").get(0).asText() : "default",
+                    available ? input : null,
+                    available ? input * completionRatio : null,
+                    available && cacheRatio != null ? input * cacheRatio : null,
+                    available
+            );
+        }).toList();
+        return new ModelCatalog(items);
     }
 
     private JsonNode getSelfData(PortalPrincipal principal) {

@@ -4,6 +4,7 @@ import io.ztoken.portal.session.NewApiIdentity;
 import io.ztoken.portal.session.PortalPrincipal;
 import io.ztoken.portal.console.DashboardSummary;
 import io.ztoken.portal.console.TokenList;
+import io.ztoken.portal.catalog.ModelCatalog;
 
 public interface NewApiClient {
 
@@ -16,4 +17,6 @@ public interface NewApiClient {
     DashboardSummary getDashboard(PortalPrincipal principal);
 
     TokenList getTokens(PortalPrincipal principal);
+
+    ModelCatalog getModelCatalog();
 }
