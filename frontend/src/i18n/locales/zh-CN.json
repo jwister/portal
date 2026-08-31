@@ -30,4 +30,12 @@
   "register.copy": "创建 NewAPI 账户，获得模型访问能力和个人控制台。",
   "register.submit": "创建账户",
   "register.error": "暂时无法创建你的账户。"
+  ,"tokens.title": "令牌，一目了然。",
+  "tokens.name": "名称",
+  "tokens.status": "状态",
+  "tokens.quota": "剩余额度",
+  "tokens.active": "启用",
+  "tokens.inactive": "已禁用",
+  "tokens.loading": "正在读取令牌元数据…",
+  "tokens.error": "暂时无法加载令牌元数据。"
 }

@@ -81,3 +81,10 @@ h1 { font-family: Georgia, serif; font-size: clamp(3.1rem, 8vw, 7.2rem); font-we
 .auth-panel button { border: 0; cursor: pointer; justify-self: start; margin-top: .6rem; }
 .auth-panel button:disabled { cursor: progress; opacity: .55; }
 .auth-error { color: #ff937d; font-size: .85rem; margin: 0; }
+.token-table-wrap { border: 1px solid rgba(233, 228, 216, .17); overflow-x: auto; }
+.token-table-wrap table { border-collapse: collapse; min-width: 38rem; width: 100%; }
+.token-table-wrap th { color: rgba(233, 228, 216, .5); font-size: .7rem; font-weight: 500; letter-spacing: .1em; text-align: left; text-transform: uppercase; }
+.token-table-wrap td, .token-table-wrap th { border-bottom: 1px solid rgba(233, 228, 216, .12); padding: 1.15rem 1.25rem; }
+.token-table-wrap td { font-family: ui-monospace, monospace; font-size: .9rem; }
+.status { color: rgba(233, 228, 216, .55); font-size: .72rem; letter-spacing: .08em; text-transform: uppercase; }
+.status--active { color: #52dab7; }

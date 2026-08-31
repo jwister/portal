@@ -30,4 +30,12 @@
   "register.copy": "Create a NewAPI account for model access and your personal console.",
   "register.submit": "Create account",
   "register.error": "Your account could not be created."
+  ,"tokens.title": "API keys, in view.",
+  "tokens.name": "Name",
+  "tokens.status": "Status",
+  "tokens.quota": "Remaining quota",
+  "tokens.active": "Active",
+  "tokens.inactive": "Disabled",
+  "tokens.loading": "Reading key metadata…",
+  "tokens.error": "Unable to load key metadata."
 }

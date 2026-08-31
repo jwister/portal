@@ -4,6 +4,7 @@ import { setStoredLanguage, type PortalLanguage } from './i18n'
 import { DashboardPage } from './features/console/DashboardPage'
 import { SignInPage } from './features/auth/SignInPage'
 import { SignUpPage } from './features/auth/SignUpPage'
+import { TokensPage } from './features/console/TokensPage'
 
 export function App() {
   const { i18n, t } = useTranslation()
@@ -19,6 +20,10 @@ export function App() {
 
   if (window.location.pathname === '/sign-up') {
     return <SignUpPage onRegistered={() => window.location.assign('/sign-in')} />
+  }
+
+  if (window.location.pathname === '/console/tokens') {
+    return <TokensPage />
   }
 
   const changeLanguage = async (): Promise<void> => {
