@@ -18,5 +18,11 @@
   "dashboard.used": "已用额度",
   "dashboard.requests": "请求次数",
   "dashboard.loading": "正在读取账户数据…",
-  "dashboard.error": "暂时无法加载控制台数据。"
+  "dashboard.error": "暂时无法加载控制台数据。",
+  "auth.title": "欢迎回来。",
+  "auth.copy": "登录后查看余额、令牌和 API 使用情况。",
+  "auth.username": "用户名",
+  "auth.password": "密码",
+  "auth.submit": "登录",
+  "auth.error": "无法验证你的登录信息。"
 }

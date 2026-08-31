@@ -2,6 +2,7 @@ import { useTranslation } from 'react-i18next'
 
 import { setStoredLanguage, type PortalLanguage } from './i18n'
 import { DashboardPage } from './features/console/DashboardPage'
+import { SignInPage } from './features/auth/SignInPage'
 
 export function App() {
   const { i18n, t } = useTranslation()
@@ -9,6 +10,10 @@ export function App() {
 
   if (window.location.pathname === '/console/dashboard') {
     return <DashboardPage />
+  }
+
+  if (window.location.pathname === '/sign-in') {
+    return <SignInPage onAuthenticated={() => window.location.assign('/console/dashboard')} />
   }
 
   const changeLanguage = async (): Promise<void> => {

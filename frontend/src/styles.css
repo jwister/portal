@@ -68,3 +68,16 @@ h1 { font-family: Georgia, serif; font-size: clamp(3.1rem, 8vw, 7.2rem); font-we
 .instrument--primary i { background: repeating-linear-gradient(90deg, #52dab7 0 16px, transparent 16px 22px); bottom: 1.75rem; height: 2px; left: 1.5rem; position: absolute; right: 1.5rem; }
 .console-message { color: rgba(233, 228, 216, .7); font-family: Georgia, serif; font-size: 1.4rem; }
 @media (max-width: 700px) { .instrument-grid { grid-template-columns: 1fr; } .instrument { min-height: 12rem; } .instrument strong { margin-top: 1.7rem; } }
+
+.auth-page { align-items: center; background: radial-gradient(circle at 80% 0%, rgba(82, 218, 183, .13), transparent 32%), #101312; display: flex; justify-content: center; min-height: 100vh; padding: 1.5rem; }
+.auth-panel { border: 1px solid rgba(233, 228, 216, .18); box-shadow: 16px 16px 0 rgba(82, 218, 183, .14); max-width: 31rem; padding: clamp(2rem, 7vw, 4rem); width: 100%; }
+.auth-panel .brand { margin-bottom: 4rem; }
+.auth-panel h1 { font-size: clamp(3rem, 8vw, 5rem); margin-bottom: 1.2rem; }
+.auth-panel > p:not(.eyebrow) { color: rgba(233, 228, 216, .68); line-height: 1.6; }
+.auth-panel form { display: grid; gap: 1.2rem; margin-top: 2.2rem; }
+.auth-panel label { color: rgba(233, 228, 216, .72); display: grid; font-size: .75rem; gap: .55rem; letter-spacing: .1em; text-transform: uppercase; }
+.auth-panel input { background: transparent; border: 0; border-bottom: 1px solid rgba(233, 228, 216, .4); color: #e9e4d8; font: inherit; outline: none; padding: .7rem 0; }
+.auth-panel input:focus { border-color: #52dab7; }
+.auth-panel button { border: 0; cursor: pointer; justify-self: start; margin-top: .6rem; }
+.auth-panel button:disabled { cursor: progress; opacity: .55; }
+.auth-error { color: #ff937d; font-size: .85rem; margin: 0; }

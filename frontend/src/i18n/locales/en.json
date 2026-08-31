@@ -18,5 +18,11 @@
   "dashboard.used": "Quota consumed",
   "dashboard.requests": "Requests served",
   "dashboard.loading": "Reading current account signal…",
-  "dashboard.error": "Unable to load your console data."
+  "dashboard.error": "Unable to load your console data.",
+  "auth.title": "Welcome back.",
+  "auth.copy": "Sign in to inspect your balance, keys, and API usage.",
+  "auth.username": "Username",
+  "auth.password": "Password",
+  "auth.submit": "Sign in",
+  "auth.error": "Your sign-in details could not be verified."
 }
