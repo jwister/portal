@@ -1,3 +1,16 @@
 {
-  "brand.name": "Ztoken"
+  "brand.name": "Ztoken",
+  "nav.home": "首页",
+  "nav.models": "模型",
+  "nav.docs": "文档",
+  "nav.purchase": "购买",
+  "nav.console": "控制台",
+  "hero.eyebrow": "清晰可控的 AI 基础设施",
+  "hero.title": "给思考留出空间的 API 控制台。",
+  "hero.copy": "透明浏览模型价格、为余额充值，并清楚掌握每一枚 Token 的去向。",
+  "hero.primary": "进入控制台",
+  "hero.secondary": "浏览模型",
+  "hero.metric.models": "可用模型",
+  "hero.metric.access": "直连 API 访问",
+  "hero.metric.language": "首发语言"
 }

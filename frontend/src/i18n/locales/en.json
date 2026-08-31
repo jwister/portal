@@ -1,3 +1,16 @@
 {
-  "brand.name": "Ztoken"
+  "brand.name": "Ztoken",
+  "nav.home": "Home",
+  "nav.models": "Models",
+  "nav.docs": "Docs",
+  "nav.purchase": "Purchase",
+  "nav.console": "Console",
+  "hero.eyebrow": "AI infrastructure, made legible",
+  "hero.title": "An API console with room to think.",
+  "hero.copy": "Explore transparent model pricing, fund your balance, and keep every token under control.",
+  "hero.primary": "Enter console",
+  "hero.secondary": "Browse models",
+  "hero.metric.models": "models ready",
+  "hero.metric.access": "direct API access",
+  "hero.metric.language": "languages at launch"
 }
