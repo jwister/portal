@@ -4,6 +4,8 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.ztoken.portal.config.PortalProperties;
 import io.ztoken.portal.console.DashboardSummary;
+import io.ztoken.portal.console.TokenList;
+import io.ztoken.portal.console.TokenSummary;
 import io.ztoken.portal.session.NewApiIdentity;
 import io.ztoken.portal.session.PortalPrincipal;
 import org.springframework.http.HttpHeaders;
@@ -13,6 +15,8 @@ import org.springframework.web.reactive.function.client.WebClient;
 
 import java.time.Duration;
 import java.util.Map;
+import java.util.List;
+import java.util.stream.StreamSupport;
 
 @Component
 public class NewApiHttpClient implements NewApiClient {
@@ -57,6 +61,29 @@ public class NewApiHttpClient implements NewApiClient {
                 user.path("used_quota").asLong(),
                 user.path("request_count").asLong()
         );
+    }
+
+    @Override
+    public TokenList getTokens(PortalPrincipal principal) {
+        JsonNode root = client.get()
+                .uri("/api/token/?p=0&page_size=100")
+                .headers(headers -> applyUserHeaders(headers, principal))
+                .retrieve()
+                .bodyToMono(JsonNode.class)
+                .block(Duration.ofSeconds(10));
+        JsonNode items = requireData(root).path("items");
+        if (!items.isArray()) {
+            throw new NewApiException("NewAPI token response did not include items");
+        }
+        List<TokenSummary> tokens = StreamSupport.stream(items.spliterator(), false)
+                .map(item -> new TokenSummary(
+                        item.path("id").asLong(),
+                        item.path("name").asText(),
+                        item.path("status").asInt() == 1,
+                        item.path("remain_quota").asLong()
+                ))
+                .toList();
+        return new TokenList(tokens);
     }
 
     private JsonNode getSelfData(PortalPrincipal principal) {

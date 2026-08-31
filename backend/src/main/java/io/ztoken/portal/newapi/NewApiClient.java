@@ -3,6 +3,7 @@ package io.ztoken.portal.newapi;
 import io.ztoken.portal.session.NewApiIdentity;
 import io.ztoken.portal.session.PortalPrincipal;
 import io.ztoken.portal.console.DashboardSummary;
+import io.ztoken.portal.console.TokenList;
 
 public interface NewApiClient {
 
@@ -13,4 +14,6 @@ public interface NewApiClient {
     NewApiIdentity getSelf(PortalPrincipal principal);
 
     DashboardSummary getDashboard(PortalPrincipal principal);
+
+    TokenList getTokens(PortalPrincipal principal);
 }

@@ -63,6 +63,27 @@ class DashboardControllerTest {
         assertThat(upstream.getHeader("New-Api-User")).isEqualTo("7");
     }
 
+    @Test
+    void tokenListReturnsOnlyTheCurrentUsersTokenMetadata() throws Exception {
+        NEW_API.enqueue(new MockResponse()
+                .setHeader(HttpHeaders.CONTENT_TYPE, "application/json")
+                .setBody("""
+                        {"success":true,"data":{"items":[{"id":3,"name":"server","status":1,"remain_quota":500}]}}
+                        """));
+        String sessionId = sessions.create(new NewApiIdentity(7L, "alice"), "access-token").getId();
+        HttpHeaders headers = new HttpHeaders();
+        headers.add(HttpHeaders.COOKIE, "PORTAL_SESSION=" + sessionId);
+
+        ResponseEntity<TokenList> response = http.exchange("/api/console/tokens", HttpMethod.GET,
+                new HttpEntity<>(headers), TokenList.class);
+
+        RecordedRequest upstream = NEW_API.takeRequest();
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
+        assertThat(response.getBody().items()).containsExactly(new TokenSummary(3L, "server", true, 500L));
+        assertThat(upstream.getPath()).startsWith("/api/token/");
+        assertThat(upstream.getHeader("New-Api-User")).isEqualTo("7");
+    }
+
     private static MockWebServer startServer() {
         MockWebServer server = new MockWebServer();
         try {
