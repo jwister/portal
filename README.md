@@ -7,3 +7,9 @@ The backend packages the React production build into a single executable JAR. Ru
 ```powershell
 mvn -f backend/pom.xml clean package
 ```
+
+Start the packaged application with Java 17 and the user-scoped portal session key:
+
+```powershell
+.\scripts\start-portal.ps1
+```
