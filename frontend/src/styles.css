@@ -89,11 +89,12 @@ h1 { font-family: Georgia, serif; font-size: clamp(3.1rem, 8vw, 7.2rem); font-we
 .auth-panel > p:not(.eyebrow) { color: rgba(233, 228, 216, .68); line-height: 1.6; }
 .auth-panel form { display: grid; gap: 1.2rem; margin-top: 2.2rem; }
 .auth-panel label { color: rgba(233, 228, 216, .72); display: grid; font-size: .75rem; gap: .55rem; letter-spacing: .1em; text-transform: uppercase; }
-.auth-panel input { background: transparent; border: 0; border-bottom: 1px solid rgba(233, 228, 216, .4); color: #e9e4d8; font: inherit; outline: none; padding: .7rem 0; }
-.auth-panel input:focus { border-color: #52dab7; }
-.auth-panel button { border: 0; cursor: pointer; justify-self: start; margin-top: .6rem; }
-.auth-panel button:disabled { cursor: progress; opacity: .55; }
+.auth-panel .semi-input-wrapper { background: transparent; border-color: #c9d1db; }
+.auth-panel .semi-input-wrapper-focus { border-color: var(--semi-color-primary); }
+.auth-panel .semi-button { justify-self: start; margin-top: .6rem; }
 .auth-error { color: #ff937d; font-size: .85rem; margin: 0; }
+.auth-switch { color: #687386; font-size: .86rem; margin: .3rem 0 0; }
+.auth-switch a { color: var(--semi-color-primary); font-weight: 600; }
 .token-table-wrap { border: 1px solid rgba(233, 228, 216, .17); overflow-x: auto; }
 .token-table-wrap table { border-collapse: collapse; min-width: 38rem; width: 100%; }
 .token-table-wrap th { color: rgba(233, 228, 216, .5); font-size: .7rem; font-weight: 500; letter-spacing: .1em; text-align: left; text-transform: uppercase; }

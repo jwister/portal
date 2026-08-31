@@ -24,5 +24,6 @@ describe('SignInPage', () => {
       credentials: 'include',
       body: JSON.stringify({ username: 'alice', password: 'password' }),
     }))
+    expect(screen.getByRole('link', { name: 'Create account' })).toHaveAttribute('href', '/sign-up')
   })
 })

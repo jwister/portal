@@ -1,5 +1,6 @@
 import { FormEvent, useState } from 'react'
 import { useTranslation } from 'react-i18next'
+import { Button, Input, Toast } from '@douyinfe/semi-ui'
 
 import '../../i18n'
 
@@ -29,6 +30,7 @@ export function SignInPage(props: SignInPageProps) {
       props.onAuthenticated?.()
     } catch {
       setFailed(true)
+      Toast.error(t('auth.error'))
     } finally {
       setSubmitting(false)
     }
@@ -42,10 +44,11 @@ export function SignInPage(props: SignInPageProps) {
         <h1 id="sign-in-title">{t('auth.title')}</h1>
         <p>{t('auth.copy')}</p>
         <form onSubmit={submit}>
-          <label>{t('auth.username')}<input value={username} onChange={(event) => setUsername(event.target.value)} required autoComplete="username" /></label>
-          <label>{t('auth.password')}<input type="password" value={password} onChange={(event) => setPassword(event.target.value)} required autoComplete="current-password" /></label>
+          <label>{t('auth.username')}<Input value={username} onChange={setUsername} required autoComplete="username" /></label>
+          <label>{t('auth.password')}<Input type="password" value={password} onChange={setPassword} required autoComplete="current-password" /></label>
           {failed && <p className="auth-error" role="alert">{t('auth.error')}</p>}
-          <button className="primary-action" type="submit" disabled={submitting}>{t('auth.submit')}</button>
+          <Button type="primary" theme="solid" htmlType="submit" loading={submitting}>{t('auth.submit')}</Button>
+          <p className="auth-switch">还没有账户？ <a href="/sign-up">{t('register.submit')}</a></p>
         </form>
       </section>
     </main>

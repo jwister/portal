@@ -27,5 +27,6 @@ describe('SignUpPage', () => {
       body: JSON.stringify({ username: 'alice', email: 'alice@example.com', password: 'password' }),
     }))
     expect(onRegistered).toHaveBeenCalledOnce()
+    expect(screen.getByRole('link', { name: 'Sign in' })).toHaveAttribute('href', '/sign-in')
   })
 })
