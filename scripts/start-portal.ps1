@@ -3,6 +3,7 @@ $ErrorActionPreference = 'Stop'
 $portalRoot = Split-Path -Parent $PSScriptRoot
 $jarPath = Join-Path $portalRoot 'backend\target\ztoken-portal-0.1.0-SNAPSHOT.jar'
 $sessionKey = [Environment]::GetEnvironmentVariable('PORTAL_SESSION_KEY', 'User')
+$newApiBaseUrl = [Environment]::GetEnvironmentVariable('NEWAPI_BASE_URL', 'User')
 $javaPath = 'C:\Program Files\Java\jdk-17.0.12\bin\java.exe'
 
 if (-not (Test-Path -LiteralPath $jarPath)) {
@@ -28,4 +29,7 @@ if ($decodedLength -ne 32) {
 }
 
 $env:PORTAL_SESSION_KEY = $sessionKey
+if (-not [string]::IsNullOrWhiteSpace($newApiBaseUrl)) {
+    $env:PORTAL_NEW_API_BASE_URL = $newApiBaseUrl
+}
 & $javaPath -jar $jarPath @args
