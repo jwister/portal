@@ -9,3 +9,5 @@ spring:
     open-in-view: false
   flyway:
     enabled: true
+portal:
+  session-key: AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8=
