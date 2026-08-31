@@ -16,6 +16,8 @@ describe('portal application shell', () => {
 
     expect(screen.getByRole('link', { name: 'Models' })).toBeVisible()
     expect(screen.getByRole('link', { name: 'Purchase' })).toBeVisible()
+    expect(screen.getByRole('link', { name: 'Sign in' })).toBeVisible()
+    expect(screen.getByRole('link', { name: 'Create account' })).toBeVisible()
     expect(screen.getByRole('link', { name: 'Console' })).toBeVisible()
   })
 

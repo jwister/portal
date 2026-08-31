@@ -42,12 +42,14 @@ export function App() {
           <a href="/models">{t('nav.models')}</a>
           <a href="https://docs.newapi.pro/zh/docs/api" target="_blank" rel="noreferrer">{t('nav.docs')}</a>
           <a href="/purchase">{t('nav.purchase')}</a>
+          <a href="/sign-in">{t('auth.submit')}</a>
+          <a href="/sign-up">{t('register.submit')}</a>
         </nav>
         <div className="header-actions">
           <button className="language-switch" type="button" onClick={changeLanguage}>
             {nextLanguage === 'zh-CN' ? '中文' : 'EN'}
           </button>
-          <a className="console-link" href="/console/dashboard">{t('nav.console')}</a>
+          <a className="console-link" href="/sign-in">{t('nav.console')}</a>
         </div>
       </header>
 
@@ -57,7 +59,7 @@ export function App() {
           <h1 id="hero-title">{t('hero.title')}</h1>
           <p className="hero-description">{t('hero.copy')}</p>
           <div className="hero-actions">
-            <a className="primary-action" href="/console/dashboard">{t('hero.primary')}</a>
+            <a className="primary-action" href="/sign-in">{t('hero.primary')}</a>
             <a className="secondary-action" href="/models">{t('hero.secondary')} <span aria-hidden="true">↗</span></a>
           </div>
         </div>
