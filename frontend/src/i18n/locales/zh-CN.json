@@ -26,10 +26,16 @@
   "auth.password": "密码",
   "auth.submit": "登录",
   "auth.error": "无法验证你的登录信息。",
+  "auth.required": "此项为必填。",
+  "auth.emailInvalid": "请输入有效的邮箱地址。",
+  "auth.noAccount": "还没有账户？",
   "register.title": "从清晰的账本开始。",
   "register.copy": "创建 NewAPI 账户，获得模型访问能力和个人控制台。",
   "register.submit": "创建账户",
-  "register.error": "暂时无法创建你的账户。"
+  "register.error": "暂时无法创建你的账户。",
+  "register.confirmPassword": "确认密码",
+  "register.passwordMismatch": "两次输入的密码不一致。",
+  "register.haveAccount": "已有账户？"
   ,"tokens.title": "令牌，一目了然。",
   "tokens.name": "名称",
   "tokens.status": "状态",

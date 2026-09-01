@@ -1,36 +1,38 @@
-import { FormEvent, useState } from 'react'
+import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Button, Input, Toast } from '@douyinfe/semi-ui'
+import { Button, Form, Toast } from '@douyinfe/semi-ui'
 
+import { AuthApiError, getSafeReturnTo, signIn } from '../../api/auth'
 import '../../i18n'
 
 interface SignInPageProps {
   onAuthenticated?: () => void
 }
 
+const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+
 export function SignInPage(props: SignInPageProps) {
   const { t } = useTranslation()
-  const [username, setUsername] = useState('')
-  const [password, setPassword] = useState('')
-  const [failed, setFailed] = useState(false)
   const [submitting, setSubmitting] = useState(false)
+  const [error, setError] = useState<string | null>(null)
 
-  const submit = async (event: FormEvent<HTMLFormElement>): Promise<void> => {
-    event.preventDefault()
+  const submit = async (values: Record<string, unknown>): Promise<void> => {
+    const username = typeof values.username === 'string' ? values.username.trim() : ''
+    const password = typeof values.password === 'string' ? values.password : ''
+    if (!emailPattern.test(username)) {
+      setError(t('auth.emailInvalid'))
+      return
+    }
     setSubmitting(true)
-    setFailed(false)
+    setError(null)
     try {
-      const response = await fetch('/api/auth/login', {
-        method: 'POST',
-        credentials: 'include',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ username, password }),
-      })
-      if (!response.ok) throw new Error('Sign-in failed')
-      props.onAuthenticated?.()
-    } catch {
-      setFailed(true)
-      Toast.error(t('auth.error'))
+      await signIn(username, password)
+      if (props.onAuthenticated) props.onAuthenticated()
+      else window.location.assign(getSafeReturnTo(new URLSearchParams(window.location.search).get('returnTo')))
+    } catch (cause) {
+      const message = cause instanceof AuthApiError ? cause.message : t('auth.error')
+      setError(message)
+      Toast.error(message)
     } finally {
       setSubmitting(false)
     }
@@ -43,13 +45,25 @@ export function SignInPage(props: SignInPageProps) {
         <p className="eyebrow">ZT / ACCESS</p>
         <h1 id="sign-in-title">{t('auth.title')}</h1>
         <p>{t('auth.copy')}</p>
-        <form onSubmit={submit}>
-          <label>{t('auth.username')}<Input value={username} onChange={setUsername} required autoComplete="username" /></label>
-          <label>{t('auth.password')}<Input type="password" value={password} onChange={setPassword} required autoComplete="current-password" /></label>
-          {failed && <p className="auth-error" role="alert">{t('auth.error')}</p>}
+        <Form onSubmit={submit} layout="vertical">
+          <Form.Input
+            field="username"
+            label={t('auth.username')}
+            placeholder={t('auth.email')}
+            rules={[{ required: true, message: t('auth.required') }]}
+            autoComplete="username"
+          />
+          <Form.Input
+            field="password"
+            label={t('auth.password')}
+            mode="password"
+            rules={[{ required: true, message: t('auth.required') }]}
+            autoComplete="current-password"
+          />
+          {error && <p className="auth-error" role="alert">{error}</p>}
           <Button type="primary" theme="solid" htmlType="submit" loading={submitting}>{t('auth.submit')}</Button>
-          <p className="auth-switch">还没有账户？ <a href="/sign-up">{t('register.submit')}</a></p>
-        </form>
+          <p className="auth-switch">{t('auth.noAccount')} <a href="/sign-up">{t('register.submit')}</a></p>
+        </Form>
       </section>
     </main>
   )

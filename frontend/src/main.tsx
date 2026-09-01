@@ -1,4 +1,5 @@
 import { StrictMode } from 'react'
+import '@douyinfe/semi-ui/react19-adapter'
 import { createRoot } from 'react-dom/client'
 
 

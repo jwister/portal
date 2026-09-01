@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 
-import { getCurrentProfile, type AuthProfile } from '../api/auth'
+import { getAuthStatus, type AuthProfile } from '../api/auth'
 
 export type AuthStatus =
   | { kind: 'loading' }
@@ -12,9 +12,11 @@ export function useAuthStatus(): AuthStatus {
 
   useEffect(() => {
     let active = true
-    void getCurrentProfile().then((profile) => {
+    void getAuthStatus().then((result) => {
       if (!active) return
-      setStatus(profile ? { kind: 'authenticated', profile } : { kind: 'anonymous' })
+      setStatus(result.authenticated && result.profile
+        ? { kind: 'authenticated', profile: result.profile }
+        : { kind: 'anonymous' })
     }).catch(() => {
       if (active) setStatus({ kind: 'anonymous' })
     })

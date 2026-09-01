@@ -1,4 +1,5 @@
 import '@testing-library/jest-dom/vitest'
+import '@douyinfe/semi-ui/react19-adapter'
 import { cleanup } from '@testing-library/react'
 import { afterEach } from 'vitest'
 

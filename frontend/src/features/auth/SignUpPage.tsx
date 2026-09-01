@@ -1,41 +1,47 @@
-import { FormEvent, useState } from 'react'
+import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Button, Input, Toast } from '@douyinfe/semi-ui'
+import { Button, Form, Toast } from '@douyinfe/semi-ui'
 
+import { AuthApiError, signUp } from '../../api/auth'
 import '../../i18n'
 
 interface SignUpPageProps {
   onRegistered?: () => void
 }
 
+const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+
 export function SignUpPage(props: SignUpPageProps) {
   const { t } = useTranslation()
-  const [username, setUsername] = useState('')
-  const [email, setEmail] = useState('')
-  const [password, setPassword] = useState('')
-  const [failed, setFailed] = useState(false)
   const [submitting, setSubmitting] = useState(false)
+  const [error, setError] = useState<string | null>(null)
 
-  const submit = async (event: FormEvent<HTMLFormElement>): Promise<void> => {
-    event.preventDefault()
+  const submit = async (values: Record<string, unknown>): Promise<void> => {
+    const username = typeof values.username === 'string' ? values.username.trim() : ''
+    const email = typeof values.email === 'string' ? values.email.trim() : ''
+    const password = typeof values.password === 'string' ? values.password : ''
+    const confirmPassword = typeof values.confirmPassword === 'string' ? values.confirmPassword : ''
+    if (!emailPattern.test(email)) {
+      setError(t('auth.emailInvalid'))
+      return
+    }
+    if (password !== confirmPassword) {
+      setError(t('register.passwordMismatch'))
+      return
+    }
     setSubmitting(true)
-    setFailed(false)
+    setError(null)
     try {
-      const response = await fetch('/api/auth/register', {
-        method: 'POST',
-        credentials: 'include',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ username, email, password }),
-      })
-      if (!response.ok) throw new Error('Registration failed')
+      await signUp(username, email, password)
       if (props.onRegistered) {
         props.onRegistered()
       } else {
         window.location.assign('/sign-in')
       }
-    } catch {
-      setFailed(true)
-      Toast.error(t('register.error'))
+    } catch (cause) {
+      const message = cause instanceof AuthApiError ? cause.message : t('register.error')
+      setError(message)
+      Toast.error(message)
     } finally {
       setSubmitting(false)
     }
@@ -48,14 +54,37 @@ export function SignUpPage(props: SignUpPageProps) {
         <p className="eyebrow">ZT / CREATE</p>
         <h1 id="sign-up-title">{t('register.title')}</h1>
         <p>{t('register.copy')}</p>
-        <form onSubmit={submit}>
-          <label>{t('auth.username')}<Input value={username} onChange={setUsername} required autoComplete="username" /></label>
-          <label>{t('auth.email')}<Input type="email" value={email} onChange={setEmail} required autoComplete="email" /></label>
-          <label>{t('auth.password')}<Input type="password" value={password} onChange={setPassword} required autoComplete="new-password" /></label>
-          {failed && <p className="auth-error" role="alert">{t('register.error')}</p>}
+        <Form onSubmit={submit} layout="vertical">
+          <Form.Input
+            field="username"
+            label={t('auth.username')}
+            rules={[{ required: true, message: t('auth.required') }]}
+            autoComplete="username"
+          />
+          <Form.Input
+            field="email"
+            label={t('auth.email')}
+            rules={[{ required: true, message: t('auth.required') }]}
+            autoComplete="email"
+          />
+          <Form.Input
+            field="password"
+            label={t('auth.password')}
+            mode="password"
+            rules={[{ required: true, message: t('auth.required') }]}
+            autoComplete="new-password"
+          />
+          <Form.Input
+            field="confirmPassword"
+            label={t('register.confirmPassword')}
+            mode="password"
+            rules={[{ required: true, message: t('auth.required') }]}
+            autoComplete="new-password"
+          />
+          {error && <p className="auth-error" role="alert">{error}</p>}
           <Button type="primary" theme="solid" htmlType="submit" loading={submitting}>{t('register.submit')}</Button>
-          <p className="auth-switch">已有账户？ <a href="/sign-in">{t('auth.submit')}</a></p>
-        </form>
+          <p className="auth-switch">{t('register.haveAccount')} <a href="/sign-in">{t('auth.submit')}</a></p>
+        </Form>
       </section>
     </main>
   )

@@ -26,10 +26,16 @@
   "auth.password": "Password",
   "auth.submit": "Sign in",
   "auth.error": "Your sign-in details could not be verified.",
+  "auth.required": "This field is required.",
+  "auth.emailInvalid": "Please enter a valid email address.",
+  "auth.noAccount": "No account yet?",
   "register.title": "Start with a clear ledger.",
   "register.copy": "Create a NewAPI account for model access and your personal console.",
   "register.submit": "Create account",
-  "register.error": "Your account could not be created."
+  "register.error": "Your account could not be created.",
+  "register.confirmPassword": "Confirm password",
+  "register.passwordMismatch": "Passwords do not match.",
+  "register.haveAccount": "Already have an account?"
   ,"tokens.title": "API keys, in view.",
   "tokens.name": "Name",
   "tokens.status": "Status",

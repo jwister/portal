@@ -19,14 +19,43 @@ describe('SignUpPage', () => {
     await user.type(screen.getByLabelText('Username'), 'alice')
     await user.type(screen.getByLabelText('Email'), 'alice@example.com')
     await user.type(screen.getByLabelText('Password'), 'password')
+    await user.type(screen.getByLabelText('Confirm password'), 'password')
     await user.click(screen.getByRole('button', { name: 'Create account' }))
 
-    expect(fetchMock).toHaveBeenCalledWith('/api/auth/register', expect.objectContaining({
+    expect(fetchMock).toHaveBeenCalledWith('/api/auth/sign-up', expect.objectContaining({
       method: 'POST',
       credentials: 'include',
       body: JSON.stringify({ username: 'alice', email: 'alice@example.com', password: 'password' }),
     }))
     expect(onRegistered).toHaveBeenCalledOnce()
     expect(screen.getByRole('link', { name: 'Sign in' })).toHaveAttribute('href', '/sign-in')
+  })
+
+  it('does not submit when the email is malformed', async () => {
+    const user = userEvent.setup()
+    const fetchMock = vi.fn()
+    vi.stubGlobal('fetch', fetchMock)
+    render(<SignUpPage />)
+    await user.type(screen.getByLabelText('Username'), 'alice')
+    await user.type(screen.getByLabelText('Email'), 'not-an-email')
+    await user.type(screen.getByLabelText('Password'), 'password')
+    await user.type(screen.getByLabelText('Confirm password'), 'password')
+    await user.click(screen.getByRole('button', { name: 'Create account' }))
+    expect(fetchMock).not.toHaveBeenCalled()
+    expect(screen.getByText('Please enter a valid email address.')).toBeInTheDocument()
+  })
+
+  it('does not submit when passwords do not match', async () => {
+    const user = userEvent.setup()
+    const fetchMock = vi.fn()
+    vi.stubGlobal('fetch', fetchMock)
+    render(<SignUpPage />)
+    await user.type(screen.getByLabelText('Username'), 'alice')
+    await user.type(screen.getByLabelText('Email'), 'alice@example.com')
+    await user.type(screen.getByLabelText('Password'), 'password')
+    await user.type(screen.getByLabelText('Confirm password'), 'different')
+    await user.click(screen.getByRole('button', { name: 'Create account' }))
+    expect(fetchMock).not.toHaveBeenCalled()
+    expect(screen.getByText('Passwords do not match.')).toBeInTheDocument()
   })
 })

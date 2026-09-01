@@ -23,7 +23,7 @@ describe('PublicHeader', () => {
   })
 
   it('shows 控制台 when the portal session is authenticated', async () => {
-    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response(JSON.stringify({ id: 7, username: 'alice' }), { status: 200 })))
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response(JSON.stringify({ authenticated: true, profile: { id: 7, username: 'alice' } }), { status: 200 })))
 
     render(<PublicHeader />)
 
