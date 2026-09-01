@@ -1,42 +1,26 @@
 import { Button, Nav, Space } from '@douyinfe/semi-ui'
+import { useTranslation } from 'react-i18next'
 
 import { useAuthStatus } from '../auth/use-auth-status'
-import '../i18n'
+import i18n, { setStoredLanguage } from '../i18n'
 
-function navigate(path: string): void {
-  window.location.assign(path)
-}
+function navigate(path: string): void { window.location.assign(path) }
 
 export function PublicHeader() {
+  const { t } = useTranslation()
   const status = useAuthStatus()
-  const action = status.kind === 'authenticated'
-    ? { label: '控制台', path: '/console/dashboard' }
-    : { label: '登录', path: '/sign-in' }
-
-  return (
-    <header className="public-header">
-      <Nav
-        mode="horizontal"
-        className="public-nav"
-        header={<a className="semi-brand" href="/" aria-label="Ztoken"><span>Z</span>Ztoken</a>}
-        items={[
-          { itemKey: '/', text: '首页' },
-          { itemKey: '/models', text: '模型' },
-          { itemKey: 'https://docs.newapi.pro/zh/docs/api', text: '文档' },
-          { itemKey: '/purchase', text: '购买' },
-        ]}
-        onSelect={(data) => {
-          const path = String(data.itemKey)
-          if (path.startsWith('http')) window.open(path, '_blank', 'noopener,noreferrer')
-          else navigate(path)
-        }}
-        footer={(
-          <Space spacing="tight">
-            <Button theme="borderless" aria-label="切换语言">中 / EN</Button>
-            <Button theme="solid" type="primary" loading={status.kind === 'loading'} onClick={() => navigate(action.path)}>{action.label}</Button>
-          </Space>
-        )}
-      />
-    </header>
-  )
+  const action = status.kind === 'authenticated' ? { label: t('nav.console'), path: '/console/dashboard' } : { label: t('auth.submit'), path: '/sign-in' }
+  const nextLanguage = i18n.language.startsWith('zh') ? 'en' : 'zh-CN'
+  const navItems = [
+    { itemKey: '/', text: <a href="/">{t('nav.home')}</a> },
+    { itemKey: '/models', text: <a href="/models">{t('nav.models')}</a> },
+    { itemKey: 'https://docs.newapi.pro/zh/docs/api', text: <a href="https://docs.newapi.pro/zh/docs/api">{t('nav.docs')}</a> },
+    { itemKey: '/purchase', text: <a href="/purchase">{t('nav.purchase')}</a> },
+  ]
+  const footer = status.kind === 'authenticated'
+    ? <Space spacing="tight"><Button theme="borderless" aria-label={nextLanguage === 'zh-CN' ? '中文' : 'English'} onClick={() => setStoredLanguage(nextLanguage)}>{nextLanguage === 'zh-CN' ? '中文' : 'EN'}</Button><a href="/console/dashboard">{t('nav.console')}</a><Button theme="solid" type="primary" onClick={() => navigate('/console/dashboard')}>{t('nav.console')}</Button></Space>
+    : <Space spacing="tight"><Button theme="borderless" aria-label={nextLanguage === 'zh-CN' ? '中文' : 'English'} onClick={() => setStoredLanguage(nextLanguage)}>{nextLanguage === 'zh-CN' ? '中文' : 'EN'}</Button><a href="/console/dashboard">{t('nav.console')}</a><a href="/sign-in">{t('auth.submit')}</a><a href="/sign-up">{t('register.submit')}</a><Button theme="solid" type="primary" loading={status.kind === 'loading'} onClick={() => navigate(action.path)}>{action.label}</Button></Space>
+  return <header className="public-header"><Nav mode="horizontal" className="public-nav" header={<a className="semi-brand" href="/" aria-label="Ztoken"><span>Z</span>Ztoken</a>} items={navItems}
+    onSelect={({ itemKey }) => { const path = String(itemKey); if (path.startsWith('http')) window.open(path, '_blank', 'noopener,noreferrer'); else navigate(path) }}
+    footer={footer} /></header>
 }

@@ -80,5 +80,14 @@
   "models.cache": "Cache",
   "models.copyName": "Copy model name",
   "models.priceUnavailable": "Price unavailable",
-  "models.error": "Unable to load the model catalog."
+  "models.error": "Unable to load the model catalog.",
+  "purchase.title": "Purchase balance",
+  "purchase.copy": "Balance purchase is coming soon.",
+  "console.dashboard": "Dashboard",
+  "console.recharge": "Recharge balance",
+  "console.tokens": "Token management",
+  "console.logs": "Usage logs",
+  "console.profile": "Profile",
+  "console.orders": "Order management",
+  "console.placeholder": "This console section is coming soon."
 }

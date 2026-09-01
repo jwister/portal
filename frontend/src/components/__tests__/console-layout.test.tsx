@@ -1,9 +1,12 @@
 import { render, screen, within } from '@testing-library/react'
-import { describe, expect, it } from 'vitest'
+import { beforeEach, describe, expect, it } from 'vitest'
 
+import i18n from '../../i18n'
 import { ConsoleLayout } from '../ConsoleLayout'
 
 describe('ConsoleLayout', () => {
+  beforeEach(async () => { await i18n.changeLanguage('zh-CN') })
+
   it('renders readable console navigation with the active item selected', () => {
     render(<ConsoleLayout activeKey="dashboard"><div>content</div></ConsoleLayout>)
 

@@ -80,5 +80,14 @@
   "models.cache": "缓存",
   "models.copyName": "复制模型名",
   "models.priceUnavailable": "价格暂不可用",
-  "models.error": "暂时无法加载模型目录。"
+  "models.error": "暂时无法加载模型目录。",
+  "purchase.title": "购买余额",
+  "purchase.copy": "余额购买功能即将上线。",
+  "console.dashboard": "仪表盘",
+  "console.recharge": "余额充值",
+  "console.tokens": "令牌管理",
+  "console.logs": "使用日志",
+  "console.profile": "个人资料",
+  "console.orders": "订单管理",
+  "console.placeholder": "此控制台页面即将上线。"
 }

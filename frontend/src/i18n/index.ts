@@ -8,16 +8,19 @@ export const LOCALE_STORAGE_KEY = 'ztoken.locale'
 
 export type PortalLanguage = 'en' | 'zh-CN'
 
+export function detectPortalLanguage(browserLanguage: string | undefined): PortalLanguage {
+  return browserLanguage?.toLowerCase().startsWith('zh') ? 'zh-CN' : 'en'
+}
+
 export function resolveInitialLanguage(languages: readonly string[]): PortalLanguage {
   const stored = localStorage.getItem(LOCALE_STORAGE_KEY)
-  if (stored === 'en' || stored === 'zh-CN') {
-    return stored
-  }
-  return languages.some((language) => language.toLowerCase().startsWith('zh')) ? 'zh-CN' : 'en'
+  if (stored === 'en' || stored === 'zh-CN') return stored
+  return detectPortalLanguage(languages[0])
 }
 
 export function setStoredLanguage(language: PortalLanguage): void {
   localStorage.setItem(LOCALE_STORAGE_KEY, language)
+  void i18n.changeLanguage(language)
 }
 
 const browserLanguages = typeof navigator === 'undefined' ? [] : navigator.languages
