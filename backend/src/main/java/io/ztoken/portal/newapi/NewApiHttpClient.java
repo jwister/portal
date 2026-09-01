@@ -4,8 +4,10 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.ztoken.portal.config.PortalProperties;
 import io.ztoken.portal.console.DashboardSummary;
+import io.ztoken.portal.console.TokenKey;
 import io.ztoken.portal.console.TokenList;
 import io.ztoken.portal.console.TokenSummary;
+import io.ztoken.portal.console.TokenWriteRequest;
 import io.ztoken.portal.catalog.ModelCatalog;
 import io.ztoken.portal.catalog.ModelCatalogItem;
 import io.ztoken.portal.session.NewApiIdentity;
@@ -17,6 +19,7 @@ import org.springframework.web.reactive.function.client.WebClient;
 import org.springframework.web.reactive.function.client.WebClientResponseException;
 
 import java.time.Duration;
+import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.List;
 import java.util.stream.StreamSupport;
@@ -117,14 +120,101 @@ public class NewApiHttpClient implements NewApiClient {
             throw new NewApiException("NewAPI token response did not include items");
         }
         List<TokenSummary> tokens = StreamSupport.stream(items.spliterator(), false)
-                .map(item -> new TokenSummary(
-                        item.path("id").asLong(),
-                        item.path("name").asText(),
-                        item.path("status").asInt() == 1,
-                        item.path("remain_quota").asLong()
-                ))
+                .map(this::tokenFrom)
                 .toList();
         return new TokenList(tokens);
+    }
+
+    @Override
+    public void createToken(PortalPrincipal principal, TokenWriteRequest request) {
+        Map<String, Object> body = writeBody(request);
+        body.put("name", request.name());
+        JsonNode root = post("/api/token/", body, principal);
+        requireSuccess(root);
+    }
+
+    @Override
+    public TokenSummary updateToken(PortalPrincipal principal, long id, TokenWriteRequest request) {
+        Map<String, Object> body = writeBody(request);
+        body.put("id", id);
+        body.put("name", request.name());
+        JsonNode root = put("/api/token/", body, principal);
+        return tokenFrom(requireData(root));
+    }
+
+    @Override
+    public TokenSummary updateTokenStatus(PortalPrincipal principal, long id, boolean enabled) {
+        Map<String, Object> body = new LinkedHashMap<>();
+        body.put("id", id);
+        body.put("status", enabled ? 1 : 2);
+        JsonNode root = put("/api/token/?status_only=true", body, principal);
+        return tokenFrom(requireData(root));
+    }
+
+    @Override
+    public void deleteToken(PortalPrincipal principal, long id) {
+        try {
+            JsonNode root = client.delete()
+                    .uri("/api/token/" + id)
+                    .headers(headers -> applyUserHeaders(headers, principal))
+                    .retrieve()
+                    .bodyToMono(JsonNode.class)
+                    .block(Duration.ofSeconds(10));
+            requireSuccess(root);
+        } catch (WebClientResponseException exception) {
+            throw new NewApiException("NewAPI request failed with status " + exception.getStatusCode().value());
+        } catch (RuntimeException exception) {
+            if (exception instanceof NewApiException) {
+                throw exception;
+            }
+            throw new NewApiException("NewAPI request failed");
+        }
+    }
+
+    @Override
+    public TokenKey getTokenKey(PortalPrincipal principal, long id) {
+        try {
+            JsonNode root = client.post()
+                    .uri("/api/token/" + id + "/key")
+                    .headers(headers -> applyUserHeaders(headers, principal))
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .retrieve()
+                    .bodyToMono(JsonNode.class)
+                    .block(Duration.ofSeconds(10));
+            String key = requireData(root).path("key").asText();
+            if (key.isBlank()) {
+                throw new NewApiException("NewAPI token key response did not include a key");
+            }
+            return new TokenKey(key);
+        } catch (WebClientResponseException exception) {
+            throw new NewApiException("NewAPI request failed with status " + exception.getStatusCode().value());
+        } catch (RuntimeException exception) {
+            if (exception instanceof NewApiException) {
+                throw exception;
+            }
+            throw new NewApiException("NewAPI request failed");
+        }
+    }
+
+    private Map<String, Object> writeBody(TokenWriteRequest request) {
+        Map<String, Object> body = new LinkedHashMap<>();
+        body.put("unlimited_quota", request.unlimited());
+        body.put("remain_quota", request.remainingQuota());
+        body.put("expired_time", request.expiredTime());
+        return body;
+    }
+
+    private TokenSummary tokenFrom(JsonNode item) {
+        return new TokenSummary(
+                item.path("id").asLong(),
+                item.path("name").asText(),
+                item.path("status").asInt() == 1,
+                item.path("remain_quota").asLong(),
+                item.path("used_quota").asLong(),
+                item.path("unlimited_quota").asBoolean(false),
+                item.path("expired_time").asLong(),
+                item.path("key").asText()
+        );
     }
 
     @Override
@@ -160,8 +250,16 @@ public class NewApiHttpClient implements NewApiClient {
         return requireData(root);
     }
 
-    private JsonNode post(String path, Map<String, String> body, PortalPrincipal principal) {
-        WebClient.RequestBodySpec request = client.post().uri(path).contentType(MediaType.APPLICATION_JSON);
+    private JsonNode post(String path, Object body, PortalPrincipal principal) {
+        return send(client.post(), path, body, principal);
+    }
+
+    private JsonNode put(String path, Object body, PortalPrincipal principal) {
+        return send(client.put(), path, body, principal);
+    }
+
+    private JsonNode send(WebClient.RequestBodyUriSpec request, String path, Object body, PortalPrincipal principal) {
+        request.uri(path).contentType(MediaType.APPLICATION_JSON);
         if (principal != null) {
             request.headers(headers -> applyUserHeaders(headers, principal));
         }

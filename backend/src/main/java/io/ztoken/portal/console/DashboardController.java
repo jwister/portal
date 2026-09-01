@@ -25,10 +25,4 @@ public class DashboardController {
         PortalPrincipal principal = sessions.require(sessionId);
         return newApiClient.getDashboard(principal);
     }
-
-    @GetMapping("/tokens")
-    public TokenList tokens(@CookieValue(value = "PORTAL_SESSION", required = false) String sessionId) {
-        PortalPrincipal principal = sessions.require(sessionId);
-        return newApiClient.getTokens(principal);
-    }
 }

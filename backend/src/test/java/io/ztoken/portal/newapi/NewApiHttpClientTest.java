@@ -3,6 +3,10 @@ package io.ztoken.portal.newapi;
 import io.ztoken.portal.session.PortalPrincipal;
 import io.ztoken.portal.session.NewApiIdentity;
 import io.ztoken.portal.console.DashboardSummary;
+import io.ztoken.portal.console.TokenKey;
+import io.ztoken.portal.console.TokenList;
+import io.ztoken.portal.console.TokenSummary;
+import io.ztoken.portal.console.TokenWriteRequest;
 import okhttp3.mockwebserver.MockResponse;
 import okhttp3.mockwebserver.MockWebServer;
 import okhttp3.mockwebserver.RecordedRequest;
@@ -197,5 +201,135 @@ class NewApiHttpClientTest {
         assertThat(catchThrowable(() -> client.login("alice", "wrong")))
                 .isInstanceOf(NewApiAuthenticationException.class);
         NEW_API.takeRequest();
+    }
+
+    @Test
+    void tokenListMapsMaskedKeyAndExtendedFields() throws Exception {
+        NEW_API.enqueue(new MockResponse()
+                .setHeader(HttpHeaders.CONTENT_TYPE, "application/json")
+                .setBody("{\"success\":true,\"data\":{\"page\":1,\"page_size\":100,\"total\":1,\"items\":["
+                        + "{\"id\":3,\"name\":\"server\",\"status\":1,\"remain_quota\":500,\"used_quota\":25,"
+                        + "\"unlimited_quota\":false,\"expired_time\":-1,\"key\":\"sk-abcd********wxyz\"}]}}"));
+
+        TokenList result = client.getTokens(new PortalPrincipal(7L, "alice", "access-token"));
+
+        RecordedRequest request = NEW_API.takeRequest();
+        assertThat(result.items()).containsExactly(
+                new TokenSummary(3L, "server", true, 500L, 25L, false, -1L, "sk-abcd********wxyz"));
+        assertThat(request.getPath()).isEqualTo("/api/token/?p=0&page_size=100");
+        assertThat(request.getMethod()).isEqualTo("GET");
+        assertThat(request.getHeader(HttpHeaders.AUTHORIZATION)).isEqualTo("Bearer access-token");
+        assertThat(request.getHeader("New-Api-User")).isEqualTo("7");
+    }
+
+    @Test
+    void createTokenForwardsSafeFieldsAndUserHeaders() throws Exception {
+        NEW_API.enqueue(new MockResponse()
+                .setHeader(HttpHeaders.CONTENT_TYPE, "application/json")
+                .setBody("{\"success\":true,\"message\":\"\"}"));
+
+        client.createToken(new PortalPrincipal(7L, "alice", "access-token"),
+                new TokenWriteRequest("app-key", true, 0L, -1L));
+
+        RecordedRequest request = NEW_API.takeRequest();
+        assertThat(request.getMethod()).isEqualTo("POST");
+        assertThat(request.getPath()).isEqualTo("/api/token/");
+        assertThat(request.getHeader(HttpHeaders.AUTHORIZATION)).isEqualTo("Bearer access-token");
+        assertThat(request.getHeader("New-Api-User")).isEqualTo("7");
+        assertThat(request.getBody().readUtf8())
+                .contains("\"name\":\"app-key\"")
+                .contains("\"unlimited_quota\":true")
+                .contains("\"expired_time\":-1");
+    }
+
+    @Test
+    void updateTokenSendsIdAndReturnsMaskedToken() throws Exception {
+        NEW_API.enqueue(new MockResponse()
+                .setHeader(HttpHeaders.CONTENT_TYPE, "application/json")
+                .setBody("{\"success\":true,\"message\":\"\",\"data\":{\"id\":3,\"name\":\"renamed\","
+                        + "\"status\":1,\"remain_quota\":100,\"key\":\"sk-abcd********wxyz\"}}"));
+
+        TokenSummary result = client.updateToken(new PortalPrincipal(7L, "alice", "access-token"),
+                3L, new TokenWriteRequest("renamed", false, 100L, -1L));
+
+        RecordedRequest request = NEW_API.takeRequest();
+        assertThat(request.getMethod()).isEqualTo("PUT");
+        assertThat(request.getPath()).isEqualTo("/api/token/");
+        assertThat(request.getBody().readUtf8()).contains("\"id\":3").contains("\"name\":\"renamed\"");
+        assertThat(result).isEqualTo(new TokenSummary(3L, "renamed", true, 100L, 0L, false, 0L, "sk-abcd********wxyz"));
+    }
+
+    @Test
+    void updateTokenStatusUsesStatusOnlyQueryAndMapsStatusField() throws Exception {
+        NEW_API.enqueue(new MockResponse()
+                .setHeader(HttpHeaders.CONTENT_TYPE, "application/json")
+                .setBody("{\"success\":true,\"message\":\"\",\"data\":{\"id\":3,\"name\":\"server\","
+                        + "\"status\":1,\"remain_quota\":500,\"key\":\"sk-abcd********wxyz\"}}"));
+
+        TokenSummary result = client.updateTokenStatus(new PortalPrincipal(7L, "alice", "access-token"), 3L, true);
+
+        RecordedRequest request = NEW_API.takeRequest();
+        assertThat(request.getMethod()).isEqualTo("PUT");
+        assertThat(request.getPath()).isEqualTo("/api/token/?status_only=true");
+        assertThat(request.getBody().readUtf8()).contains("\"id\":3").contains("\"status\":1");
+        assertThat(result.enabled()).isTrue();
+    }
+
+    @Test
+    void disableTokenSendsDisabledStatus() throws Exception {
+        NEW_API.enqueue(new MockResponse()
+                .setHeader(HttpHeaders.CONTENT_TYPE, "application/json")
+                .setBody("{\"success\":true,\"message\":\"\",\"data\":{\"id\":3,\"name\":\"server\","
+                        + "\"status\":2,\"remain_quota\":500,\"key\":\"sk-abcd********wxyz\"}}"));
+
+        TokenSummary result = client.updateTokenStatus(new PortalPrincipal(7L, "alice", "access-token"), 3L, false);
+
+        RecordedRequest request = NEW_API.takeRequest();
+        assertThat(request.getBody().readUtf8()).contains("\"status\":2");
+        assertThat(result.enabled()).isFalse();
+    }
+
+    @Test
+    void deleteTokenIssuesDeleteAndChecksSuccess() throws Exception {
+        NEW_API.enqueue(new MockResponse()
+                .setHeader(HttpHeaders.CONTENT_TYPE, "application/json")
+                .setBody("{\"success\":true,\"message\":\"\"}"));
+
+        client.deleteToken(new PortalPrincipal(7L, "alice", "access-token"), 3L);
+
+        RecordedRequest request = NEW_API.takeRequest();
+        assertThat(request.getMethod()).isEqualTo("DELETE");
+        assertThat(request.getPath()).isEqualTo("/api/token/3");
+        assertThat(request.getHeader(HttpHeaders.AUTHORIZATION)).isEqualTo("Bearer access-token");
+        assertThat(request.getHeader("New-Api-User")).isEqualTo("7");
+    }
+
+    @Test
+    void getTokenKeyReturnsPlaintextKeyFromKeyEndpoint() throws Exception {
+        NEW_API.enqueue(new MockResponse()
+                .setHeader(HttpHeaders.CONTENT_TYPE, "application/json")
+                .setBody("{\"success\":true,\"data\":{\"key\":\"sk-plain-123\"}}"));
+
+        TokenKey result = client.getTokenKey(new PortalPrincipal(7L, "alice", "access-token"), 3L);
+
+        RecordedRequest request = NEW_API.takeRequest();
+        assertThat(request.getMethod()).isEqualTo("POST");
+        assertThat(request.getPath()).isEqualTo("/api/token/3/key");
+        assertThat(result.key()).isEqualTo("sk-plain-123");
+    }
+
+    @Test
+    void tokenCreateBusinessFailureIsRejectedWhenHttpStatusIsOk() throws Exception {
+        NEW_API.enqueue(new MockResponse()
+                .setHeader(HttpHeaders.CONTENT_TYPE, "application/json")
+                .setBody("{\"success\":false,\"message\":\"已达到最大令牌数量限制\"}"));
+
+        Throwable thrown = catchThrowable(() -> client.createToken(
+                new PortalPrincipal(7L, "alice", "access-token"),
+                new TokenWriteRequest("app-key", false, 100L, -1L)));
+        NEW_API.takeRequest();
+
+        assertThat(thrown).isInstanceOf(NewApiException.class);
+        assertThat(thrown.getMessage()).doesNotContain("最大令牌");
     }
 }
