@@ -3,7 +3,7 @@ spring:
     name: ztoken-portal
   datasource:
     url: ${PORTAL_DB_URL:jdbc:mysql://localhost:3306/ztoken_portal?useUnicode=true&characterEncoding=utf8&serverTimezone=UTC}
-    username: ${PORTAL_DB_USERNAME:ztoken_portal}
+    username: ${PORTAL_DB_USERNAME:}
     password: ${PORTAL_DB_PASSWORD:}
   jpa:
     hibernate:
@@ -16,3 +16,6 @@ server:
 portal:
   session-key: ${PORTAL_SESSION_KEY:}
   session-ttl: ${PORTAL_SESSION_TTL:7d}
+  session-secure-cookie: ${PORTAL_SESSION_SECURE_COOKIE:false}
+  new-api:
+    base-url: ${NEWAPI_BASE_URL:http://localhost:3005}

@@ -14,6 +14,7 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Component;
 import org.springframework.web.reactive.function.client.WebClient;
+import org.springframework.web.reactive.function.client.WebClientResponseException;
 
 import java.time.Duration;
 import java.util.Map;
@@ -39,7 +40,7 @@ public class NewApiHttpClient implements NewApiClient {
         }
         JsonNode data = requireData(root);
         String accessToken = data.path("access_token").asText();
-        JsonNode user = data.path("user");
+        JsonNode user = data.has("user") ? data.path("user") : data;
         NewApiIdentity identity = identityFrom(user);
         if (accessToken.isBlank()) {
             throw new NewApiException("NewAPI login response did not include an access token");
@@ -129,7 +130,16 @@ public class NewApiHttpClient implements NewApiClient {
         if (principal != null) {
             request.headers(headers -> applyUserHeaders(headers, principal));
         }
-        return request.bodyValue(body).retrieve().bodyToMono(JsonNode.class).block(Duration.ofSeconds(10));
+        try {
+            return request.bodyValue(body).retrieve().bodyToMono(JsonNode.class).block(Duration.ofSeconds(10));
+        } catch (WebClientResponseException exception) {
+            throw new NewApiException("NewAPI request failed with status " + exception.getStatusCode().value());
+        } catch (RuntimeException exception) {
+            if (exception instanceof NewApiException) {
+                throw exception;
+            }
+            throw new NewApiException("NewAPI request failed");
+        }
     }
 
     private void applyUserHeaders(HttpHeaders headers, PortalPrincipal principal) {

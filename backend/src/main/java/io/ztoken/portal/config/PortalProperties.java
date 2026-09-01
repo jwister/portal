@@ -45,7 +45,7 @@ public class PortalProperties {
     }
 
     public static class NewApi {
-        private String baseUrl = "http://127.0.0.1:18081";
+        private String baseUrl;
 
         public String getBaseUrl() {
             return baseUrl;
