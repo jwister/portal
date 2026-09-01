@@ -51,6 +51,14 @@ public class PortalSessionService {
         return new PortalPrincipal(session.getNewApiUserId(), session.getUsername(), crypto.decrypt(session.getEncryptedAccessToken()));
     }
 
+    @Transactional
+    public void revoke(String sessionId) {
+        if (sessionId == null || sessionId.length() != 48) {
+            return;
+        }
+        repository.findById(sessionId).ifPresent(session -> session.revokeAt(Instant.now()));
+    }
+
     private String randomSessionId() {
         byte[] bytes = new byte[36];
         random.nextBytes(bytes);

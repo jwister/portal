@@ -16,6 +16,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.CookieValue;
+import jakarta.servlet.http.HttpServletResponse;
 
 @RestController
 @RequestMapping("/api/auth")
@@ -31,7 +32,7 @@ public class AuthController {
         this.properties = properties;
     }
 
-    @PostMapping("/login")
+    @PostMapping({"/login", "/sign-in"})
     public ResponseEntity<Void> login(@Valid @RequestBody LoginRequest request) {
         NewApiLogin login = newApiClient.login(request.username(), request.password());
         PortalSession session = sessions.create(login.identity(), login.accessToken());
@@ -45,7 +46,7 @@ public class AuthController {
         return ResponseEntity.noContent().header(HttpHeaders.SET_COOKIE, cookie.toString()).build();
     }
 
-    @PostMapping("/register")
+    @PostMapping({"/register", "/sign-up"})
     public ResponseEntity<Void> register(@Valid @RequestBody RegisterRequest request) {
         newApiClient.register(request.username(), request.email(), request.password());
         return ResponseEntity.noContent().build();
@@ -55,5 +56,32 @@ public class AuthController {
     public AuthProfile currentProfile(@CookieValue(value = "PORTAL_SESSION", required = false) String sessionId) {
         PortalPrincipal principal = sessions.require(sessionId);
         return new AuthProfile(principal.userId(), principal.username());
+    }
+
+    @GetMapping("/status")
+    public AuthStatus status(@CookieValue(value = "PORTAL_SESSION", required = false) String sessionId) {
+        if (sessionId == null) {
+            return new AuthStatus(false, null);
+        }
+        try {
+            PortalPrincipal principal = sessions.require(sessionId);
+            return new AuthStatus(true, new AuthProfile(principal.userId(), principal.username()));
+        } catch (io.ztoken.portal.session.UnauthenticatedException exception) {
+            return new AuthStatus(false, null);
+        }
+    }
+
+    @PostMapping("/sign-out")
+    public ResponseEntity<Void> signOut(
+            @CookieValue(value = "PORTAL_SESSION", required = false) String sessionId) {
+        sessions.revoke(sessionId);
+        ResponseCookie cookie = ResponseCookie.from("PORTAL_SESSION", "")
+                .httpOnly(true)
+                .secure(properties.isSessionSecureCookie())
+                .sameSite("Lax")
+                .path("/")
+                .maxAge(0)
+                .build();
+        return ResponseEntity.noContent().header(HttpHeaders.SET_COOKIE, cookie.toString()).build();
     }
 }

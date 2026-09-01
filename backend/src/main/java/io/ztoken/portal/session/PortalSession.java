@@ -68,4 +68,14 @@ public class PortalSession {
     public boolean isActiveAt(Instant now) {
         return revokedAt == null && expiresAt.isAfter(now);
     }
+
+    public void revokeAt(Instant now) {
+        if (revokedAt == null) {
+            this.revokedAt = now;
+        }
+    }
+
+    public boolean isRevoked() {
+        return revokedAt != null;
+    }
 }
