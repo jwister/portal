@@ -9,6 +9,7 @@ public class PortalProperties {
 
     private String sessionKey;
     private Duration sessionTtl = Duration.ofDays(7);
+    private boolean sessionSecureCookie;
     private NewApi newApi = new NewApi();
 
     public String getSessionKey() {
@@ -25,6 +26,14 @@ public class PortalProperties {
 
     public void setSessionTtl(Duration sessionTtl) {
         this.sessionTtl = sessionTtl;
+    }
+
+    public boolean isSessionSecureCookie() {
+        return sessionSecureCookie;
+    }
+
+    public void setSessionSecureCookie(boolean sessionSecureCookie) {
+        this.sessionSecureCookie = sessionSecureCookie;
     }
 
     public NewApi getNewApi() {

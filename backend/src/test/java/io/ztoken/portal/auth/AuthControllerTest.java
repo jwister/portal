@@ -62,6 +62,7 @@ class AuthControllerTest {
         String requestBody = request.getBody().readUtf8();
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.NO_CONTENT);
         assertThat(response.getHeaders().getFirst(HttpHeaders.SET_COOKIE)).contains("PORTAL_SESSION=");
+        assertThat(response.getHeaders().getFirst(HttpHeaders.SET_COOKIE)).doesNotContain("Secure");
         assertThat(request.getPath()).isEqualTo("/api/user/login");
         assertThat(requestBody).contains("\"username\":\"alice\"");
         assertThat(requestBody).doesNotContain("newapi-access-token");

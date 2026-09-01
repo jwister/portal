@@ -37,7 +37,7 @@ public class AuthController {
         PortalSession session = sessions.create(login.identity(), login.accessToken());
         ResponseCookie cookie = ResponseCookie.from("PORTAL_SESSION", session.getId())
                 .httpOnly(true)
-                .secure(true)
+                .secure(properties.isSessionSecureCookie())
                 .sameSite("Lax")
                 .path("/")
                 .maxAge(properties.getSessionTtl())
