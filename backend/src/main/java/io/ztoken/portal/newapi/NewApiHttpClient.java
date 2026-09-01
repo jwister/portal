@@ -62,11 +62,46 @@ public class NewApiHttpClient implements NewApiClient {
     @Override
     public DashboardSummary getDashboard(PortalPrincipal principal) {
         JsonNode user = getSelfData(principal);
+        long endTimestamp = currentTimestamp();
+        JsonNode data = getData("/api/data/self?start_timestamp=" + (endTimestamp - MAX_DATA_RANGE_SECONDS)
+                + "&end_timestamp=" + endTimestamp, principal);
         return new DashboardSummary(
                 user.path("quota").asLong(),
                 user.path("used_quota").asLong(),
-                user.path("request_count").asLong()
+                user.path("request_count").asLong(),
+                tokenUsageFrom(data)
         );
+    }
+
+    private static final long MAX_DATA_RANGE_SECONDS = 2_592_000L;
+
+    private long currentTimestamp() {
+        return System.currentTimeMillis() / 1_000L;
+    }
+
+    private JsonNode getData(String uri, PortalPrincipal principal) {
+        JsonNode root = client.get()
+                .uri(uri)
+                .headers(headers -> applyUserHeaders(headers, principal))
+                .retrieve()
+                .bodyToMono(JsonNode.class)
+                .block(Duration.ofSeconds(10));
+        return requireData(root);
+    }
+
+    private Long tokenUsageFrom(JsonNode data) {
+        if (!data.isArray()) {
+            return null;
+        }
+        boolean hasTokenUsage = false;
+        long total = 0L;
+        for (JsonNode item : data) {
+            if (item.has("token_used") && !item.path("token_used").isNull()) {
+                hasTokenUsage = true;
+                total += item.path("token_used").asLong();
+            }
+        }
+        return hasTokenUsage ? total : null;
     }
 
     @Override

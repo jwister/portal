@@ -48,6 +48,11 @@ class DashboardControllerTest {
                 .setBody("""
                         {"success":true,"data":{"id":7,"username":"alice","quota":900,"used_quota":100,"request_count":12}}
                         """));
+        NEW_API.enqueue(new MockResponse()
+                .setHeader(HttpHeaders.CONTENT_TYPE, "application/json")
+                .setBody("""
+                        {"success":true,"data":[{"token_used":40},{"token_used":2}]}
+                        """));
         String sessionId = sessions.create(new NewApiIdentity(7L, "alice"), "access-token").getId();
         HttpHeaders headers = new HttpHeaders();
         headers.add(HttpHeaders.COOKIE, "PORTAL_SESSION=" + sessionId);
@@ -56,11 +61,17 @@ class DashboardControllerTest {
                 new HttpEntity<>(headers), DashboardSummary.class);
 
         RecordedRequest upstream = NEW_API.takeRequest();
+        RecordedRequest dataRequest = NEW_API.takeRequest();
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
-        assertThat(response.getBody()).isEqualTo(new DashboardSummary(900L, 100L, 12L));
+        assertThat(response.getBody()).isEqualTo(new DashboardSummary(900L, 100L, 12L, 42L));
         assertThat(upstream.getPath()).isEqualTo("/api/user/self");
+        assertThat(dataRequest.getPath()).startsWith("/api/data/self?")
+                .contains("start_timestamp=")
+                .contains("end_timestamp=");
         assertThat(upstream.getHeader(HttpHeaders.AUTHORIZATION)).isEqualTo("Bearer access-token");
         assertThat(upstream.getHeader("New-Api-User")).isEqualTo("7");
+        assertThat(dataRequest.getHeader(HttpHeaders.AUTHORIZATION)).isEqualTo("Bearer access-token");
+        assertThat(dataRequest.getHeader("New-Api-User")).isEqualTo("7");
     }
 
     @Test

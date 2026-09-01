@@ -2,6 +2,7 @@ package io.ztoken.portal.newapi;
 
 import io.ztoken.portal.session.PortalPrincipal;
 import io.ztoken.portal.session.NewApiIdentity;
+import io.ztoken.portal.console.DashboardSummary;
 import okhttp3.mockwebserver.MockResponse;
 import okhttp3.mockwebserver.MockWebServer;
 import okhttp3.mockwebserver.RecordedRequest;
@@ -62,6 +63,61 @@ class NewApiHttpClientTest {
         assertThat(request.getPath()).isEqualTo("/api/user/self");
         assertThat(request.getHeader(HttpHeaders.AUTHORIZATION)).isEqualTo("Bearer access-token");
         assertThat(request.getHeader("New-Api-User")).isEqualTo("7");
+    }
+
+    @Test
+    void dashboardMapsQuotaAndOnlyRealTokenUsage() throws Exception {
+        NEW_API.enqueue(new MockResponse()
+                .setHeader(HttpHeaders.CONTENT_TYPE, "application/json")
+                .setBody("{\"success\":true,\"data\":{\"quota\":1000,\"used_quota\":100,\"request_count\":8}}"));
+        NEW_API.enqueue(new MockResponse()
+                .setHeader(HttpHeaders.CONTENT_TYPE, "application/json")
+                .setBody("{\"success\":true,\"data\":[{\"quota\":20,\"token_used\":5},{\"token_used\":15}]}"));
+
+        var result = client.getDashboard(new PortalPrincipal(7L, "alice", "access-token"));
+
+        RecordedRequest userRequest = NEW_API.takeRequest();
+        RecordedRequest dataRequest = NEW_API.takeRequest();
+        assertThat(result).isEqualTo(new DashboardSummary(1000L, 100L, 8L, 20L));
+        assertThat(userRequest.getPath()).isEqualTo("/api/user/self");
+        assertThat(dataRequest.getPath()).startsWith("/api/data/self?")
+                .contains("start_timestamp=")
+                .contains("end_timestamp=");
+        assertThat(dataRequest.getHeader(HttpHeaders.AUTHORIZATION)).isEqualTo("Bearer access-token");
+        assertThat(dataRequest.getHeader("New-Api-User")).isEqualTo("7");
+    }
+
+    @Test
+    void missingTokenFieldIsNotReportedAsZero() throws Exception {
+        NEW_API.enqueue(new MockResponse()
+                .setHeader(HttpHeaders.CONTENT_TYPE, "application/json")
+                .setBody("{\"success\":true,\"data\":{\"quota\":1000,\"used_quota\":100,\"request_count\":8}}"));
+        NEW_API.enqueue(new MockResponse()
+                .setHeader(HttpHeaders.CONTENT_TYPE, "application/json")
+                .setBody("{\"success\":true,\"data\":[{\"quota\":20}]}"));
+
+        var result = client.getDashboard(new PortalPrincipal(7L, "alice", "access-token"));
+
+        assertThat(result.tokenUsage()).isNull();
+        NEW_API.takeRequest();
+        NEW_API.takeRequest();
+    }
+
+    @Test
+    void dataBusinessFailureIsRejectedEvenWhenHttpStatusIsOk() throws Exception {
+        NEW_API.enqueue(new MockResponse()
+                .setHeader(HttpHeaders.CONTENT_TYPE, "application/json")
+                .setBody("{\"success\":true,\"data\":{\"quota\":1000,\"used_quota\":100,\"request_count\":8}}"));
+        NEW_API.enqueue(new MockResponse()
+                .setHeader(HttpHeaders.CONTENT_TYPE, "application/json")
+                .setBody("{\"success\":false,\"message\":\"internal secret detail\"}"));
+
+        Throwable thrown = catchThrowable(() -> client.getDashboard(new PortalPrincipal(7L, "alice", "access-token")));
+
+        assertThat(thrown).isInstanceOf(NewApiException.class);
+        assertThat(thrown.getMessage()).doesNotContain("internal secret detail");
+        NEW_API.takeRequest();
+        NEW_API.takeRequest();
     }
 
     @Test
