@@ -170,5 +170,18 @@
   "orders.recharge": "Go to recharge",
   "logs.allTypes": "All types",
   "logs.consume": "Consumption",
-  "logs.errorType": "Error"
+  "logs.errorType": "Error",
+  "purchase.description": "Choose an amount to add to your account when payment becomes available.",
+  "purchase.amount": "Select amount",
+  "purchase.custom": "Custom amount",
+  "purchase.customLabel": "Custom amount",
+  "purchase.amountError": "Enter an amount between $1 and $10,000.",
+  "purchase.selected": "Selected amount",
+  "payment.title": "Payment method",
+  "payment.paypal": "PayPal",
+  "payment.crypto": "Crypto / USDT",
+  "payment.other": "Other payment method",
+  "payment.comingSoon": "Coming soon",
+  "payment.continue": "Continue to payment",
+  "payment.unavailable": "Payment methods are coming soon."
 }

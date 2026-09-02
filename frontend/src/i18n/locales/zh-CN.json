@@ -170,5 +170,18 @@
   "orders.recharge": "前往充值",
   "logs.allTypes": "全部类型",
   "logs.consume": "消耗",
-  "logs.errorType": "错误"
+  "logs.errorType": "错误",
+  "purchase.description": "支付功能开放后，可选择金额为账户充值。",
+  "purchase.amount": "选择金额",
+  "purchase.custom": "自定义金额",
+  "purchase.customLabel": "自定义金额",
+  "purchase.amountError": "请输入 $1 到 $10,000 之间的金额。",
+  "purchase.selected": "已选金额",
+  "payment.title": "支付方式",
+  "payment.paypal": "PayPal",
+  "payment.crypto": "Crypto / USDT",
+  "payment.other": "其他支付方式",
+  "payment.comingSoon": "即将开放",
+  "payment.continue": "继续支付",
+  "payment.unavailable": "支付方式即将开放。"
 }
