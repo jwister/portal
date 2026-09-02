@@ -1,6 +1,7 @@
 package io.ztoken.portal.payment.repository;
 
 import io.ztoken.portal.payment.domain.PaymentOrder;
+import io.ztoken.portal.payment.domain.PaymentOrderStatus;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
@@ -19,4 +20,6 @@ public interface PaymentOrderRepository extends JpaRepository<PaymentOrder, Long
     Optional<PaymentOrder> findByOrderNoForUpdate(@Param("orderNo") String orderNo);
 
     List<PaymentOrder> findByNewApiUserIdOrderByCreatedAtDesc(long newApiUserId);
+
+    List<PaymentOrder> findByStatus(PaymentOrderStatus status);
 }
