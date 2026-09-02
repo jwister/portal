@@ -201,3 +201,89 @@ export async function getModelCatalog(): Promise<ModelCatalogItem[]> {
   const body = await requestJson<{ items: ModelCatalogItem[] }>('/api/catalog/models')
   return body.items
 }
+
+export type PaymentMethod = 'PAYPAL'
+
+export type PaymentOrderStatus =
+  | 'WAITING_PAYMENT'
+  | 'CONFIRMED'
+  | 'CREDITING'
+  | 'PAID'
+  | 'CREDIT_FAILED'
+  | 'CREDIT_UNKNOWN'
+  | 'EXPIRED'
+  | 'CANCELLED'
+
+export interface PaymentOrder {
+  orderNo: string
+  amountUsdMinor: number
+  quotaToCredit: number
+  method: PaymentMethod
+  status: PaymentOrderStatus
+  expiresAt: string
+  confirmedAt: string | null
+  creditedAt: string | null
+  createdAt: string
+}
+
+export interface PaymentOrderPage {
+  items: PaymentOrder[]
+  page: number
+  pageSize: number
+  total: number
+}
+
+export interface PayPalConfig {
+  clientId: string
+  mode: 'sandbox' | 'live'
+}
+
+export interface PayPalProviderOrder {
+  providerOrderId: string
+}
+
+export interface CreatePaymentOrderInput {
+  amount: string
+  method: PaymentMethod
+}
+
+export function createPaymentOrder(input: CreatePaymentOrderInput): Promise<PaymentOrder> {
+  return requestJson<PaymentOrder>('/api/payments/orders', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ amount: input.amount, method: input.method }),
+  })
+}
+
+export function getPaymentOrder(orderNo: string): Promise<PaymentOrder> {
+  return requestJson<PaymentOrder>(`/api/payments/orders/${encodeURIComponent(orderNo)}`)
+}
+
+export function getPaymentOrders(page = 1, pageSize = 20): Promise<PaymentOrderPage> {
+  return requestJson<PaymentOrderPage>(`/api/payments/orders${queryString({ page, pageSize })}`)
+}
+
+export function getPayPalConfig(orderNo: string): Promise<PayPalConfig> {
+  return requestJson<PayPalConfig>(`/api/payments/orders/${encodeURIComponent(orderNo)}/paypal/config`)
+}
+
+export function createPayPalProviderOrder(orderNo: string): Promise<PayPalProviderOrder> {
+  return requestJson<PayPalProviderOrder>(`/api/payments/orders/${encodeURIComponent(orderNo)}/paypal/order`, {
+    method: 'POST',
+  })
+}
+
+export function capturePayPalOrder(orderNo: string): Promise<PaymentOrder> {
+  return requestJson<PaymentOrder>(`/api/payments/orders/${encodeURIComponent(orderNo)}/paypal/capture`, {
+    method: 'POST',
+  })
+}
+
+export function formatUsd(amountUsdMinor: number): string {
+  const dollars = (amountUsdMinor / 100).toFixed(2)
+  return `$${dollars}`
+}
+
+export function formatQuota(quota: number): string {
+  return quota.toLocaleString('en-US')
+}

@@ -14,7 +14,7 @@ describe('PurchasePage', () => {
     vi.unstubAllGlobals()
   })
 
-  it('offers every preset amount, validates custom amount, and does not call payment APIs', async () => {
+  it('offers every preset amount, validates custom amount, and shows a PayPal option without trusting client-side quota or user IDs', async () => {
     const user = userEvent.setup()
     const fetchMock = vi.fn()
     vi.stubGlobal('fetch', fetchMock)
@@ -32,9 +32,19 @@ describe('PurchasePage', () => {
 
     await user.clear(input)
     await user.type(input, '25.5')
-    await user.click(screen.getByRole('button', { name: 'Continue to payment' }))
+    await user.click(screen.getByRole('button', { name: 'Continue with PayPal' }))
 
-    expect(fetchMock).not.toHaveBeenCalled()
-    expect(screen.getByText('Payment methods are coming soon.')).toBeVisible()
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+    const [url, init] = fetchMock.mock.calls[0]
+    expect(url).toBe('/api/payments/orders')
+    const initObject = init as RequestInit
+    expect(initObject.method).toBe('POST')
+    expect(initObject.credentials).toBe('include')
+    const body = String(initObject.body)
+    expect(body).toContain('"amount":"25.5"')
+    expect(body).toContain('"method":"PAYPAL"')
+    expect(body).not.toContain('quota')
+    expect(body).not.toContain('userId')
+    expect(body).not.toContain('newapiUserId')
   })
 })
