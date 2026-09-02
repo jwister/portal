@@ -97,36 +97,33 @@ public class NewApiHttpClient implements NewApiClient {
     }
 
     private Long tokenUsageFrom(JsonNode data) {
-        if (!data.isArray()) {
+        if (!data.isArray() || data.isEmpty()) {
             return null;
         }
-        boolean hasTokenUsage = false;
         long total = 0L;
         for (JsonNode item : data) {
-            if (item.has("token_used") && !item.path("token_used").isNull()) {
-                hasTokenUsage = true;
-                total += item.path("token_used").asLong();
+            if (!item.hasNonNull("token_used")) {
+                return null;
             }
+            total += item.path("token_used").asLong();
         }
-        return hasTokenUsage ? total : null;
+        return total;
     }
 
     @Override
-    public TokenList getTokens(PortalPrincipal principal) {
-        JsonNode root = client.get()
-                .uri("/api/token/?p=0&page_size=100")
-                .headers(headers -> applyUserHeaders(headers, principal))
-                .retrieve()
-                .bodyToMono(JsonNode.class)
-                .block(Duration.ofSeconds(10));
-        JsonNode items = requireData(root).path("items");
+    public TokenList getTokens(PortalPrincipal principal, int page, int pageSize) {
+        int safePage = Math.max(1, page);
+        int safePageSize = Math.max(1, Math.min(50, pageSize));
+        JsonNode data = requireData(get("/api/token/?p=" + safePage + "&page_size=" + safePageSize, principal));
+        JsonNode items = data.path("items");
         if (!items.isArray()) {
             throw new NewApiException("NewAPI token response did not include items");
         }
         List<TokenSummary> tokens = StreamSupport.stream(items.spliterator(), false)
                 .map(this::tokenFrom)
                 .toList();
-        return new TokenList(tokens);
+        return new TokenList(data.path("page").asInt(safePage), data.path("page_size").asInt(safePageSize),
+                data.path("total").asLong(), tokens);
     }
 
     @Override
@@ -247,17 +244,18 @@ public class NewApiHttpClient implements NewApiClient {
 
     @Override
     public Profile updateProfile(PortalPrincipal principal, ProfileUpdateRequest request) {
-        Map<String, Object> body = new LinkedHashMap<>();
+        boolean updated = false;
         if (hasText(request.displayName())) {
-            body.put("display_name", request.displayName().trim());
+            requireSuccess(put("/api/user/self", Map.of("display_name", request.displayName().trim()), principal));
+            updated = true;
         }
         if (hasText(request.language())) {
-            body.put("language", request.language().trim());
+            requireSuccess(put("/api/user/self", Map.of("language", request.language().trim()), principal));
+            updated = true;
         }
-        if (body.isEmpty()) {
+        if (!updated) {
             throw new NewApiException("Profile update did not include a supported field");
         }
-        requireSuccess(put("/api/user/self", body, principal));
         return getProfile(principal);
     }
 

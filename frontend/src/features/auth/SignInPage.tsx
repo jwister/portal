@@ -9,8 +9,6 @@ interface SignInPageProps {
   onAuthenticated?: () => void
 }
 
-const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
-
 export function SignInPage(props: SignInPageProps) {
   const { t } = useTranslation()
   const [submitting, setSubmitting] = useState(false)
@@ -19,10 +17,6 @@ export function SignInPage(props: SignInPageProps) {
   const submit = async (values: Record<string, unknown>): Promise<void> => {
     const username = typeof values.username === 'string' ? values.username.trim() : ''
     const password = typeof values.password === 'string' ? values.password : ''
-    if (!emailPattern.test(username)) {
-      setError(t('auth.emailInvalid'))
-      return
-    }
     setSubmitting(true)
     setError(null)
     try {
@@ -49,7 +43,7 @@ export function SignInPage(props: SignInPageProps) {
           <Form.Input
             field="username"
             label={t('auth.username')}
-            placeholder={t('auth.email')}
+            placeholder={t('auth.username')}
             rules={[{ required: true, message: t('auth.required') }]}
             autoComplete="username"
           />

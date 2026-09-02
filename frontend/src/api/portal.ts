@@ -16,6 +16,13 @@ export interface TokenSummary {
   maskedKey: string
 }
 
+export interface TokenPage {
+  page: number
+  pageSize: number
+  total: number
+  items: TokenSummary[]
+}
+
 export interface TokenWriteRequest {
   name: string
   unlimited: boolean
@@ -50,6 +57,11 @@ async function request(path: string, init?: RequestInit): Promise<Response> {
 
   if (response.ok) return response
 
+  if (response.status === 401 && window.location.pathname.startsWith('/console')) {
+    const returnTo = `${window.location.pathname}${window.location.search}`
+    window.location.assign(`/sign-in?returnTo=${encodeURIComponent(returnTo)}`)
+  }
+
   let message = 'Unable to complete the request.'
   try {
     const body = await response.json() as { message?: unknown }
@@ -69,9 +81,8 @@ export function getDashboard(): Promise<DashboardSummary> {
   return requestJson('/api/console/dashboard')
 }
 
-export async function getTokens(): Promise<TokenSummary[]> {
-  const body = await requestJson<{ items: TokenSummary[] }>('/api/console/tokens')
-  return body.items
+export function getTokens(page = 1, pageSize = 50): Promise<TokenPage> {
+  return requestJson(`/api/console/tokens${queryString({ page, pageSize })}`)
 }
 
 export async function createToken(token: TokenWriteRequest): Promise<void> {

@@ -16,6 +16,9 @@ describe('TokensPage', () => {
 
   it('renders token metadata with only the masked key', async () => {
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response(JSON.stringify({
+      page: 1,
+      pageSize: 50,
+      total: 1,
       items: [{ id: 3, name: 'server', enabled: true, remainingQuota: 500, usedQuota: 20, unlimited: false, expiredTime: -1, maskedKey: 'sk-abcd********wxyz' }],
     }), { status: 200 })))
 
@@ -31,9 +34,12 @@ describe('TokensPage', () => {
   it('creates a token through the Portal BFF and refreshes the list', async () => {
     const user = userEvent.setup()
     const fetchMock = vi.fn()
-      .mockResolvedValueOnce(new Response(JSON.stringify({ items: [] }), { status: 200 }))
+      .mockResolvedValueOnce(new Response(JSON.stringify({ page: 1, pageSize: 50, total: 0, items: [] }), { status: 200 }))
       .mockResolvedValueOnce(new Response(null, { status: 200 }))
       .mockResolvedValueOnce(new Response(JSON.stringify({
+        page: 1,
+        pageSize: 50,
+        total: 1,
         items: [{ id: 4, name: 'new-key', enabled: true, remainingQuota: 0, usedQuota: 0, unlimited: true, expiredTime: -1, maskedKey: 'sk-new********key' }],
       }), { status: 200 }))
     vi.stubGlobal('fetch', fetchMock)

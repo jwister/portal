@@ -49,7 +49,7 @@ class TokenControllerTest {
         NEW_API.enqueue(new MockResponse()
                 .setHeader(HttpHeaders.CONTENT_TYPE, "application/json")
                 .setBody("""
-                        {"success":true,"data":{"page":1,"page_size":100,"total":1,"items":[
+                        {"success":true,"data":{"page":2,"page_size":50,"total":101,"items":[
                         {"id":3,"user_id":7,"name":"server","status":1,"remain_quota":500,"used_quota":20,
                         "unlimited_quota":false,"expired_time":-1,"key":"sk-abcd********wxyz",
                         "model_limits":"{\\"gpt\\":10}","auto_groups":["default"]}
@@ -57,14 +57,17 @@ class TokenControllerTest {
                         """));
         String sessionId = session("access-token");
 
-        ResponseEntity<TokenList> response = http.exchange("/api/console/tokens", HttpMethod.GET,
+        ResponseEntity<TokenList> response = http.exchange("/api/console/tokens?page=2&pageSize=80", HttpMethod.GET,
                 authed(sessionId), TokenList.class);
 
         RecordedRequest upstream = NEW_API.takeRequest();
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
+        assertThat(response.getBody().page()).isEqualTo(2);
+        assertThat(response.getBody().pageSize()).isEqualTo(50);
+        assertThat(response.getBody().total()).isEqualTo(101L);
         assertThat(response.getBody().items()).containsExactly(
                 new TokenSummary(3L, "server", true, 500L, 20L, false, -1L, "sk-abcd********wxyz"));
-        assertThat(upstream.getPath()).isEqualTo("/api/token/?p=0&page_size=100");
+        assertThat(upstream.getPath()).isEqualTo("/api/token/?p=2&page_size=50");
         assertThat(upstream.getHeader(HttpHeaders.AUTHORIZATION)).isEqualTo("Bearer access-token");
         assertThat(upstream.getHeader("New-Api-User")).isEqualTo("7");
     }
@@ -164,6 +167,7 @@ class TokenControllerTest {
 
         RecordedRequest upstream = NEW_API.takeRequest();
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
+        assertThat(response.getHeaders().getCacheControl()).isEqualTo("no-store");
         assertThat(response.getBody().key()).isEqualTo("sk-plain-123");
         assertThat(upstream.getMethod()).isEqualTo("POST");
         assertThat(upstream.getPath()).isEqualTo("/api/token/3/key");

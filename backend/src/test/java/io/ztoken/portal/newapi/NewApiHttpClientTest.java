@@ -21,6 +21,8 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
 
+import java.util.List;
+
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.catchThrowable;
 
@@ -89,6 +91,22 @@ class NewApiHttpClientTest {
                 .contains("end_timestamp=");
         assertThat(dataRequest.getHeader(HttpHeaders.AUTHORIZATION)).isEqualTo("Bearer access-token");
         assertThat(dataRequest.getHeader("New-Api-User")).isEqualTo("7");
+    }
+
+    @Test
+    void partiallyMissingTokenUsageIsNotReportedAsAnIncompleteTotal() throws Exception {
+        NEW_API.enqueue(new MockResponse()
+                .setHeader(HttpHeaders.CONTENT_TYPE, "application/json")
+                .setBody("{\"success\":true,\"data\":{\"quota\":1000,\"used_quota\":100,\"request_count\":8}}"));
+        NEW_API.enqueue(new MockResponse()
+                .setHeader(HttpHeaders.CONTENT_TYPE, "application/json")
+                .setBody("{\"success\":true,\"data\":[{\"token_used\":20},{\"quota\":5}]}"));
+
+        var result = client.getDashboard(new PortalPrincipal(7L, "alice", "access-token"));
+
+        assertThat(result.tokenUsage()).isNull();
+        NEW_API.takeRequest();
+        NEW_API.takeRequest();
     }
 
     @Test
@@ -207,16 +225,16 @@ class NewApiHttpClientTest {
     void tokenListMapsMaskedKeyAndExtendedFields() throws Exception {
         NEW_API.enqueue(new MockResponse()
                 .setHeader(HttpHeaders.CONTENT_TYPE, "application/json")
-                .setBody("{\"success\":true,\"data\":{\"page\":1,\"page_size\":100,\"total\":1,\"items\":["
+                .setBody("{\"success\":true,\"data\":{\"page\":2,\"page_size\":50,\"total\":101,\"items\":["
                         + "{\"id\":3,\"name\":\"server\",\"status\":1,\"remain_quota\":500,\"used_quota\":25,"
                         + "\"unlimited_quota\":false,\"expired_time\":-1,\"key\":\"sk-abcd********wxyz\"}]}}"));
 
-        TokenList result = client.getTokens(new PortalPrincipal(7L, "alice", "access-token"));
+        TokenList result = client.getTokens(new PortalPrincipal(7L, "alice", "access-token"), 2, 50);
 
         RecordedRequest request = NEW_API.takeRequest();
-        assertThat(result.items()).containsExactly(
-                new TokenSummary(3L, "server", true, 500L, 25L, false, -1L, "sk-abcd********wxyz"));
-        assertThat(request.getPath()).isEqualTo("/api/token/?p=0&page_size=100");
+        assertThat(result).isEqualTo(new TokenList(2, 50, 101L, List.of(
+                new TokenSummary(3L, "server", true, 500L, 25L, false, -1L, "sk-abcd********wxyz"))));
+        assertThat(request.getPath()).isEqualTo("/api/token/?p=2&page_size=50");
         assertThat(request.getMethod()).isEqualTo("GET");
         assertThat(request.getHeader(HttpHeaders.AUTHORIZATION)).isEqualTo("Bearer access-token");
         assertThat(request.getHeader("New-Api-User")).isEqualTo("7");

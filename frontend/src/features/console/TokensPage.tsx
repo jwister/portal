@@ -1,6 +1,6 @@
-import { Button, Empty, Input, Modal, Space, Table, Tag, Toast, Typography } from '@douyinfe/semi-ui'
+import { Button, Empty, Input, Modal, Pagination, Space, Table, Tag, Toast, Typography } from '@douyinfe/semi-ui'
 import { IconEdit, IconEyeOpened, IconPlus, IconRefresh, IconDelete, IconCopy } from '@douyinfe/semi-icons'
-import { useCallback, useEffect, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import '../../i18n'
@@ -13,6 +13,7 @@ import {
   getTokens,
   setTokenEnabled,
   updateToken,
+  type TokenPage,
   type TokenSummary,
   type TokenWriteRequest,
 } from '../../api/portal'
@@ -33,7 +34,9 @@ function initialDraft(token?: TokenSummary): TokenWriteRequest {
 
 export function TokensPage() {
   const { t } = useTranslation()
-  const [tokens, setTokens] = useState<TokenSummary[] | null>(null)
+  const [tokens, setTokens] = useState<TokenPage | null>(null)
+  const [page, setPage] = useState(1)
+  const [revision, setRevision] = useState(0)
   const [failed, setFailed] = useState(false)
   const [editor, setEditor] = useState<TokenEditor | null>(null)
   const [draft, setDraft] = useState<TokenWriteRequest>(initialDraft())
@@ -41,15 +44,23 @@ export function TokensPage() {
   const [revealedKey, setRevealedKey] = useState<string | null>(null)
   const [pendingDelete, setPendingDelete] = useState<TokenSummary | null>(null)
 
-  const load = useCallback(() => {
-    setFailed(false)
-    setTokens(null)
-    void getTokens().then(setTokens).catch(() => setFailed(true))
-  }, [])
+  const refresh = () => setRevision((current) => current + 1)
+  const reloadFromFirstPage = () => {
+    setPage(1)
+    setRevision((current) => current + 1)
+  }
 
   useEffect(() => {
-    load()
-  }, [load])
+    let active = true
+    setFailed(false)
+    setTokens(null)
+    void getTokens(page, 50).then((data) => {
+      if (active) setTokens(data)
+    }).catch(() => {
+      if (active) setFailed(true)
+    })
+    return () => { active = false }
+  }, [page, revision])
 
   const openEditor = (next: TokenEditor) => {
     setEditor(next)
@@ -66,7 +77,7 @@ export function TokensPage() {
     void request.then(() => {
       Toast.success(editor.mode === 'create' ? t('tokens.createSuccess') : t('tokens.updateSuccess'))
       setEditor(null)
-      load()
+      reloadFromFirstPage()
     }).catch(() => {
       Toast.error(t('tokens.actionError'))
     }).finally(() => setSaving(false))
@@ -75,7 +86,7 @@ export function TokensPage() {
   const changeStatus = (token: TokenSummary) => {
     void setTokenEnabled(token.id, !token.enabled).then(() => {
       Toast.success(t('tokens.updateSuccess'))
-      load()
+      refresh()
     }).catch(() => Toast.error(t('tokens.actionError')))
   }
 
@@ -100,11 +111,11 @@ export function TokensPage() {
     void deleteToken(token.id).then(() => {
       Toast.success(t('tokens.deleteSuccess'))
       setPendingDelete(null)
-      load()
+      reloadFromFirstPage()
     }).catch(() => Toast.error(t('tokens.actionError')))
   }
 
-  if (failed) return <RemoteState kind="error" onRetry={load} />
+  if (failed) return <RemoteState kind="error" onRetry={refresh} />
   if (!tokens) return <RemoteState kind="loading" />
 
   const columns = [
@@ -134,11 +145,12 @@ export function TokensPage() {
     <main>
       <ConsolePageHeader
         title={t('tokens.title')}
-        actions={<Space><Button icon={<IconRefresh />} onClick={load}>{t('dashboard.refresh')}</Button><Button theme="solid" type="primary" icon={<IconPlus />} onClick={() => openEditor({ mode: 'create' })}>{t('tokens.create')}</Button></Space>}
+        actions={<Space><Button icon={<IconRefresh />} onClick={refresh}>{t('dashboard.refresh')}</Button><Button theme="solid" type="primary" icon={<IconPlus />} onClick={() => openEditor({ mode: 'create' })}>{t('tokens.create')}</Button></Space>}
       />
-      {tokens.length === 0
+      {tokens.items.length === 0
         ? <Empty description={t('tokens.empty')} />
-        : <div className="console-table-wrap"><Table columns={columns} dataSource={tokens} rowKey="id" pagination={false} /> </div>}
+        : <div className="console-table-wrap"><Table columns={columns} dataSource={tokens.items} rowKey="id" pagination={false} /> </div>}
+      {tokens.total > tokens.pageSize && <Pagination currentPage={tokens.page} pageSize={tokens.pageSize} total={tokens.total} onPageChange={setPage} />}
 
       <Modal
         title={editor?.mode === 'create' ? t('tokens.create') : t('tokens.edit')}

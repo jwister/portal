@@ -4,6 +4,7 @@ import io.ztoken.portal.newapi.NewApiClient;
 import io.ztoken.portal.newapi.NewApiUnsupportedException;
 import io.ztoken.portal.session.PortalPrincipal;
 import io.ztoken.portal.session.PortalSessionService;
+import org.springframework.http.CacheControl;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.CookieValue;
 import org.springframework.web.bind.annotation.DeleteMapping;
@@ -13,6 +14,7 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 @RestController
@@ -28,8 +30,10 @@ public class TokenController {
     }
 
     @GetMapping
-    public TokenList list(@CookieValue(value = "PORTAL_SESSION", required = false) String sessionId) {
-        return newApiClient.getTokens(sessions.require(sessionId));
+    public TokenList list(@RequestParam(defaultValue = "1") int page,
+                          @RequestParam(defaultValue = "50") int pageSize,
+                          @CookieValue(value = "PORTAL_SESSION", required = false) String sessionId) {
+        return newApiClient.getTokens(sessions.require(sessionId), page, pageSize);
     }
 
     @PostMapping
@@ -59,9 +63,11 @@ public class TokenController {
     }
 
     @GetMapping("/{id}/key")
-    public TokenKey key(@PathVariable long id,
-                        @CookieValue(value = "PORTAL_SESSION", required = false) String sessionId) {
-        return newApiClient.getTokenKey(sessions.require(sessionId), id);
+    public ResponseEntity<TokenKey> key(@PathVariable long id,
+                                        @CookieValue(value = "PORTAL_SESSION", required = false) String sessionId) {
+        return ResponseEntity.ok()
+                .cacheControl(CacheControl.noStore())
+                .body(newApiClient.getTokenKey(sessions.require(sessionId), id));
     }
 
     @GetMapping("/{id}/usage")

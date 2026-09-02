@@ -27,16 +27,18 @@ describe('SignInPage', () => {
     expect(screen.getByRole('link', { name: 'Create account' })).toHaveAttribute('href', '/sign-up')
   })
 
-  it('rejects an invalid email before submitting', async () => {
+  it('accepts a NewAPI username without requiring an email address', async () => {
     const user = userEvent.setup()
-    const fetchMock = vi.fn()
+    const fetchMock = vi.fn().mockResolvedValue(new Response(null, { status: 204 }))
     vi.stubGlobal('fetch', fetchMock)
-    render(<SignInPage />)
-    await user.type(screen.getByLabelText('Username'), 'not-an-email')
+    render(<SignInPage onAuthenticated={vi.fn()} />)
+    await user.type(screen.getByLabelText('Username'), 'alice')
     await user.type(screen.getByLabelText('Password'), 'password')
     await user.click(screen.getByRole('button', { name: 'Sign in' }))
-    expect(fetchMock).not.toHaveBeenCalled()
-    expect(screen.getByText('Please enter a valid email address.')).toBeInTheDocument()
+
+    expect(fetchMock).toHaveBeenCalledWith('/api/auth/sign-in', expect.objectContaining({
+      body: JSON.stringify({ username: 'alice', password: 'password' }),
+    }))
   })
 
   it('shows a server-provided error message when sign-in fails', async () => {

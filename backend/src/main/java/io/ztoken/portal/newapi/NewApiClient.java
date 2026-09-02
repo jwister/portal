@@ -24,7 +24,7 @@ public interface NewApiClient {
 
     DashboardSummary getDashboard(PortalPrincipal principal);
 
-    TokenList getTokens(PortalPrincipal principal);
+    TokenList getTokens(PortalPrincipal principal, int page, int pageSize);
 
     void createToken(PortalPrincipal principal, TokenWriteRequest request);
 

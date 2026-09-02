@@ -69,6 +69,8 @@ class ProfileControllerTest {
     void profileUpdateForwardsOnlyWhitelistedFields() throws Exception {
         NEW_API.enqueue(new MockResponse().setHeader(HttpHeaders.CONTENT_TYPE, "application/json")
                 .setBody("{\"success\":true,\"message\":\"\"}"));
+        NEW_API.enqueue(new MockResponse().setHeader(HttpHeaders.CONTENT_TYPE, "application/json")
+                .setBody("{\"success\":true,\"message\":\"\"}"));
         NEW_API.enqueue(selfResponse("Alice Updated", "{\\\"language\\\":\\\"en\\\"}"));
         String sessionId = session("access-token");
 
@@ -77,19 +79,22 @@ class ProfileControllerTest {
                         {"displayName":"Alice Updated","language":"en","quota":999999,"role":100,"permission":"admin"}
                         """), Profile.class);
 
-        RecordedRequest update = NEW_API.takeRequest();
+        RecordedRequest displayNameUpdate = NEW_API.takeRequest();
+        RecordedRequest languageUpdate = NEW_API.takeRequest();
         RecordedRequest reload = NEW_API.takeRequest();
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
         assertThat(response.getBody()).isEqualTo(new Profile(7L, "alice", "Alice Updated", "alice@example.com", "en"));
-        assertThat(update.getMethod()).isEqualTo("PUT");
-        assertThat(update.getPath()).isEqualTo("/api/user/self");
-        assertThat(update.getBody().readUtf8())
+        assertThat(displayNameUpdate.getMethod()).isEqualTo("PUT");
+        assertThat(displayNameUpdate.getPath()).isEqualTo("/api/user/self");
+        assertThat(displayNameUpdate.getBody().readUtf8())
                 .contains("\"display_name\":\"Alice Updated\"")
-                .contains("\"language\":\"en\"")
+                .doesNotContain("\"language\"")
                 .doesNotContain("quota")
                 .doesNotContain("role")
                 .doesNotContain("permission")
                 .doesNotContain("sidebar_modules");
+        assertThat(languageUpdate.getMethod()).isEqualTo("PUT");
+        assertThat(languageUpdate.getBody().readUtf8()).contains("\"language\":\"en\"").doesNotContain("display_name");
         assertThat(reload.getPath()).isEqualTo("/api/user/self");
     }
 

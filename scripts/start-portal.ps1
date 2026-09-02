@@ -30,6 +30,6 @@ if ($decodedLength -ne 32) {
 
 $env:PORTAL_SESSION_KEY = $sessionKey
 if (-not [string]::IsNullOrWhiteSpace($newApiBaseUrl)) {
-    $env:PORTAL_NEW_API_BASE_URL = $newApiBaseUrl
+    $env:NEWAPI_BASE_URL = $newApiBaseUrl
 }
 & $javaPath -jar $jarPath @args

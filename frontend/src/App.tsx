@@ -38,7 +38,7 @@ export function App() {
   if (path === '/console/logs') return <ConsoleRoute activeKey="logs"><LogsPage /></ConsoleRoute>
   if (path === '/console/profile') return <ConsoleRoute activeKey="profile"><ProfilePage /></ConsoleRoute>
   if (path === '/console/orders') return <ConsoleRoute activeKey="orders"><OrdersPage /></ConsoleRoute>
-  if (path === '/sign-in') return <SignInPage onAuthenticated={() => window.location.assign('/console/dashboard')} />
+  if (path === '/sign-in') return <SignInPage />
   if (path === '/sign-up') return <SignUpPage onRegistered={() => window.location.assign('/sign-in')} />
   if (path === '/models') return <><PublicHeader /><ModelsPage /></>
   if (path === '/purchase') return <><PublicHeader /><PurchasePage /></>
