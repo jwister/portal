@@ -21,6 +21,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatIllegalArgumentException;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -81,6 +82,19 @@ class PaymentOrderServiceTest {
     }
 
     @Test
+    void capsTheDefaultQuotaRateAtTheWalletSafeAmountBeforeSaving() {
+        returnSavedOrder();
+
+        PaymentOrderView accepted = service.createForUser(USER_SEVEN, new BigDecimal("4294.96"));
+
+        assertThat(accepted.amountUsdMinor()).isEqualTo(429_496L);
+        assertThatIllegalArgumentException()
+                .isThrownBy(() -> service.createForUser(USER_SEVEN, new BigDecimal("4294.97")))
+                .withMessage("Payment amount exceeds the NewAPI wallet limit");
+        verify(orders, times(1)).save(any(PaymentOrder.class));
+    }
+
+    @Test
     void rejectsQuotaAboveTheDefaultNewApiWalletLimitBeforeSavingTheOrder() {
         PaymentProperties properties = new PaymentProperties();
         properties.setQuotaPerUsd(2_147_483_700L);
@@ -117,7 +131,7 @@ class PaymentOrderServiceTest {
     }
 
     @Test
-    void rejectsAConfiguredQuotaRateWhenTheFinalQuotaOverflows() {
+    void rejectsAConfiguredQuotaRateWhenNoPaymentAmountFitsTheWalletLimit() {
         PaymentProperties properties = new PaymentProperties();
         properties.setQuotaPerUsd(9_223_372_036_854_775_800L);
         PaymentOrderService configuredService = new PaymentOrderService(orders, properties);

@@ -35,10 +35,11 @@ public class PaymentOrderService {
     public PaymentOrderView createForUser(PortalPrincipal principal, BigDecimal amount) {
         long userId = requireUserId(principal);
         long amountUsdMinor = amountInUsdMinor(amount);
-        long quotaToCredit = quotaFor(amountUsdMinor);
-        if (quotaToCredit > properties.getNewApiCredit().getMaxWalletQuota()) {
-            throw new IllegalArgumentException("Payment quota exceeds the NewAPI wallet limit");
+        long quotaPerUsdMinor = quotaPerUsdMinor();
+        if (amountUsdMinor > effectiveMaximumUsdMinor(quotaPerUsdMinor)) {
+            throw new IllegalArgumentException("Payment amount exceeds the NewAPI wallet limit");
         }
+        long quotaToCredit = quotaFor(amountUsdMinor, quotaPerUsdMinor);
         Instant now = Instant.now();
         int expiryMinutes = properties.getOrderExpiryMinutes();
         if (expiryMinutes <= 0) {
@@ -81,17 +82,25 @@ public class PaymentOrderService {
         }
     }
 
-    private long quotaFor(long amountUsdMinor) {
-        long quotaPerUsd = properties.getQuotaPerUsd();
-        if (quotaPerUsd <= 0 || quotaPerUsd % MINOR_UNITS_PER_USD != 0) {
-            throw new IllegalArgumentException("Payment quota rate must be a positive multiple of 100");
-        }
-        long quotaPerUsdMinor = quotaPerUsd / MINOR_UNITS_PER_USD;
+    private long quotaFor(long amountUsdMinor, long quotaPerUsdMinor) {
         try {
             return Math.multiplyExact(amountUsdMinor, quotaPerUsdMinor);
         } catch (ArithmeticException exception) {
             throw new IllegalArgumentException("Payment quota exceeds the supported range", exception);
         }
+    }
+
+    private long quotaPerUsdMinor() {
+        long quotaPerUsd = properties.getQuotaPerUsd();
+        if (quotaPerUsd <= 0 || quotaPerUsd % MINOR_UNITS_PER_USD != 0) {
+            throw new IllegalArgumentException("Payment quota rate must be a positive multiple of 100");
+        }
+        return quotaPerUsd / MINOR_UNITS_PER_USD;
+    }
+
+    private long effectiveMaximumUsdMinor(long quotaPerUsdMinor) {
+        long walletMaximumUsdMinor = properties.getNewApiCredit().getMaxWalletQuota() / quotaPerUsdMinor;
+        return Math.min(MAX_USD_MINOR, walletMaximumUsdMinor);
     }
 
     private long requireUserId(PortalPrincipal principal) {
