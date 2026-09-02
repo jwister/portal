@@ -106,6 +106,86 @@ export function getTokenKey(id: number): Promise<{ key: string }> {
   return requestJson(`/api/console/tokens/${id}/key`)
 }
 
+export interface LogEntry {
+  id: number
+  createdAt: number
+  type: number
+  content: string
+  tokenName: string
+  modelName: string
+  quota: number
+  promptTokens: number
+  completionTokens: number
+  useTime: number
+  stream: boolean
+  requestId: string
+}
+
+export interface LogPage {
+  page: number
+  pageSize: number
+  total: number
+  items: LogEntry[]
+}
+
+export interface LogStats {
+  quota: number
+  rpm: number
+  tpm: number
+}
+
+export interface LogQuery {
+  page: number
+  pageSize: number
+  startTimestamp?: number
+  endTimestamp?: number
+  modelName?: string
+  tokenName?: string
+  type?: number
+}
+
+export interface Profile {
+  id: number
+  username: string
+  displayName: string
+  email: string
+  language: string | null
+}
+
+export interface ProfileUpdateRequest {
+  displayName?: string
+  language?: string
+}
+
+function queryString(query: object): string {
+  const params = new URLSearchParams()
+  for (const [key, value] of Object.entries(query) as Array<[string, string | number | undefined]>) {
+    if (value !== undefined && value !== '') params.set(key, String(value))
+  }
+  const value = params.toString()
+  return value ? `?${value}` : ''
+}
+
+export function getLogs(query: LogQuery): Promise<LogPage> {
+  return requestJson(`/api/console/logs${queryString(query)}`)
+}
+
+export function getLogStats(query: Omit<LogQuery, 'page' | 'pageSize'>): Promise<LogStats> {
+  return requestJson(`/api/console/logs/stats${queryString(query)}`)
+}
+
+export function getProfile(): Promise<Profile> {
+  return requestJson('/api/console/profile')
+}
+
+export function updateProfile(profile: ProfileUpdateRequest): Promise<Profile> {
+  return requestJson('/api/console/profile', {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(profile),
+  })
+}
+
 export async function getModelCatalog(): Promise<ModelCatalogItem[]> {
   const body = await requestJson<{ items: ModelCatalogItem[] }>('/api/catalog/models')
   return body.items
