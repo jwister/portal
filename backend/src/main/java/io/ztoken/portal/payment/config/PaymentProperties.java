@@ -1,6 +1,7 @@
 package io.ztoken.portal.payment.config;
 
 import jakarta.validation.Valid;
+import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Positive;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.validation.annotation.Validated;
@@ -87,6 +88,7 @@ public class PaymentProperties {
 
         private String accessToken;
         @Positive
+        @Max(9_007_199_254_740_991L)
         private long maxWalletQuota = 2_147_483_647L;
 
         public String getAccessToken() {

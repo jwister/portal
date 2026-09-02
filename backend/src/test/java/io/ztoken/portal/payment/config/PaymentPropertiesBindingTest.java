@@ -47,6 +47,12 @@ class PaymentPropertiesBindingTest {
                 .run(context -> assertThat(context).hasFailed());
     }
 
+    @Test
+    void rejectsANewApiWalletQuotaAboveTheApiMaximumAtBinding() {
+        contextRunner.withPropertyValues("payment.newapi-credit.max-wallet-quota=9007199254740992")
+                .run(context -> assertThat(context).hasFailed());
+    }
+
     @Configuration(proxyBeanMethods = false)
     @EnableConfigurationProperties(PaymentProperties.class)
     static class PaymentPropertiesConfiguration {

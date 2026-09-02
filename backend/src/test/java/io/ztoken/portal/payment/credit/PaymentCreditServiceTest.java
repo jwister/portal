@@ -1,5 +1,6 @@
 package io.ztoken.portal.payment.credit;
 
+import io.ztoken.portal.payment.config.PaymentProperties;
 import io.ztoken.portal.payment.domain.CreditAttempt;
 import io.ztoken.portal.payment.domain.PaymentOrder;
 import io.ztoken.portal.payment.domain.PaymentOrderStatus;
@@ -53,13 +54,15 @@ class PaymentCreditServiceTest {
     @Captor
     private ArgumentCaptor<CreditAttempt> savedAttempt;
 
+    private PaymentProperties properties;
     private PaymentCreditService service;
 
     @BeforeEach
     void setUp() {
         when(transactionManager.getTransaction(any(TransactionDefinition.class)))
                 .thenAnswer(invocation -> new SimpleTransactionStatus());
-        service = new PaymentCreditService(orders, attempts, newApiCredit, transactionManager);
+        properties = new PaymentProperties();
+        service = new PaymentCreditService(orders, attempts, newApiCredit, properties, transactionManager);
     }
 
     @Test
@@ -105,6 +108,23 @@ class PaymentCreditServiceTest {
         verify(attempts, times(2)).save(savedAttempt.capture());
         assertThat(order.getStatus()).isEqualTo(PaymentOrderStatus.CREDIT_FAILED);
         assertThat(lastSavedAttempt().getStatus()).isEqualTo(CreditAttempt.Status.FAILED);
+    }
+
+    @Test
+    void failsAConfirmedOrderWithoutCallingNewApiAfterTheWalletCapIsReduced() {
+        PaymentOrder order = confirmedOrder();
+        lockReturns(order);
+        when(attempts.save(any(CreditAttempt.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        properties.getNewApiCredit().setMaxWalletQuota(1_000_000L);
+
+        service.creditConfirmedOrder(order.getOrderNo());
+
+        verify(newApiCredit, never()).addQuota(any(Long.class), any(Long.class));
+        verify(attempts, times(2)).save(savedAttempt.capture());
+        assertThat(order.getStatus()).isEqualTo(PaymentOrderStatus.CREDIT_FAILED);
+        assertThat(lastSavedAttempt().getStatus()).isEqualTo(CreditAttempt.Status.FAILED);
+        assertThat(lastSavedAttempt().getMessage())
+                .isEqualTo("Payment quota exceeds the current NewAPI wallet limit");
     }
 
     @Test

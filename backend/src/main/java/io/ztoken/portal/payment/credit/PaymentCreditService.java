@@ -1,5 +1,6 @@
 package io.ztoken.portal.payment.credit;
 
+import io.ztoken.portal.payment.config.PaymentProperties;
 import io.ztoken.portal.payment.domain.CreditAttempt;
 import io.ztoken.portal.payment.domain.PaymentOrder;
 import io.ztoken.portal.payment.domain.PaymentOrderStatus;
@@ -19,13 +20,16 @@ public class PaymentCreditService {
     private final PaymentOrderRepository orders;
     private final CreditAttemptRepository attempts;
     private final NewApiCreditClient newApiCredit;
+    private final PaymentProperties properties;
     private final TransactionTemplate transactions;
 
     public PaymentCreditService(PaymentOrderRepository orders, CreditAttemptRepository attempts,
-                                NewApiCreditClient newApiCredit, PlatformTransactionManager transactionManager) {
+                                NewApiCreditClient newApiCredit, PaymentProperties properties,
+                                PlatformTransactionManager transactionManager) {
         this.orders = Objects.requireNonNull(orders, "orders");
         this.attempts = Objects.requireNonNull(attempts, "attempts");
         this.newApiCredit = Objects.requireNonNull(newApiCredit, "newApiCredit");
+        this.properties = Objects.requireNonNull(properties, "properties");
         this.transactions = new TransactionTemplate(Objects.requireNonNull(transactionManager, "transactionManager"));
         this.transactions.setPropagationBehavior(TransactionDefinition.PROPAGATION_REQUIRES_NEW);
     }
@@ -40,8 +44,8 @@ public class PaymentCreditService {
             return;
         }
 
-        CreditResult result = callNewApi(work.order());
-        transactions.executeWithoutResult(status -> finishCredit(work, result));
+        CreditOutcome outcome = credit(work.order());
+        transactions.executeWithoutResult(status -> finishCredit(work, outcome));
     }
 
     private CreditWork claimConfirmedOrder(String orderNo) {
@@ -53,7 +57,8 @@ public class PaymentCreditService {
         return new CreditWork(order, attempt);
     }
 
-    private void finishCredit(CreditWork work, CreditResult result) {
+    private void finishCredit(CreditWork work, CreditOutcome outcome) {
+        CreditResult result = outcome.result();
         PaymentOrder order = orders.findByOrderNoForUpdate(work.order().getOrderNo()).orElse(null);
         if (order == null || order.getStatus() != PaymentOrderStatus.CREDITING) {
             return;
@@ -64,7 +69,7 @@ public class PaymentCreditService {
             case SUCCESS -> work.attempt().finish(CreditAttempt.Status.SUCCESS,
                     "NewAPI quota increase confirmed", finishedAt);
             case FAILED -> work.attempt().finish(CreditAttempt.Status.FAILED,
-                    "NewAPI rejected quota increase", finishedAt);
+                    outcome.message() == null ? "NewAPI rejected quota increase" : outcome.message(), finishedAt);
             case UNKNOWN -> work.attempt().finish(CreditAttempt.Status.UNKNOWN,
                     "NewAPI quota increase result is unknown", finishedAt);
         }
@@ -77,6 +82,14 @@ public class PaymentCreditService {
         }
     }
 
+    private CreditOutcome credit(PaymentOrder order) {
+        if (order.getQuotaToCredit() > properties.getNewApiCredit().getMaxWalletQuota()) {
+            return new CreditOutcome(CreditResult.FAILED,
+                    "Payment quota exceeds the current NewAPI wallet limit");
+        }
+        return new CreditOutcome(callNewApi(order), null);
+    }
+
     private CreditResult callNewApi(PaymentOrder order) {
         try {
             CreditResult result = newApiCredit.addQuota(order.getNewApiUserId(), order.getQuotaToCredit());
@@ -87,5 +100,8 @@ public class PaymentCreditService {
     }
 
     private record CreditWork(PaymentOrder order, CreditAttempt attempt) {
+    }
+
+    private record CreditOutcome(CreditResult result, String message) {
     }
 }
