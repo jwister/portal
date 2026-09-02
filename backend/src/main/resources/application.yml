@@ -29,3 +29,4 @@ payment:
     webhook-id: ${PAYMENT_PAYPAL_WEBHOOK_ID:}
   newapi-credit:
     access-token: ${PAYMENT_NEWAPI_CREDIT_ACCESS_TOKEN:}
+    max-wallet-quota: ${PAYMENT_NEWAPI_CREDIT_MAX_WALLET_QUOTA:2147483647}
