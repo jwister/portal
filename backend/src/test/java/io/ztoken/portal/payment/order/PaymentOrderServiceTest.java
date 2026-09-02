@@ -81,15 +81,26 @@ class PaymentOrderServiceTest {
     }
 
     @Test
-    void calculatesARepresentableQuotaWithoutIntermediateOverflow() {
+    void rejectsQuotaAboveTheNewApiWalletLimitBeforeSavingTheOrder() {
         PaymentProperties properties = new PaymentProperties();
-        properties.setQuotaPerUsd(9_223_372_036_854_775_800L);
+        properties.setQuotaPerUsd(9_007_199_254_741_000L);
+        PaymentOrderService configuredService = new PaymentOrderService(orders, properties);
+
+        assertThatIllegalArgumentException().isThrownBy(
+                () -> configuredService.createForUser(USER_SEVEN, new BigDecimal("1.00")));
+        verify(orders, never()).save(any(PaymentOrder.class));
+    }
+
+    @Test
+    void calculatesQuotaAtTheLargestSupportedConfiguredRate() {
+        PaymentProperties properties = new PaymentProperties();
+        properties.setQuotaPerUsd(9_007_199_254_740_900L);
         PaymentOrderService configuredService = new PaymentOrderService(orders, properties);
         returnSavedOrder();
 
         PaymentOrderView order = configuredService.createForUser(USER_SEVEN, new BigDecimal("1.00"));
 
-        assertThat(order.quotaToCredit()).isEqualTo(9_223_372_036_854_775_800L);
+        assertThat(order.quotaToCredit()).isEqualTo(9_007_199_254_740_900L);
     }
 
     @Test

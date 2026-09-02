@@ -20,6 +20,7 @@ public class PaymentOrderService {
 
     private static final long MIN_USD_MINOR = 100L;
     private static final long MAX_USD_MINOR = 1_000_000L;
+    private static final long MAX_NEWAPI_WALLET_QUOTA = 9_007_199_254_740_991L;
     private static final long MINOR_UNITS_PER_USD = 100L;
     private static final int ORDER_NUMBER_RANDOM_BYTES = 24;
 
@@ -36,6 +37,9 @@ public class PaymentOrderService {
         long userId = requireUserId(principal);
         long amountUsdMinor = amountInUsdMinor(amount);
         long quotaToCredit = quotaFor(amountUsdMinor);
+        if (quotaToCredit > MAX_NEWAPI_WALLET_QUOTA) {
+            throw new IllegalArgumentException("Payment quota exceeds the NewAPI wallet limit");
+        }
         Instant now = Instant.now();
         int expiryMinutes = properties.getOrderExpiryMinutes();
         if (expiryMinutes <= 0) {
