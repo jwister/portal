@@ -12,6 +12,8 @@ public record PaymentOrderView(
         long quotaToCredit,
         PaymentOrderStatus status,
         Instant expiresAt,
+        Instant confirmedAt,
+        Instant creditedAt,
         Instant createdAt
 ) {
 
@@ -23,6 +25,8 @@ public record PaymentOrderView(
                 order.getQuotaToCredit(),
                 order.getStatus(),
                 order.getExpiresAt(),
+                order.getConfirmedAt(),
+                order.getCreditedAt(),
                 order.getCreatedAt()
         );
     }

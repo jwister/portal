@@ -35,7 +35,7 @@ public class PayPalPaymentService {
         this.eventPublisher = Objects.requireNonNull(eventPublisher, "eventPublisher");
     }
 
-    @Transactional(noRollbackFor = PaymentOrderExpiredException.class)
+    @Transactional(noRollbackFor = PayPalOrderConflictException.class)
     public String createProviderOrder(String orderNo) {
         PaymentOrder order = requireWaitingPayPalOrder(orderNo);
         PaymentTransaction existing = transactions.findByPaymentOrderAndProvider(order, PaymentMethod.PAYPAL)
@@ -54,7 +54,7 @@ public class PayPalPaymentService {
         return transaction.getProviderOrderId();
     }
 
-    @Transactional(noRollbackFor = PaymentOrderExpiredException.class)
+    @Transactional(noRollbackFor = PayPalOrderConflictException.class)
     public PaymentOrder capture(String orderNo) {
         PaymentOrder order = requirePayPalOrder(orderNo);
         if (isAlreadyConfirmed(order.getStatus())) {
@@ -63,7 +63,7 @@ public class PayPalPaymentService {
         ensureWaitingAndNotExpired(order);
 
         PaymentTransaction transaction = transactions.findByPaymentOrderAndProvider(order, PaymentMethod.PAYPAL)
-                .orElseThrow(() -> new IllegalStateException("PayPal provider order has not been created"));
+                .orElseThrow(() -> new PayPalOrderConflictException("PayPal provider order has not been created"));
         if ("COMPLETED".equals(transaction.getProviderStatus()) && hasText(transaction.getProviderCaptureId())) {
             confirm(order, transaction, transaction.getProviderCaptureId());
             return order;
@@ -80,12 +80,12 @@ public class PayPalPaymentService {
 
     private PaymentOrder requirePayPalOrder(String orderNo) {
         if (!hasText(orderNo)) {
-            throw new IllegalArgumentException("orderNo must not be blank");
+            throw new PayPalOrderConflictException("Payment order identifier is invalid");
         }
         PaymentOrder order = orders.findByOrderNoForUpdate(orderNo)
-                .orElseThrow(() -> new IllegalArgumentException("Payment order does not exist"));
+                .orElseThrow(() -> new PayPalOrderConflictException("Payment order does not exist"));
         if (order.getPaymentMethod() != PaymentMethod.PAYPAL) {
-            throw new IllegalStateException("Payment order is not a PayPal order");
+            throw new PayPalOrderConflictException("Payment order is not a PayPal order");
         }
         return order;
     }
@@ -98,13 +98,13 @@ public class PayPalPaymentService {
 
     private void ensureWaitingAndNotExpired(PaymentOrder order) {
         if (order.getStatus() != PaymentOrderStatus.WAITING_PAYMENT) {
-            throw new IllegalStateException("Payment order is not waiting for payment");
+            throw new PayPalOrderConflictException("Payment order is not waiting for payment");
         }
         Instant now = Instant.now();
         if (!order.getExpiresAt().isAfter(now)) {
             order.expireIfPast(now);
             orders.save(order);
-            throw new PaymentOrderExpiredException();
+            throw new PayPalOrderConflictException("Payment order has expired");
         }
     }
 
@@ -131,7 +131,7 @@ public class PayPalPaymentService {
         if (!order.confirm(now)) {
             if (order.getStatus() == PaymentOrderStatus.EXPIRED) {
                 orders.save(order);
-                throw new PaymentOrderExpiredException();
+                throw new PayPalOrderConflictException("Payment order has expired");
             }
             return;
         }
@@ -148,13 +148,5 @@ public class PayPalPaymentService {
 
     private static boolean hasText(String value) {
         return value != null && !value.isBlank();
-    }
-}
-
-/** Signals an expired local order while preserving its EXPIRED transition. */
-class PaymentOrderExpiredException extends IllegalStateException {
-
-    PaymentOrderExpiredException() {
-        super("Payment order has expired");
     }
 }

@@ -35,7 +35,7 @@ import static org.mockito.Mockito.when;
 @ExtendWith(MockitoExtension.class)
 class PayPalPaymentServiceTest {
 
-    private static final Instant NOW = Instant.parse("2026-09-02T10:00:00Z");
+    private static final Instant NOW = Instant.now();
 
     @Mock
     private PaymentOrderRepository orders;
@@ -138,7 +138,7 @@ class PayPalPaymentServiceTest {
         when(orders.findByOrderNoForUpdate("PO-1")).thenReturn(Optional.of(order));
 
         assertThatThrownBy(() -> service.createProviderOrder("PO-1"))
-                .isInstanceOf(PaymentOrderExpiredException.class);
+                .isInstanceOf(PayPalOrderConflictException.class);
 
         assertThat(order.getStatus()).isEqualTo(PaymentOrderStatus.EXPIRED);
         verify(orders).save(order);
@@ -164,9 +164,9 @@ class PayPalPaymentServiceTest {
         assertThat(create.getAnnotation(Transactional.class)).isNotNull();
         assertThat(capture.getAnnotation(Transactional.class)).isNotNull();
         assertThat(create.getAnnotation(Transactional.class).noRollbackFor())
-                .contains(PaymentOrderExpiredException.class);
+                .contains(PayPalOrderConflictException.class);
         assertThat(capture.getAnnotation(Transactional.class).noRollbackFor())
-                .contains(PaymentOrderExpiredException.class);
+                .contains(PayPalOrderConflictException.class);
     }
 
     private static PaymentOrder waitingOrder() {

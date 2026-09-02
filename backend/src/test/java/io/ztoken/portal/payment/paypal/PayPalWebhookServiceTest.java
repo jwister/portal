@@ -36,7 +36,7 @@ import static org.mockito.Mockito.when;
 @ExtendWith(MockitoExtension.class)
 class PayPalWebhookServiceTest {
 
-    private static final Instant NOW = Instant.parse("2026-09-02T10:00:00Z");
+    private static final Instant NOW = Instant.now();
 
     @Mock
     private PayPalClient payPal;
