@@ -19,3 +19,13 @@ portal:
   session-secure-cookie: ${PORTAL_SESSION_SECURE_COOKIE:false}
   new-api:
     base-url: ${NEWAPI_BASE_URL:http://localhost:3005}
+payment:
+  order-expiry-minutes: ${PAYMENT_ORDER_EXPIRY_MINUTES:30}
+  quota-per-usd: ${PAYMENT_QUOTA_PER_USD:500000}
+  paypal:
+    mode: ${PAYMENT_PAYPAL_MODE:sandbox}
+    client-id: ${PAYMENT_PAYPAL_CLIENT_ID:}
+    client-secret: ${PAYMENT_PAYPAL_CLIENT_SECRET:}
+    webhook-id: ${PAYMENT_PAYPAL_WEBHOOK_ID:}
+  newapi-credit:
+    access-token: ${PAYMENT_NEWAPI_CREDIT_ACCESS_TOKEN:}
