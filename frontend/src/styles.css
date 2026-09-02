@@ -29,8 +29,10 @@ button { font: inherit; }
 }
 
 .site-header { align-items: center; border-bottom: 1px solid rgba(233, 228, 216, .17); display: flex; justify-content: space-between; min-height: 5.5rem; }
-.public-header { border-bottom: 1px solid #eef0f2; margin: 0 calc(-1 * clamp(1.25rem, 5vw, 5rem)); padding: 0 clamp(1.25rem, 5vw, 5rem); }
+.public-header { background: #fff; border-bottom: 1px solid #eef0f2; margin: 0 calc(-1 * clamp(1.25rem, 5vw, 5rem)); padding: 0 clamp(1.25rem, 5vw, 5rem); }
 .public-nav.semi-navigation { background: transparent; min-height: 68px; }
+.public-nav .semi-navigation-footer a,.public-nav .semi-button-borderless { color: #344054; font-weight: 600; }
+.public-nav .semi-navigation-footer a:hover,.public-nav .semi-button-borderless:hover { color: var(--semi-color-primary); }
 .public-nav .semi-navigation-header { margin-right: auto; }
 .semi-brand { align-items: center; color: #17191d; display: inline-flex; font-family: Georgia, serif; font-size: 18px; font-weight: 700; gap: 8px; letter-spacing: -.02em; }
 .semi-brand span { align-items: center; background: linear-gradient(135deg, #58c5ff, #6e74f6); border-radius: 7px; color: white; display: inline-flex; font-family: ui-monospace, monospace; font-size: 11px; height: 20px; justify-content: center; width: 20px; }

@@ -16,10 +16,11 @@ export function PublicHeader() {
     { itemKey: '/models', text: <a href="/models">{t('nav.models')}</a> },
     { itemKey: 'https://docs.newapi.pro/zh/docs/api', text: <a href="https://docs.newapi.pro/zh/docs/api">{t('nav.docs')}</a> },
     { itemKey: '/purchase', text: <a href="/purchase">{t('nav.purchase')}</a> },
+    { itemKey: '/console/dashboard', text: <a href="/console/dashboard">{t('nav.console')}</a> },
   ]
   const footer = status.kind === 'authenticated'
-    ? <Space spacing="tight"><Button theme="borderless" aria-label={nextLanguage === 'zh-CN' ? '中文' : 'English'} onClick={() => setStoredLanguage(nextLanguage)}>{nextLanguage === 'zh-CN' ? '中文' : 'EN'}</Button><a href="/console/dashboard">{t('nav.console')}</a><Button theme="solid" type="primary" onClick={() => navigate('/console/dashboard')}>{t('nav.console')}</Button></Space>
-    : <Space spacing="tight"><Button theme="borderless" aria-label={nextLanguage === 'zh-CN' ? '中文' : 'English'} onClick={() => setStoredLanguage(nextLanguage)}>{nextLanguage === 'zh-CN' ? '中文' : 'EN'}</Button><a href="/console/dashboard">{t('nav.console')}</a><a href="/sign-in">{t('auth.submit')}</a><a href="/sign-up">{t('register.submit')}</a><Button theme="solid" type="primary" loading={status.kind === 'loading'} onClick={() => navigate(action.path)}>{action.label}</Button></Space>
+    ? <Space spacing="tight"><Button theme="borderless" aria-label={nextLanguage === 'zh-CN' ? '中文' : 'English'} onClick={() => setStoredLanguage(nextLanguage)}>{nextLanguage === 'zh-CN' ? '中文' : 'EN'}</Button><Button theme="solid" type="primary" onClick={() => navigate('/console/dashboard')}>{t('nav.console')}</Button></Space>
+    : <Space spacing="tight"><Button theme="borderless" aria-label={nextLanguage === 'zh-CN' ? '中文' : 'English'} onClick={() => setStoredLanguage(nextLanguage)}>{nextLanguage === 'zh-CN' ? '中文' : 'EN'}</Button><a href="/sign-up">{t('register.submit')}</a><Button theme="solid" type="primary" loading={status.kind === 'loading'} onClick={() => navigate(action.path)}>{action.label}</Button></Space>
   return <header className="public-header"><Nav mode="horizontal" className="public-nav" header={<a className="semi-brand" href="/" aria-label="Ztoken"><span>Z</span>Ztoken</a>} items={navItems}
     onSelect={({ itemKey }) => { const path = String(itemKey); if (path.startsWith('http')) window.open(path, '_blank', 'noopener,noreferrer'); else navigate(path) }}
     footer={footer} /></header>

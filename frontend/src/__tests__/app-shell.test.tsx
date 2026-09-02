@@ -16,7 +16,7 @@ describe('portal application shell', () => {
 
     expect(screen.getByRole('link', { name: 'Models' })).toBeVisible()
     expect(screen.getByRole('link', { name: 'Purchase' })).toBeVisible()
-    expect(screen.getByRole('link', { name: 'Sign in' })).toBeVisible()
+    expect(screen.getByRole('button', { name: 'Sign in' })).toBeVisible()
     expect(screen.getByRole('link', { name: 'Create account' })).toBeVisible()
     expect(screen.getByRole('link', { name: 'Console' })).toBeVisible()
   })
@@ -33,11 +33,14 @@ describe('portal application shell', () => {
 
   it('renders the console dashboard at its direct route', async () => {
     window.history.pushState({}, '', '/console/dashboard')
-    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response(JSON.stringify({
-      availableQuota: 900,
-      usedQuota: 100,
-      requestCount: 12,
-    }), { status: 200 })))
+    vi.stubGlobal('fetch', vi.fn()
+      .mockResolvedValueOnce(new Response(JSON.stringify({ authenticated: true, profile: { id: 7, username: 'alice' } }), { status: 200 }))
+      .mockResolvedValueOnce(new Response(JSON.stringify({
+        availableQuota: 900,
+        usedQuota: 100,
+        requestCount: 12,
+        tokenUsage: null,
+      }), { status: 200 })))
 
     render(<App />)
 
