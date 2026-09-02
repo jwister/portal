@@ -95,5 +95,12 @@
   "console.logs": "使用日志",
   "console.profile": "个人资料",
   "console.orders": "订单管理",
-  "console.placeholder": "此控制台页面即将上线。"
+  "console.placeholder": "此控制台页面即将上线。",
+  "common.loading": "正在加载…",
+  "common.loadError": "暂时无法加载数据。",
+  "common.retry": "重试",
+  "common.empty": "暂无数据。",
+  "console.navigation": "控制台导航",
+  "console.notifications": "通知",
+  "console.account": "账户"
 }

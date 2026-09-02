@@ -95,5 +95,12 @@
   "console.logs": "Usage logs",
   "console.profile": "Profile",
   "console.orders": "Order management",
-  "console.placeholder": "This console section is coming soon."
+  "console.placeholder": "This console section is coming soon.",
+  "common.loading": "Loading…",
+  "common.loadError": "Unable to load data.",
+  "common.retry": "Retry",
+  "common.empty": "No data available.",
+  "console.navigation": "Console navigation",
+  "console.notifications": "Notifications",
+  "console.account": "Account"
 }

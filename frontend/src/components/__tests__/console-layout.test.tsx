@@ -10,7 +10,7 @@ describe('ConsoleLayout', () => {
   it('renders readable console navigation with the active item selected', () => {
     render(<ConsoleLayout activeKey="dashboard"><div>content</div></ConsoleLayout>)
 
-    const navigation = screen.getByRole('navigation', { name: 'Console navigation' })
+    const navigation = screen.getByRole('navigation', { name: '控制台导航' })
     expect(navigation).toBeVisible()
     expect(within(navigation).getByText('仪表盘')).toBeVisible()
     expect(within(navigation).getByText('令牌管理')).toBeVisible()

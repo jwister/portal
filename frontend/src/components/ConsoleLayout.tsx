@@ -27,8 +27,8 @@ export function ConsoleLayout(props: ConsoleLayoutProps) {
   return (
     <Layout className="console-shell">
       <Layout.Sider className="console-sider">
-        <div className="console-brand"><span>Z</span><strong>Ztoken</strong></div>
-        <nav aria-label="Console navigation"><Nav mode="vertical" selectedKeys={[props.activeKey]} onSelect={({ itemKey }) => window.location.assign(destinations[itemKey as ConsoleKey])} items={[
+        <div className="console-brand"><span>Z</span><strong>{t('brand.name')}</strong></div>
+        <nav aria-label={t('console.navigation')}><Nav mode="vertical" selectedKeys={[props.activeKey]} onSelect={({ itemKey }) => window.location.assign(destinations[itemKey as ConsoleKey])} items={[
           { itemKey: 'dashboard', text: labels.dashboard, icon: <IconHome /> },
           { itemKey: 'recharge', text: labels.recharge, icon: <IconCreditCard /> },
           { itemKey: 'tokens', text: labels.tokens, icon: <IconKey /> },
@@ -38,7 +38,7 @@ export function ConsoleLayout(props: ConsoleLayoutProps) {
         ]} /></nav>
       </Layout.Sider>
       <Layout>
-        <Layout.Header className="console-topbar"><h1>{labels[props.activeKey]}</h1><Space spacing="tight"><Button theme="borderless" icon={<IconBell />} aria-label="通知" /><Avatar size="small" color="light-blue">A</Avatar><span className="console-user">账户</span></Space></Layout.Header>
+        <Layout.Header className="console-topbar"><h1>{labels[props.activeKey]}</h1><Space spacing="tight"><Button theme="borderless" icon={<IconBell />} aria-label={t('console.notifications')} /><Avatar size="small" color="light-blue">A</Avatar><span className="console-user">{t('console.account')}</span></Space></Layout.Header>
         <Layout.Content className="console-content">{props.children}</Layout.Content>
       </Layout>
     </Layout>
