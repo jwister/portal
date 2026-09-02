@@ -1,57 +1,54 @@
-import { useEffect, useState } from 'react'
+import { Button, Space } from '@douyinfe/semi-ui'
+import { IconRefresh } from '@douyinfe/semi-icons'
+import { useCallback, useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import '../../i18n'
+import { ConsolePageHeader } from '../../components/ConsolePageHeader'
+import { MetricCard } from '../../components/MetricCard'
+import { RemoteState } from '../../components/RemoteState'
 import { getDashboard, type DashboardSummary } from '../../api/portal'
+
+function formatMetric(value: number): string {
+  return new Intl.NumberFormat().format(value)
+}
 
 export function DashboardPage() {
   const { t } = useTranslation()
   const [summary, setSummary] = useState<DashboardSummary | null>(null)
   const [failed, setFailed] = useState(false)
 
-  useEffect(() => {
-    let active = true
+  const load = useCallback(() => {
+    setFailed(false)
+    setSummary(null)
     void getDashboard()
-      .then((data) => {
-        if (active) setSummary(data)
-      })
-      .catch(() => {
-        if (active) setFailed(true)
-      })
-    return () => {
-      active = false
-    }
+      .then(setSummary)
+      .catch(() => setFailed(true))
   }, [])
 
-  if (failed) {
-    return <main className="console-page"><p className="console-message" role="alert">{t('dashboard.error')}</p></main>
-  }
+  useEffect(() => {
+    load()
+  }, [load])
 
-  if (!summary) {
-    return <main className="console-page"><p className="console-message">{t('dashboard.loading')}</p></main>
-  }
+  if (failed) return <RemoteState kind="error" onRetry={load} />
+  if (!summary) return <RemoteState kind="loading" />
 
   return (
-    <main className="console-page">
-      <header className="console-heading">
-        <p>ZT / CONSOLE / 01</p>
-        <h1>{t('dashboard.title')}</h1>
-      </header>
-      <section className="instrument-grid" aria-label={t('dashboard.title')}>
-        <article className="instrument instrument--primary">
-          <span>{t('dashboard.balance')}</span>
-          <strong>{summary.availableQuota}</strong>
-          <i aria-hidden="true" />
-        </article>
-        <article className="instrument">
-          <span>{t('dashboard.used')}</span>
-          <strong>{summary.usedQuota}</strong>
-        </article>
-        <article className="instrument">
-          <span>{t('dashboard.requests')}</span>
-          <strong>{summary.requestCount}</strong>
-        </article>
-      </section>
+    <main>
+      <ConsolePageHeader
+        title={t('dashboard.title')}
+        description={t('dashboard.description')}
+        actions={<Button icon={<IconRefresh />} onClick={load}>{t('dashboard.refresh')}</Button>}
+      />
+      <Space className="metric-grid" spacing="tight" wrap>
+        <MetricCard label={t('dashboard.balance')} value={formatMetric(summary.availableQuota)} />
+        <MetricCard label={t('dashboard.used')} value={formatMetric(summary.usedQuota)} />
+        <MetricCard label={t('dashboard.requests')} value={formatMetric(summary.requestCount)} />
+        <MetricCard
+          label={t('dashboard.tokenUsage')}
+          value={summary.tokenUsage === null ? t('dashboard.unavailable') : formatMetric(summary.tokenUsage)}
+        />
+      </Space>
     </main>
   )
 }
