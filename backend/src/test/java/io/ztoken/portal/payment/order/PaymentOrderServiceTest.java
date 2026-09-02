@@ -81,9 +81,9 @@ class PaymentOrderServiceTest {
     }
 
     @Test
-    void rejectsQuotaAboveTheNewApiWalletLimitBeforeSavingTheOrder() {
+    void rejectsQuotaAboveTheDefaultNewApiWalletLimitBeforeSavingTheOrder() {
         PaymentProperties properties = new PaymentProperties();
-        properties.setQuotaPerUsd(9_007_199_254_741_000L);
+        properties.setQuotaPerUsd(2_147_483_700L);
         PaymentOrderService configuredService = new PaymentOrderService(orders, properties);
 
         assertThatIllegalArgumentException().isThrownBy(
@@ -92,15 +92,28 @@ class PaymentOrderServiceTest {
     }
 
     @Test
-    void calculatesQuotaAtTheLargestSupportedConfiguredRate() {
+    void rejectsQuotaAboveTheConfiguredNewApiWalletLimitBeforeSavingTheOrder() {
         PaymentProperties properties = new PaymentProperties();
-        properties.setQuotaPerUsd(9_007_199_254_740_900L);
+        properties.getNewApiCredit().setMaxWalletQuota(1_000_000L);
+        properties.setQuotaPerUsd(1_000_100L);
+        PaymentOrderService configuredService = new PaymentOrderService(orders, properties);
+
+        assertThatIllegalArgumentException().isThrownBy(
+                () -> configuredService.createForUser(USER_SEVEN, new BigDecimal("1.00")));
+        verify(orders, never()).save(any(PaymentOrder.class));
+    }
+
+    @Test
+    void calculatesQuotaAtTheConfiguredNewApiWalletLimit() {
+        PaymentProperties properties = new PaymentProperties();
+        properties.getNewApiCredit().setMaxWalletQuota(2_147_483_600L);
+        properties.setQuotaPerUsd(2_147_483_600L);
         PaymentOrderService configuredService = new PaymentOrderService(orders, properties);
         returnSavedOrder();
 
         PaymentOrderView order = configuredService.createForUser(USER_SEVEN, new BigDecimal("1.00"));
 
-        assertThat(order.quotaToCredit()).isEqualTo(9_007_199_254_740_900L);
+        assertThat(order.quotaToCredit()).isEqualTo(2_147_483_600L);
     }
 
     @Test
@@ -116,9 +129,12 @@ class PaymentOrderServiceTest {
 
     @Test
     void acceptsTheInclusiveMinimumAndMaximumAmounts() {
+        PaymentProperties properties = new PaymentProperties();
+        properties.setQuotaPerUsd(200_000L);
+        PaymentOrderService lowerRateService = new PaymentOrderService(orders, properties);
         returnSavedOrder();
-        PaymentOrderView minimum = service.createForUser(USER_SEVEN, new BigDecimal("1.00"));
-        PaymentOrderView maximum = service.createForUser(USER_SEVEN, new BigDecimal("10000.00"));
+        PaymentOrderView minimum = lowerRateService.createForUser(USER_SEVEN, new BigDecimal("1.00"));
+        PaymentOrderView maximum = lowerRateService.createForUser(USER_SEVEN, new BigDecimal("10000.00"));
 
         assertThat(minimum.amountUsdMinor()).isEqualTo(100L);
         assertThat(maximum.amountUsdMinor()).isEqualTo(1_000_000L);

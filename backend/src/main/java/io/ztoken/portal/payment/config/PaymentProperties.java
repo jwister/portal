@@ -1,13 +1,18 @@
 package io.ztoken.portal.payment.config;
 
+import jakarta.validation.Valid;
+import jakarta.validation.constraints.Positive;
 import org.springframework.boot.context.properties.ConfigurationProperties;
+import org.springframework.validation.annotation.Validated;
 
 @ConfigurationProperties(prefix = "payment")
+@Validated
 public class PaymentProperties {
 
     private int orderExpiryMinutes = 30;
     private long quotaPerUsd = 500_000L;
     private final Paypal paypal = new Paypal();
+    @Valid
     private final NewApiCredit newApiCredit = new NewApiCredit();
 
     public int getOrderExpiryMinutes() {
@@ -81,6 +86,8 @@ public class PaymentProperties {
     public static class NewApiCredit {
 
         private String accessToken;
+        @Positive
+        private long maxWalletQuota = 2_147_483_647L;
 
         public String getAccessToken() {
             return accessToken;
@@ -88,6 +95,14 @@ public class PaymentProperties {
 
         public void setAccessToken(String accessToken) {
             this.accessToken = accessToken;
+        }
+
+        public long getMaxWalletQuota() {
+            return maxWalletQuota;
+        }
+
+        public void setMaxWalletQuota(long maxWalletQuota) {
+            this.maxWalletQuota = maxWalletQuota;
         }
 
         public boolean isConfigured() {

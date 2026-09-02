@@ -7,12 +7,13 @@ import static org.assertj.core.api.Assertions.assertThat;
 class PaymentPropertiesTest {
 
     @Test
-    void defaultsToSandboxThirtyMinuteExpiryAndConfiguredQuotaRate() {
+    void defaultsToSandboxThirtyMinuteExpiryConfiguredQuotaRateAndNewApiWalletCap() {
         PaymentProperties properties = new PaymentProperties();
 
         assertThat(properties.getPaypal().getMode()).isEqualTo("sandbox");
         assertThat(properties.getOrderExpiryMinutes()).isEqualTo(30);
         assertThat(properties.getQuotaPerUsd()).isEqualTo(500_000L);
+        assertThat(properties.getNewApiCredit().getMaxWalletQuota()).isEqualTo(2_147_483_647L);
     }
 
     @Test
