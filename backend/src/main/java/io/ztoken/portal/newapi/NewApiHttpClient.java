@@ -1,5 +1,6 @@
 package io.ztoken.portal.newapi;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.ztoken.portal.config.PortalProperties;
@@ -8,6 +9,12 @@ import io.ztoken.portal.console.TokenKey;
 import io.ztoken.portal.console.TokenList;
 import io.ztoken.portal.console.TokenSummary;
 import io.ztoken.portal.console.TokenWriteRequest;
+import io.ztoken.portal.console.LogEntry;
+import io.ztoken.portal.console.LogPage;
+import io.ztoken.portal.console.LogQuery;
+import io.ztoken.portal.console.LogStats;
+import io.ztoken.portal.console.Profile;
+import io.ztoken.portal.console.ProfileUpdateRequest;
 import io.ztoken.portal.catalog.ModelCatalog;
 import io.ztoken.portal.catalog.ModelCatalogItem;
 import io.ztoken.portal.session.NewApiIdentity;
@@ -17,11 +24,14 @@ import org.springframework.http.MediaType;
 import org.springframework.stereotype.Component;
 import org.springframework.web.reactive.function.client.WebClient;
 import org.springframework.web.reactive.function.client.WebClientResponseException;
+import org.springframework.web.util.UriBuilder;
 
+import java.net.URI;
 import java.time.Duration;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.List;
+import java.util.function.Function;
 import java.util.stream.StreamSupport;
 
 @Component
@@ -83,13 +93,7 @@ public class NewApiHttpClient implements NewApiClient {
     }
 
     private JsonNode getData(String uri, PortalPrincipal principal) {
-        JsonNode root = client.get()
-                .uri(uri)
-                .headers(headers -> applyUserHeaders(headers, principal))
-                .retrieve()
-                .bodyToMono(JsonNode.class)
-                .block(Duration.ofSeconds(10));
-        return requireData(root);
+        return requireData(get(uri, principal));
     }
 
     private Long tokenUsageFrom(JsonNode data) {
@@ -218,6 +222,139 @@ public class NewApiHttpClient implements NewApiClient {
     }
 
     @Override
+    public LogPage getLogs(PortalPrincipal principal, LogQuery query) {
+        JsonNode page = requireData(get(logListUri(query), principal));
+        JsonNode items = page.path("items");
+        if (!items.isArray()) {
+            throw new NewApiException("NewAPI log response did not include items");
+        }
+        List<LogEntry> entries = StreamSupport.stream(items.spliterator(), false)
+                .map(this::logFrom).toList();
+        return new LogPage(page.path("page").asInt(query.page()),
+                page.path("page_size").asInt(query.pageSize()), page.path("total").asLong(), entries);
+    }
+
+    @Override
+    public LogStats getLogStats(PortalPrincipal principal, LogQuery query) {
+        JsonNode data = requireData(get(logStatsUri(query), principal));
+        return new LogStats(data.path("quota").asLong(), data.path("rpm").asLong(), data.path("tpm").asLong());
+    }
+
+    @Override
+    public Profile getProfile(PortalPrincipal principal) {
+        return profileFrom(getSelfData(principal));
+    }
+
+    @Override
+    public Profile updateProfile(PortalPrincipal principal, ProfileUpdateRequest request) {
+        Map<String, Object> body = new LinkedHashMap<>();
+        if (hasText(request.displayName())) {
+            body.put("display_name", request.displayName().trim());
+        }
+        if (hasText(request.language())) {
+            body.put("language", request.language().trim());
+        }
+        if (body.isEmpty()) {
+            throw new NewApiException("Profile update did not include a supported field");
+        }
+        requireSuccess(put("/api/user/self", body, principal));
+        return getProfile(principal);
+    }
+
+    private JsonNode get(Function<UriBuilder, URI> uriFunction, PortalPrincipal principal) {
+        try {
+            return client.get().uri(uriFunction).headers(headers -> applyUserHeaders(headers, principal)).retrieve()
+                    .bodyToMono(JsonNode.class).block(Duration.ofSeconds(10));
+        } catch (WebClientResponseException exception) {
+            throw new NewApiException("NewAPI request failed with status " + exception.getStatusCode().value());
+        } catch (RuntimeException exception) {
+            if (exception instanceof NewApiException) throw exception;
+            throw new NewApiException("NewAPI request failed");
+        }
+    }
+
+    private JsonNode get(String uri, PortalPrincipal principal) {
+        try {
+            return client.get().uri(uri).headers(headers -> applyUserHeaders(headers, principal)).retrieve()
+                    .bodyToMono(JsonNode.class).block(Duration.ofSeconds(10));
+        } catch (WebClientResponseException exception) {
+            throw new NewApiException("NewAPI request failed with status " + exception.getStatusCode().value());
+        } catch (RuntimeException exception) {
+            if (exception instanceof NewApiException) throw exception;
+            throw new NewApiException("NewAPI request failed");
+        }
+    }
+
+    private Function<UriBuilder, URI> logListUri(LogQuery query) {
+        return uriBuilder -> {
+            UriBuilder builder = uriBuilder.path("/api/log/self")
+                    .queryParam("p", query.page())
+                    .queryParam("page_size", query.pageSize());
+            appendQuery(builder, "start_timestamp", query.startTimestamp());
+            appendQuery(builder, "end_timestamp", query.endTimestamp());
+            appendQuery(builder, "model_name", query.modelName());
+            appendQuery(builder, "token_name", query.tokenName());
+            appendQuery(builder, "type", query.type());
+            return builder.build();
+        };
+    }
+
+    private Function<UriBuilder, URI> logStatsUri(LogQuery query) {
+        return uriBuilder -> {
+            UriBuilder builder = uriBuilder.path("/api/log/self/stat");
+            appendQuery(builder, "start_timestamp", query.startTimestamp());
+            appendQuery(builder, "end_timestamp", query.endTimestamp());
+            appendQuery(builder, "model_name", query.modelName());
+            appendQuery(builder, "token_name", query.tokenName());
+            appendQuery(builder, "type", query.type());
+            return builder.build();
+        };
+    }
+
+    private void appendQuery(UriBuilder builder, String name, Object value) {
+        if (value instanceof String text) {
+            if (hasText(text)) {
+                builder.queryParam(name, text);
+            }
+            return;
+        }
+        if (value != null) {
+            builder.queryParam(name, value);
+        }
+    }
+
+    private LogEntry logFrom(JsonNode item) {
+        return new LogEntry(item.path("id").asLong(), item.path("created_at").asLong(), item.path("type").asInt(),
+                item.path("content").asText(), item.path("token_name").asText(), item.path("model_name").asText(),
+                item.path("quota").asLong(), item.path("prompt_tokens").asLong(), item.path("completion_tokens").asLong(),
+                item.path("use_time").asLong(), item.path("is_stream").asBoolean(false), item.path("request_id").asText());
+    }
+
+    private Profile profileFrom(JsonNode user) {
+        return new Profile(user.path("id").asLong(), user.path("username").asText(), user.path("display_name").asText(),
+                user.path("email").asText(), languageFrom(user.path("setting")));
+    }
+
+    private String languageFrom(JsonNode setting) {
+        if (setting.isObject()) {
+            return setting.path("language").isTextual() ? setting.path("language").asText() : null;
+        }
+        if (!setting.isTextual() || setting.asText().isBlank()) {
+            return null;
+        }
+        try {
+            JsonNode parsed = objectMapper.readTree(setting.asText());
+            return parsed.path("language").isTextual() ? parsed.path("language").asText() : null;
+        } catch (JsonProcessingException exception) {
+            return null;
+        }
+    }
+
+    private boolean hasText(String value) {
+        return value != null && !value.isBlank();
+    }
+
+    @Override
     public ModelCatalog getModelCatalog() {
         JsonNode root = client.get().uri("/api/pricing").retrieve().bodyToMono(JsonNode.class).block(Duration.ofSeconds(10));
         JsonNode models = requireData(root);
@@ -241,13 +378,7 @@ public class NewApiHttpClient implements NewApiClient {
     }
 
     private JsonNode getSelfData(PortalPrincipal principal) {
-        JsonNode root = client.get()
-                .uri("/api/user/self")
-                .headers(headers -> applyUserHeaders(headers, principal))
-                .retrieve()
-                .bodyToMono(JsonNode.class)
-                .block(Duration.ofSeconds(10));
-        return requireData(root);
+        return requireData(get("/api/user/self", principal));
     }
 
     private JsonNode post(String path, Object body, PortalPrincipal principal) {

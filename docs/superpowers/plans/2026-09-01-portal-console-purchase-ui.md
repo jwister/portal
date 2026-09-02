@@ -468,3 +468,16 @@ Expected: 生成 JAR 且包含 React 静态资源。本步骤不得修改或覆�
 - **一致性：** Dashboard 的 `tokenUsage` 全程使用 `Long`/`number | null`；额度始终使用 quota 命名；订单页面始终是空状态；Portal 路由和前端路径一致。
 - **安全：** 身份来自会话；NewAPI 管理员凭据不参与本计划；明文 token 不进入列表/日志；不触碰当前未提交配置。
 - **无占位符：** 计划中的“未支持”均是明确的运行时边界，不是待实现步骤；每个实现任务均给出文件、行为、命令和验收结果。
+
+## Task B1 契约核对补充（2026-09-01）
+
+实现必须以当前 NewAPI 源码核对结果为准：
+
+- `/api/data/self` 与 `/api/data/flow/self` 均为 GET，时间范围通过 `start_timestamp`、`end_timestamp` query 参数传递；self 查询由认证上下文限定用户，不接受浏览器提供的 user ID 或 username 作为身份依据。
+- 两个 data self 接口存在约 30 天时间跨度限制；业务失败可能以 HTTP 200 且 `success: false` 返回，BFF 必须检查业务 success，而非只检查 HTTP 状态。
+- `/api/token/` 列表分页响应为 `data: { page, page_size, total, items }`；`size`、`page_size`、`ps` 为兼容页大小参数，服务端上限为 100。
+- Token 创建成功通常只有 `success`/`message`，不返回新 Token 或明文 key；完整 key 必须通过 `POST /api/token/{id}/key` 单独获取，列表和详情中的 key 是脱敏值。
+- Token 删除的路由注册形式为 `DELETE /api/token/{id}`；尾斜杠只能作为兼容性测试，不得作为唯一契约。
+- `/api/log/self` 返回分页对象，不是裸数组；self 日志会清理 `channel_name` 与 `other` 中的管理员/root/audit 信息。`/api/log/self/stat` 返回 `quota`、`rpm`、`tpm`，并固定按当前认证用户统计。
+- `/api/user/self` 返回字段必须按 `buildSelfUserData` 映射，不直接复制 Web 类型；`PUT /api/user/self` 是分支型接口，分别处理 `display_name`、密码轮换、`language` 和字符串形式的 `sidebar_modules`。
+- NewAPI 通用业务错误可能仍返回 HTTP 200；Java 客户端必须统一解析 `success` 并将失败转换为安全异常。

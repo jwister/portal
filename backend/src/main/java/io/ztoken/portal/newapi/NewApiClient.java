@@ -7,6 +7,11 @@ import io.ztoken.portal.console.TokenKey;
 import io.ztoken.portal.console.TokenList;
 import io.ztoken.portal.console.TokenSummary;
 import io.ztoken.portal.console.TokenWriteRequest;
+import io.ztoken.portal.console.LogPage;
+import io.ztoken.portal.console.LogStats;
+import io.ztoken.portal.console.Profile;
+import io.ztoken.portal.console.ProfileUpdateRequest;
+import io.ztoken.portal.console.LogQuery;
 import io.ztoken.portal.catalog.ModelCatalog;
 
 public interface NewApiClient {
@@ -30,6 +35,14 @@ public interface NewApiClient {
     void deleteToken(PortalPrincipal principal, long id);
 
     TokenKey getTokenKey(PortalPrincipal principal, long id);
+
+    LogPage getLogs(PortalPrincipal principal, LogQuery query);
+
+    LogStats getLogStats(PortalPrincipal principal, LogQuery query);
+
+    Profile getProfile(PortalPrincipal principal);
+
+    Profile updateProfile(PortalPrincipal principal, ProfileUpdateRequest request);
 
     ModelCatalog getModelCatalog();
 }
