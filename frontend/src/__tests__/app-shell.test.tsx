@@ -17,8 +17,8 @@ describe('portal application shell', () => {
     expect(screen.getByRole('link', { name: 'Models' })).toBeVisible()
     expect(screen.getByRole('link', { name: 'Purchase' })).toBeVisible()
     expect(screen.getByRole('button', { name: 'Sign in' })).toBeVisible()
-    expect(screen.getByRole('link', { name: 'Create account' })).toBeVisible()
-    expect(screen.getByRole('link', { name: 'Console' })).toBeVisible()
+    expect(screen.queryByRole('link', { name: 'Create account' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('link', { name: 'Console' })).not.toBeInTheDocument()
   })
 
   it('switches language and persists the visitor preference', async () => {
