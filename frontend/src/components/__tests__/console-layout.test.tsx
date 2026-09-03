@@ -15,5 +15,6 @@ describe('ConsoleLayout', () => {
     expect(within(navigation).getByText('仪表盘')).toBeVisible()
     expect(within(navigation).getByText('令牌管理')).toBeVisible()
     expect(within(navigation).getByText('仪表盘').closest('[role="menuitem"]')).toHaveClass('semi-navigation-item-selected')
+    expect(screen.getByRole('link', { name: '门户首页' })).toHaveAttribute('href', '/')
   })
 })

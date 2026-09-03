@@ -38,7 +38,7 @@ export function ConsoleLayout(props: ConsoleLayoutProps) {
         ]} /></nav>
       </Layout.Sider>
       <Layout>
-        <Layout.Header className="console-topbar"><h1>{labels[props.activeKey]}</h1><Space spacing="tight"><Button theme="borderless" icon={<IconBell />} aria-label={t('console.notifications')} /><Avatar size="small" color="light-blue">A</Avatar><span className="console-user">{t('console.account')}</span></Space></Layout.Header>
+        <Layout.Header className="console-topbar"><h1>{labels[props.activeKey]}</h1><Space spacing="tight"><a className="console-home-link" href="/" aria-label={t('console.home')}><IconHome />{t('console.home')}</a><Button theme="borderless" icon={<IconBell />} aria-label={t('console.notifications')} /><Avatar size="small" color="light-blue">A</Avatar><span className="console-user">{t('console.account')}</span></Space></Layout.Header>
         <Layout.Content className="console-content">{props.children}</Layout.Content>
       </Layout>
     </Layout>

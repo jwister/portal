@@ -124,6 +124,7 @@
   "common.empty": "No data available.",
   "console.navigation": "Console navigation",
   "console.notifications": "Notifications",
+  "console.home": "Portal home",
   "console.account": "Account",
   "dashboard.tokenUsage": "Token usage",
   "dashboard.unavailable": "Not available",
