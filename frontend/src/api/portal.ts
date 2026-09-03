@@ -33,7 +33,7 @@ export interface TokenWriteRequest {
 export interface ModelCatalogItem {
   name: string
   vendor: string
-  group: string
+  groups: string[]
   inputPrice: number | null
   outputPrice: number | null
   cachePrice: number | null
