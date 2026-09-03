@@ -16,6 +16,8 @@ import org.springframework.test.context.DynamicPropertySource;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import java.util.List;
+
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 class ModelCatalogControllerTest {
 
@@ -37,14 +39,16 @@ class ModelCatalogControllerTest {
     @Test
     void catalogMapsOnlyCustomerSafePricingFields() throws Exception {
         NEW_API.enqueue(new MockResponse().setHeader(HttpHeaders.CONTENT_TYPE, "application/json").setBody("""
-                {"success":true,"data":[{"id":3,"model_name":"gpt-5-mini","vendor_name":"OpenAI","model_price":1.2,"completion_ratio":2,"cache_ratio":0.25,"enable_groups":["default"],"quota_type":0,"tags":"chat,vision"}],"vendors":[]}
+                {"success":true,"data":[{"id":3,"model_name":"gpt-5-mini","vendor_name":"OpenAI","model_price":1.2,"completion_ratio":2,"cache_ratio":0.25,"enable_groups":["default","premium"],"quota_type":0},{"id":4,"model_name":"glm-5","vendor_name":"Zhipu","model_price":1.0,"completion_ratio":2,"cache_ratio":0.25,"enable_groups":[],"quota_type":0}],"vendors":[]}
                 """));
 
         ResponseEntity<ModelCatalog> response = http.getForEntity("/api/catalog/models", ModelCatalog.class);
 
         RecordedRequest upstream = NEW_API.takeRequest();
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
-        assertThat(response.getBody().items()).containsExactly(new ModelCatalogItem("gpt-5-mini", "OpenAI", "default", 1.2, 2.4, 0.3, true));
+        assertThat(response.getBody().items()).containsExactly(
+                new ModelCatalogItem("gpt-5-mini", "OpenAI", List.of("default", "premium"), 1.2, 2.4, 0.3, true),
+                new ModelCatalogItem("glm-5", "Zhipu", List.of("default"), 1.0, 2.0, 0.25, true));
         assertThat(upstream.getPath()).isEqualTo("/api/pricing");
     }
 

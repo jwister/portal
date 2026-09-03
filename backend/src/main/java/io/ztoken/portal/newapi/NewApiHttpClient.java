@@ -362,10 +362,19 @@ public class NewApiHttpClient implements NewApiClient {
             Double completionRatio = model.hasNonNull("completion_ratio") ? model.path("completion_ratio").asDouble() : null;
             Double cacheRatio = model.hasNonNull("cache_ratio") ? model.path("cache_ratio").asDouble() : null;
             boolean available = input != null && completionRatio != null && model.path("quota_type").asInt() == 0;
+            List<String> groups = model.path("enable_groups").isArray()
+                    ? StreamSupport.stream(model.path("enable_groups").spliterator(), false)
+                    .map(JsonNode::asText)
+                    .filter(this::hasText)
+                    .toList()
+                    : List.of();
+            if (groups.isEmpty()) {
+                groups = List.of("default");
+            }
             return new ModelCatalogItem(
                     model.path("model_name").asText(),
                     model.path("vendor_name").asText("Independent"),
-                    model.path("enable_groups").isArray() && !model.path("enable_groups").isEmpty() ? model.path("enable_groups").get(0).asText() : "default",
+                    groups,
                     available ? input : null,
                     available ? input * completionRatio : null,
                     available && cacheRatio != null ? input * cacheRatio : null,
