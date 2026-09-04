@@ -2,6 +2,7 @@ package io.ztoken.portal.error;
 
 import io.ztoken.portal.newapi.NewApiAuthenticationException;
 import io.ztoken.portal.newapi.NewApiException;
+import io.ztoken.portal.newapi.NewApiEmailVerificationException;
 import io.ztoken.portal.newapi.NewApiUnsupportedException;
 import io.ztoken.portal.payment.api.PaymentApiException;
 import io.ztoken.portal.session.UnauthenticatedException;
@@ -36,6 +37,12 @@ public class ApiExceptionHandler {
                 .body(Map.of("code", "UNAUTHENTICATED", "message", "Authentication is required"));
     }
 
+    @ExceptionHandler(IllegalArgumentException.class)
+    public ResponseEntity<Map<String, String>> invalidAuthRequest(IllegalArgumentException exception) {
+        return ResponseEntity.badRequest().cacheControl(CacheControl.noStore())
+                .body(Map.of("code", "INVALID_AUTH_REQUEST", "message", exception.getMessage()));
+    }
+
     @ExceptionHandler(NewApiAuthenticationException.class)
     public ResponseEntity<Map<String, String>> newApiAuthenticationFailed() {
         return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(Map.of("code", "NEWAPI_AUTH_FAILED", "message", "Unable to verify sign-in details"));
@@ -45,6 +52,12 @@ public class ApiExceptionHandler {
     public ResponseEntity<Map<String, String>> newApiUnsupported() {
         return ResponseEntity.status(HttpStatus.NOT_IMPLEMENTED)
                 .body(Map.of("code", "NOT_SUPPORTED", "message", "This operation is not supported"));
+    }
+
+    @ExceptionHandler(NewApiEmailVerificationException.class)
+    public ResponseEntity<Map<String, String>> newApiEmailVerificationFailure() {
+        return ResponseEntity.status(HttpStatus.BAD_GATEWAY)
+                .body(Map.of("code", "EMAIL_VERIFICATION_UNAVAILABLE", "message", "邮箱验证码发送服务暂不可用，请稍后重试"));
     }
 
     @ExceptionHandler(NewApiException.class)

@@ -38,8 +38,9 @@ class ModelCatalogControllerTest {
 
     @Test
     void catalogMapsOnlyCustomerSafePricingFields() throws Exception {
+        // quota_type=0: ratio mode (model_ratio), quota_type=1: price mode (model_price)
         NEW_API.enqueue(new MockResponse().setHeader(HttpHeaders.CONTENT_TYPE, "application/json").setBody("""
-                {"success":true,"data":[{"id":3,"model_name":"gpt-5-mini","vendor_name":"OpenAI","model_price":1.2,"completion_ratio":2,"cache_ratio":0.25,"enable_groups":["default","premium"],"quota_type":0},{"id":4,"model_name":"glm-5","vendor_name":"Zhipu","model_price":1.0,"completion_ratio":2,"cache_ratio":0.25,"enable_groups":[],"quota_type":0}],"vendors":[]}
+                {"success":true,"data":[{"id":3,"model_name":"gpt-5-mini","vendor_name":"OpenAI","model_ratio":1.2,"model_price":0,"completion_ratio":2,"cache_ratio":0.25,"enable_groups":["default","premium"],"quota_type":0},{"id":4,"model_name":"glm-5","vendor_name":"Zhipu","model_ratio":0,"model_price":1.0,"completion_ratio":2,"cache_ratio":0.25,"enable_groups":[],"quota_type":1},{"id":5,"model_name":"claude-3","vendor_name":"Anthropic","model_ratio":3.0,"model_price":0,"completion_ratio":3,"enable_groups":["premium"],"quota_type":0}],"vendors":[]}
                 """));
 
         ResponseEntity<ModelCatalog> response = http.getForEntity("/api/catalog/models", ModelCatalog.class);
@@ -48,7 +49,8 @@ class ModelCatalogControllerTest {
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
         assertThat(response.getBody().items()).containsExactly(
                 new ModelCatalogItem("gpt-5-mini", "OpenAI", List.of("default", "premium"), 1.2, 2.4, 0.3, true),
-                new ModelCatalogItem("glm-5", "Zhipu", List.of("default"), 1.0, 2.0, 0.25, true));
+                new ModelCatalogItem("glm-5", "Zhipu", List.of("default"), 1.0, 2.0, 0.25, true),
+                new ModelCatalogItem("claude-3", "Anthropic", List.of("premium"), 3.0, 9.0, null, true));
         assertThat(upstream.getPath()).isEqualTo("/api/pricing");
     }
 

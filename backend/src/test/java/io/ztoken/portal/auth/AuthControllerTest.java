@@ -89,12 +89,13 @@ class AuthControllerTest {
                 .setBody("{\"success\":true,\"data\":null}"));
 
         ResponseEntity<Void> response = http.postForEntity("/api/auth/register",
-                new RegisterRequest("alice", "alice@example.com", "password"), Void.class);
+                new RegisterRequest("alice", "alice@example.com", "password", "123456", null, null), Void.class);
 
         RecordedRequest request = NEW_API.takeRequest();
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.NO_CONTENT);
         assertThat(request.getPath()).isEqualTo("/api/user/register");
-        assertThat(request.getBody().readUtf8()).contains("\"email\":\"alice@example.com\"");
+        assertThat(request.getBody().readUtf8()).contains("\"email\":\"alice@example.com\"")
+                .contains("\"verification_code\":\"123456\"");
     }
 
     @Test
@@ -116,4 +117,5 @@ class AuthControllerTest {
 
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.UNAUTHORIZED);
     }
+
 }

@@ -25,11 +25,25 @@ public class AuthController {
     private final NewApiClient newApiClient;
     private final PortalSessionService sessions;
     private final PortalProperties properties;
+    private final CaptchaService captcha;
 
-    public AuthController(NewApiClient newApiClient, PortalSessionService sessions, PortalProperties properties) {
+    public AuthController(NewApiClient newApiClient, PortalSessionService sessions, PortalProperties properties, CaptchaService captcha) {
         this.newApiClient = newApiClient;
         this.sessions = sessions;
         this.properties = properties;
+        this.captcha = captcha;
+    }
+
+    @org.springframework.web.bind.annotation.GetMapping("/captcha")
+    public CaptchaResponse captcha() { return captcha.create(); }
+
+    @org.springframework.web.bind.annotation.GetMapping("/verification")
+    public ResponseEntity<Void> verification(@org.springframework.web.bind.annotation.RequestParam String email,
+                                             @org.springframework.web.bind.annotation.RequestParam String captchaId,
+                                             @org.springframework.web.bind.annotation.RequestParam String captchaCode) {
+        if (!captcha.verifyAndConsume(captchaId, captchaCode)) throw new IllegalArgumentException("Captcha is invalid or expired");
+        newApiClient.sendEmailVerification(email);
+        return ResponseEntity.noContent().build();
     }
 
     @PostMapping({"/login", "/sign-in"})
@@ -48,7 +62,7 @@ public class AuthController {
 
     @PostMapping({"/register", "/sign-up"})
     public ResponseEntity<Void> register(@Valid @RequestBody RegisterRequest request) {
-        newApiClient.register(request.username(), request.email(), request.password());
+        newApiClient.register(request.username(), request.email(), request.password(), request.verificationCode());
         return ResponseEntity.noContent().build();
     }
 

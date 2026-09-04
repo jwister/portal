@@ -6,11 +6,11 @@ CREATE TABLE payment_orders (
     amount_usd_minor BIGINT NOT NULL,
     quota_to_credit BIGINT NOT NULL,
     status VARCHAR(32) NOT NULL,
-    expires_at TIMESTAMP NOT NULL,
-    confirmed_at TIMESTAMP NULL,
-    credited_at TIMESTAMP NULL,
-    created_at TIMESTAMP NOT NULL,
-    updated_at TIMESTAMP NOT NULL,
+    expires_at DATETIME(6) NOT NULL,
+    confirmed_at DATETIME(6) NULL,
+    credited_at DATETIME(6) NULL,
+    created_at DATETIME(6) NOT NULL,
+    updated_at DATETIME(6) NOT NULL,
     PRIMARY KEY (id),
     CONSTRAINT uk_payment_orders_order_no UNIQUE (order_no)
 );
@@ -26,8 +26,8 @@ CREATE TABLE payment_transactions (
     provider_capture_id VARCHAR(128) NULL,
     provider_status VARCHAR(64) NULL,
     idempotency_key VARCHAR(96) NOT NULL,
-    created_at TIMESTAMP NOT NULL,
-    updated_at TIMESTAMP NOT NULL,
+    created_at DATETIME(6) NOT NULL,
+    updated_at DATETIME(6) NOT NULL,
     PRIMARY KEY (id),
     CONSTRAINT uk_payment_transactions_provider_order UNIQUE (provider, provider_order_id),
     CONSTRAINT uk_payment_transactions_provider_capture UNIQUE (provider, provider_capture_id),
@@ -40,7 +40,7 @@ CREATE TABLE payment_provider_events (
     provider_event_id VARCHAR(128) NOT NULL,
     event_type VARCHAR(128) NOT NULL,
     payment_order_id BIGINT NULL,
-    verified_at TIMESTAMP NOT NULL,
+    verified_at DATETIME(6) NOT NULL,
     audit_summary VARCHAR(512) NOT NULL,
     PRIMARY KEY (id),
     CONSTRAINT uk_payment_provider_events_provider_event UNIQUE (provider, provider_event_id)
@@ -51,8 +51,8 @@ CREATE TABLE credit_attempts (
     payment_order_id BIGINT NOT NULL,
     status VARCHAR(32) NOT NULL,
     message VARCHAR(512) NULL,
-    created_at TIMESTAMP NOT NULL,
-    finished_at TIMESTAMP NULL,
+    created_at DATETIME(6) NOT NULL,
+    finished_at DATETIME(6) NULL,
     PRIMARY KEY (id)
 );
 

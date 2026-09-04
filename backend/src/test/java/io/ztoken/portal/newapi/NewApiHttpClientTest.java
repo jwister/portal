@@ -184,7 +184,7 @@ class NewApiHttpClientTest {
                 .setHeader(HttpHeaders.CONTENT_TYPE, "application/json")
                 .setBody("{\"success\":true,\"data\":null}"));
 
-        client.register("alice", "alice@example.com", "secret");
+        client.register("alice", "alice@example.com", "secret", "123456");
 
         RecordedRequest request = NEW_API.takeRequest();
         assertThat(request.getMethod()).isEqualTo("POST");
@@ -192,7 +192,64 @@ class NewApiHttpClientTest {
         assertThat(request.getBody().readUtf8())
                 .contains("\"username\":\"alice\"")
                 .contains("\"email\":\"alice@example.com\"")
-                .contains("\"password\":\"secret\"");
+                .contains("\"password\":\"secret\"")
+                .contains("\"verification_code\":\"123456\"");
+    }
+
+    @Test
+    void emailVerificationBusinessFailureIsClassifiedWithoutLeakingUpstreamDetails() {
+        NEW_API.enqueue(new MockResponse()
+                .setHeader(HttpHeaders.CONTENT_TYPE, "application/json")
+                .setBody("{\"success\":false,\"message\":\"SMTP authentication failed\"}"));
+
+        Throwable thrown = catchThrowable(() -> client.sendEmailVerification("alice@example.com"));
+
+        assertThat(thrown).isInstanceOf(NewApiEmailVerificationException.class);
+        assertThat(thrown.getMessage()).doesNotContain("SMTP authentication failed");
+        try {
+            assertThat(NEW_API.takeRequest().getPath()).isEqualTo("/api/verification?email=alice@example.com");
+        } catch (Exception exception) {
+            throw new AssertionError(exception);
+        }
+    }
+
+    @Test
+    void emailVerificationHttpFailureIsClassifiedWithoutLeakingUpstreamDetails() throws Exception {
+        NEW_API.enqueue(new MockResponse()
+                .setResponseCode(502)
+                .setHeader(HttpHeaders.CONTENT_TYPE, "application/json")
+                .setBody("{\"success\":false,\"message\":\"SMTP gateway unavailable\"}"));
+
+        Throwable thrown = catchThrowable(() -> client.sendEmailVerification("alice@example.com"));
+
+        assertThat(thrown).isInstanceOf(NewApiEmailVerificationException.class);
+        assertThat(thrown.getMessage()).doesNotContain("SMTP gateway unavailable");
+        NEW_API.takeRequest();
+    }
+
+    @Test
+    void emailVerificationRateLimitIsReportedAsRetryable() throws Exception {
+        NEW_API.enqueue(new MockResponse().setResponseCode(429)
+                .setHeader(HttpHeaders.CONTENT_TYPE, "application/json")
+                .setBody("{\"success\":false,\"message\":\"发送过于频繁，请等待 20 秒后再试\"}"));
+
+        Throwable thrown = catchThrowable(() -> client.sendEmailVerification("alice@example.com"));
+
+        assertThat(thrown).isInstanceOf(NewApiEmailVerificationException.class)
+                .hasMessage("发送过于频繁，请稍后再试");
+        NEW_API.takeRequest();
+    }
+
+    @Test
+    void emailVerificationAlreadyRegisteredIsReportedWithoutUpstreamDetails() throws Exception {
+        NEW_API.enqueue(new MockResponse().setHeader(HttpHeaders.CONTENT_TYPE, "application/json")
+                .setBody("{\"success\":false,\"message\":\"该邮箱已被注册\"}"));
+
+        Throwable thrown = catchThrowable(() -> client.sendEmailVerification("alice@example.com"));
+
+        assertThat(thrown).isInstanceOf(NewApiEmailVerificationException.class)
+                .hasMessage("该邮箱已注册，请直接登录");
+        NEW_API.takeRequest();
     }
 
     @Test

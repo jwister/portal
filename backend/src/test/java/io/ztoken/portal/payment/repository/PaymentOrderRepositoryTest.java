@@ -13,6 +13,9 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.lang.reflect.Method;
 import java.time.Instant;
+import java.nio.charset.StandardCharsets;
+import java.io.IOException;
+import java.io.InputStream;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -41,6 +44,17 @@ class PaymentOrderRepositoryTest {
         Integer tableCount = jdbcTemplate.queryForObject("select count(*) from payment_orders", Integer.class);
 
         assertThat(tableCount).isZero();
+    }
+
+    @Test
+    void v2MigrationUsesExplicitDatetimeColumns() throws IOException {
+        try (InputStream migration = getClass().getClassLoader()
+                .getResourceAsStream("db/migration/V2__create_payment_schema.sql")) {
+            assertThat(migration).isNotNull();
+            String sql = new String(migration.readAllBytes(), StandardCharsets.UTF_8);
+            assertThat(sql).doesNotContain("TIMESTAMP");
+            assertThat(sql).contains("DATETIME(6)");
+        }
     }
 
     @Test

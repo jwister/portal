@@ -25,6 +25,8 @@ import org.springframework.stereotype.Component;
 import org.springframework.web.reactive.function.client.WebClient;
 import org.springframework.web.reactive.function.client.WebClientResponseException;
 import org.springframework.web.util.UriBuilder;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.net.URI;
 import java.time.Duration;
@@ -37,12 +39,16 @@ import java.util.stream.StreamSupport;
 @Component
 public class NewApiHttpClient implements NewApiClient {
 
+    private static final Logger log = LoggerFactory.getLogger(NewApiHttpClient.class);
+
     private final WebClient client;
     private final ObjectMapper objectMapper;
+    private final String pricingToken;
 
     public NewApiHttpClient(PortalProperties properties, ObjectMapper objectMapper) {
         this.client = WebClient.builder().baseUrl(properties.getNewApi().getBaseUrl()).build();
         this.objectMapper = objectMapper;
+        this.pricingToken = properties.getNewApi().getPricingToken();
     }
 
     @Override
@@ -62,9 +68,54 @@ public class NewApiHttpClient implements NewApiClient {
     }
 
     @Override
-    public void register(String username, String email, String password) {
-        JsonNode root = post("/api/user/register", Map.of("username", username, "email", email, "password", password), null);
+    public void register(String username, String email, String password, String verificationCode) {
+        JsonNode root = post("/api/user/register", Map.of("username", username, "email", email, "password", password,
+                "verification_code", verificationCode), null);
         requireSuccess(root);
+    }
+
+    @Override
+    public void sendEmailVerification(String email) {
+        try {
+            JsonNode root = client.get()
+                    .uri(builder -> builder.path("/api/verification").queryParam("email", email).build())
+                    .retrieve()
+                    .bodyToMono(JsonNode.class)
+                    .block(Duration.ofSeconds(10));
+            if (root != null && root.path("success").asBoolean(false)) {
+                return;
+            }
+            String upstreamMessage = root == null ? "" : root.path("message").asText("");
+            log.warn("NewAPI email verification rejected request: {}", upstreamMessage);
+            throw new NewApiEmailVerificationException(safeVerificationMessage(upstreamMessage));
+        } catch (NewApiEmailVerificationException exception) {
+            throw exception;
+        } catch (WebClientResponseException exception) {
+            if (exception.getStatusCode().value() == 429) {
+                throw new NewApiEmailVerificationException("发送过于频繁，请稍后再试");
+            }
+            log.warn("NewAPI email verification request failed with status {}", exception.getStatusCode().value());
+        } catch (NewApiException exception) {
+            // The registration flow must not expose SMTP or upstream transport details.
+            log.warn("NewAPI email verification request failed: {}", exception.getMessage());
+        } catch (RuntimeException exception) {
+            log.warn("NewAPI email verification request failed", exception);
+        }
+        throw new NewApiEmailVerificationException();
+    }
+
+    private String safeVerificationMessage(String upstreamMessage) {
+        if (upstreamMessage.contains("频繁") || upstreamMessage.toLowerCase().contains("rate")) {
+            return "发送过于频繁，请稍后再试";
+        }
+        if (upstreamMessage.contains("已被") || upstreamMessage.contains("已注册")
+                || upstreamMessage.toLowerCase().contains("already")) {
+            return "该邮箱已注册，请直接登录";
+        }
+        if (upstreamMessage.contains("邮箱") && (upstreamMessage.contains("无效") || upstreamMessage.contains("格式"))) {
+            return "邮箱地址格式不正确";
+        }
+        return "邮箱验证码发送服务暂不可用，请稍后重试";
     }
 
     @Override
@@ -283,6 +334,17 @@ public class NewApiHttpClient implements NewApiClient {
         }
     }
 
+    private JsonNode getPublic(String uri) {
+        try {
+            return client.get().uri(uri).retrieve().bodyToMono(JsonNode.class).block(Duration.ofSeconds(10));
+        } catch (WebClientResponseException exception) {
+            throw new NewApiException("NewAPI request failed with status " + exception.getStatusCode().value());
+        } catch (RuntimeException exception) {
+            if (exception instanceof NewApiException) throw exception;
+            throw new NewApiException("NewAPI request failed");
+        }
+    }
+
     private Function<UriBuilder, URI> logListUri(LogQuery query) {
         return uriBuilder -> {
             UriBuilder builder = uriBuilder.path("/api/log/self")
@@ -354,14 +416,42 @@ public class NewApiHttpClient implements NewApiClient {
 
     @Override
     public ModelCatalog getModelCatalog() {
-        JsonNode root = client.get().uri("/api/pricing").retrieve().bodyToMono(JsonNode.class).block(Duration.ofSeconds(10));
+        WebClient.RequestHeadersSpec<?> request = client.get().uri("/api/pricing");
+        if (hasText(pricingToken)) {
+            request = request.header(HttpHeaders.AUTHORIZATION, "Bearer " + pricingToken);
+        }
+        JsonNode root = request.retrieve().bodyToMono(JsonNode.class).block(Duration.ofSeconds(10));
         JsonNode models = requireData(root);
         if (!models.isArray()) throw new NewApiException("NewAPI pricing response did not include models");
         List<ModelCatalogItem> items = StreamSupport.stream(models.spliterator(), false).map(model -> {
-            Double input = model.hasNonNull("model_price") ? model.path("model_price").asDouble() : null;
-            Double completionRatio = model.hasNonNull("completion_ratio") ? model.path("completion_ratio").asDouble() : null;
-            Double cacheRatio = model.hasNonNull("cache_ratio") ? model.path("cache_ratio").asDouble() : null;
-            boolean available = input != null && completionRatio != null && model.path("quota_type").asInt() == 0;
+            int quotaType = model.path("quota_type").asInt(0);
+            Double inputPrice;
+            Double outputPrice;
+            Double cachePrice = null;
+            boolean available;
+
+            if (quotaType == 1) {
+                // 按量计费模式：使用 model_price
+                Double modelPrice = model.hasNonNull("model_price") ? model.path("model_price").asDouble() : null;
+                Double completionRatio = model.hasNonNull("completion_ratio") ? model.path("completion_ratio").asDouble() : 1.0;
+                available = modelPrice != null;
+                inputPrice = available ? modelPrice : null;
+                outputPrice = available ? modelPrice * completionRatio : null;
+                if (available && model.hasNonNull("cache_ratio")) {
+                    cachePrice = modelPrice * model.path("cache_ratio").asDouble();
+                }
+            } else {
+                // 倍率模式：使用 model_ratio
+                Double modelRatio = model.hasNonNull("model_ratio") ? model.path("model_ratio").asDouble() : null;
+                Double completionRatio = model.hasNonNull("completion_ratio") ? model.path("completion_ratio").asDouble() : 1.0;
+                available = modelRatio != null;
+                inputPrice = available ? modelRatio : null;
+                outputPrice = available ? modelRatio * completionRatio : null;
+                if (available && model.hasNonNull("cache_ratio")) {
+                    cachePrice = modelRatio * model.path("cache_ratio").asDouble();
+                }
+            }
+
             List<String> groups = model.path("enable_groups").isArray()
                     ? StreamSupport.stream(model.path("enable_groups").spliterator(), false)
                     .map(JsonNode::asText)
@@ -375,9 +465,9 @@ public class NewApiHttpClient implements NewApiClient {
                     model.path("model_name").asText(),
                     model.path("vendor_name").asText("Independent"),
                     groups,
-                    available ? input : null,
-                    available ? input * completionRatio : null,
-                    available && cacheRatio != null ? input * cacheRatio : null,
+                    inputPrice,
+                    outputPrice,
+                    cachePrice,
                     available
             );
         }).toList();

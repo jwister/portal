@@ -2,9 +2,9 @@ spring:
   application:
     name: ztoken-portal
   datasource:
-    url: ${PORTAL_DB_URL:jdbc:mysql://localhost:3306/ztoken_portal?useUnicode=true&characterEncoding=utf8&serverTimezone=UTC}
-    username: ${PORTAL_DB_USERNAME:}
-    password: ${PORTAL_DB_PASSWORD:}
+    url: ${PORTAL_DB_URL:jdbc:mysql://192.168.100.153:3306/ztoken_portal?useUnicode=true&characterEncoding=utf8&serverTimezone=UTC}
+    username: ${PORTAL_DB_USERNAME:root}
+    password: ${PORTAL_DB_PASSWORD:3360059}
   jpa:
     hibernate:
       ddl-auto: validate
@@ -12,13 +12,14 @@ spring:
   flyway:
     enabled: true
 server:
-  port: ${PORTAL_PORT:8080}
+  port: ${PORTAL_PORT:8084}
 portal:
-  session-key: ${PORTAL_SESSION_KEY:}
+  session-key: ${PORTAL_SESSION_KEY:AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8=}
   session-ttl: ${PORTAL_SESSION_TTL:7d}
   session-secure-cookie: ${PORTAL_SESSION_SECURE_COOKIE:false}
   new-api:
-    base-url: ${NEWAPI_BASE_URL:http://localhost:3005}
+    base-url: ${NEWAPI_BASE_URL:http://192.168.100.153:3005}
+    pricing-token: ${NEWAPI_PRICING_TOKEN:roLJW8o7pOFHq56jBgqIf8Z/XSMB6w==}
 payment:
   order-expiry-minutes: ${PAYMENT_ORDER_EXPIRY_MINUTES:30}
   quota-per-usd: ${PAYMENT_QUOTA_PER_USD:500000}
@@ -28,5 +29,5 @@ payment:
     client-secret: ${PAYMENT_PAYPAL_CLIENT_SECRET:}
     webhook-id: ${PAYMENT_PAYPAL_WEBHOOK_ID:}
   newapi-credit:
-    access-token: ${PAYMENT_NEWAPI_CREDIT_ACCESS_TOKEN:}
+    access-token: ${PAYMENT_NEWAPI_CREDIT_ACCESS_TOKEN:roLJW8o7pOFHq56jBgqIf8Z/XSMB6w==}
     max-wallet-quota: ${PAYMENT_NEWAPI_CREDIT_MAX_WALLET_QUOTA:2147483647}

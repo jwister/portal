@@ -8,6 +8,8 @@ export interface AuthStatus {
   profile: AuthProfile | null
 }
 
+export interface CaptchaResponse { captchaId: string; image: string; expiresIn: number }
+
 export class AuthApiError extends Error {
   readonly status: number
 
@@ -47,12 +49,21 @@ export async function signIn(username: string, password: string): Promise<void> 
   })
 }
 
-export async function signUp(username: string, email: string, password: string): Promise<void> {
+export async function signUp(username: string, email: string, password: string, verificationCode = ''): Promise<void> {
   await request('/api/auth/sign-up', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ username, email, password }),
+    body: JSON.stringify({ username, email, password, verificationCode }),
   })
+}
+
+export async function getCaptcha(): Promise<CaptchaResponse> {
+  const response = await request('/api/auth/captcha')
+  return await response.json() as CaptchaResponse
+}
+
+export async function sendEmailVerification(email: string, captchaId: string, captchaCode: string): Promise<void> {
+  await request(`/api/auth/verification?email=${encodeURIComponent(email)}&captchaId=${encodeURIComponent(captchaId)}&captchaCode=${encodeURIComponent(captchaCode)}`)
 }
 
 export async function getAuthStatus(): Promise<AuthStatus> {

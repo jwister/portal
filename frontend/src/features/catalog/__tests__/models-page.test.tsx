@@ -27,6 +27,17 @@ describe('ModelsPage', () => {
     expect(screen.queryByText('gpt-5-mini')).not.toBeInTheDocument()
   })
 
+  it('exposes the refreshed catalog hierarchy and card sections', async () => {
+    render(<ModelsPage />)
+
+    expect(await screen.findByText('gpt-5-mini')).toBeVisible()
+    expect(screen.getByTestId('models-hero-copy')).toBeVisible()
+    expect(screen.getByTestId('models-summary')).toBeVisible()
+    expect(within(screen.getByTestId('models-hero-copy')).getByText('模型目录')).toBeVisible()
+    expect(screen.getByTestId('model-card-gpt-5-mini')).toHaveAttribute('data-layout', 'catalog')
+    expect(screen.getByTestId('model-card-gpt-5-mini-pricing')).toBeVisible()
+  })
+
   it('filters models by selected group and keeps search scoped to that group', async () => {
     const user = userEvent.setup()
     render(<ModelsPage />)

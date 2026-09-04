@@ -46,6 +46,7 @@ public class PortalProperties {
 
     public static class NewApi {
         private String baseUrl;
+        private String pricingToken;
 
         public String getBaseUrl() {
             return baseUrl;
@@ -53,6 +54,14 @@ public class PortalProperties {
 
         public void setBaseUrl(String baseUrl) {
             this.baseUrl = baseUrl;
+        }
+
+        public String getPricingToken() {
+            return pricingToken;
+        }
+
+        public void setPricingToken(String pricingToken) {
+            this.pricingToken = pricingToken;
         }
     }
 }

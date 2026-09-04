@@ -18,7 +18,9 @@ public interface NewApiClient {
 
     NewApiLogin login(String username, String password);
 
-    void register(String username, String email, String password);
+    void register(String username, String email, String password, String verificationCode);
+
+    void sendEmailVerification(String email);
 
     NewApiIdentity getSelf(PortalPrincipal principal);
 

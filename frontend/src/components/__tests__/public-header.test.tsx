@@ -26,15 +26,18 @@ describe('PublicHeader', () => {
     expect(screen.queryByRole('link', { name: '控制台' })).not.toBeInTheDocument()
   })
 
-  it('shows the account cluster and keeps Console out of the navigation when authenticated', async () => {
+  it('keeps account details hidden until the avatar is hovered', async () => {
+    const user = userEvent.setup()
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response(JSON.stringify({ authenticated: true, profile: { id: 7, username: 'alice' } }), { status: 200 })))
 
     render(<PublicHeader />)
 
     expect(await screen.findByRole('button', { name: '控制台' })).toBeVisible()
+    const avatar = screen.getByLabelText('alice 的用户头像')
+    expect(avatar).toBeVisible()
+    await user.hover(avatar)
     expect(screen.getByText('alice')).toBeVisible()
     expect(screen.getByRole('button', { name: '退出登录' })).toBeVisible()
-    expect(screen.getByLabelText('alice 的用户头像')).toBeVisible()
     expect(screen.queryByRole('link', { name: '控制台' })).not.toBeInTheDocument()
     expect(screen.queryByText('创建账户')).not.toBeInTheDocument()
   })
@@ -49,7 +52,9 @@ describe('PublicHeader', () => {
     vi.stubGlobal('location', { ...window.location, reload })
 
     render(<PublicHeader />)
-    await user.click(await screen.findByRole('button', { name: '退出登录' }))
+    const avatar = await screen.findByLabelText('alice 的用户头像')
+    await user.hover(avatar)
+    await user.click(screen.getByRole('button', { name: '退出登录' }))
 
     await waitFor(() => expect(reload).toHaveBeenCalledTimes(1))
     expect(fetchMock).toHaveBeenLastCalledWith('/api/auth/sign-out', expect.objectContaining({ method: 'POST', credentials: 'include' }))
