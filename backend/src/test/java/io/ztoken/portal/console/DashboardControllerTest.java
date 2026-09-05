@@ -75,6 +75,38 @@ class DashboardControllerTest {
     }
 
     @Test
+    void analyticsUsesDefaultThirtyDayRangeAndRejectsUnsupportedRange() throws Exception {
+        NEW_API.enqueue(new MockResponse()
+                .setHeader(HttpHeaders.CONTENT_TYPE, "application/json")
+                .setBody("{\"success\":true,\"data\":[]}"));
+        String sessionId = sessions.create(new NewApiIdentity(7L, "alice"), "access-token").getId();
+        HttpHeaders headers = new HttpHeaders();
+        headers.add(HttpHeaders.COOKIE, "PORTAL_SESSION=" + sessionId);
+
+        ResponseEntity<DashboardAnalytics> valid = http.exchange("/api/console/dashboard/analytics", HttpMethod.GET,
+                new HttpEntity<>(headers), DashboardAnalytics.class);
+        ResponseEntity<String> invalid = http.exchange("/api/console/dashboard/analytics?range=90d", HttpMethod.GET,
+                new HttpEntity<>(headers), String.class);
+
+        RecordedRequest upstream = NEW_API.takeRequest();
+        assertThat(valid.getStatusCode()).isEqualTo(HttpStatus.OK);
+        assertThat(valid.getBody()).isEqualTo(new DashboardAnalytics(java.util.List.of(), java.util.List.of(), java.util.List.of()));
+        assertThat(invalid.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
+        assertThat(upstream.getPath()).startsWith("/api/data/self?")
+                .contains("start_timestamp=")
+                .contains("end_timestamp=");
+        assertThat(upstream.getHeader(HttpHeaders.AUTHORIZATION)).isEqualTo("Bearer access-token");
+        assertThat(upstream.getHeader("New-Api-User")).isEqualTo("7");
+    }
+
+    @Test
+    void analyticsRequiresAnAuthenticatedPortalSession() {
+        ResponseEntity<String> response = http.getForEntity("/api/console/dashboard/analytics", String.class);
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.UNAUTHORIZED);
+    }
+
+    @Test
     void tokenListReturnsOnlyTheCurrentUsersTokenMetadata() throws Exception {
         NEW_API.enqueue(new MockResponse()
                 .setHeader(HttpHeaders.CONTENT_TYPE, "application/json")

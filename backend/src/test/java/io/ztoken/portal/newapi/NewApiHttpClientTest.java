@@ -2,7 +2,10 @@ package io.ztoken.portal.newapi;
 
 import io.ztoken.portal.session.PortalPrincipal;
 import io.ztoken.portal.session.NewApiIdentity;
+import io.ztoken.portal.config.PortalProperties;
 import io.ztoken.portal.console.DashboardSummary;
+import io.ztoken.portal.console.DashboardAnalytics;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import io.ztoken.portal.console.TokenKey;
 import io.ztoken.portal.console.TokenList;
 import io.ztoken.portal.console.TokenSummary;
@@ -12,6 +15,8 @@ import okhttp3.mockwebserver.MockWebServer;
 import okhttp3.mockwebserver.RecordedRequest;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.junit.jupiter.api.parallel.Execution;
 import org.junit.jupiter.api.parallel.ExecutionMode;
 import org.junit.jupiter.api.parallel.ResourceLock;
@@ -22,6 +27,10 @@ import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
 
 import java.util.List;
+import java.time.Instant;
+import java.time.Clock;
+import java.time.ZoneId;
+import java.time.temporal.ChronoUnit;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.catchThrowable;
@@ -91,6 +100,192 @@ class NewApiHttpClientTest {
                 .contains("end_timestamp=");
         assertThat(dataRequest.getHeader(HttpHeaders.AUTHORIZATION)).isEqualTo("Bearer access-token");
         assertThat(dataRequest.getHeader("New-Api-User")).isEqualTo("7");
+    }
+
+    @Test
+    void analyticsAggregatesDailyUsageTopModelsAndSevenDayTokenSeries() throws Exception {
+        long today = Instant.now().truncatedTo(ChronoUnit.DAYS).getEpochSecond();
+        NEW_API.enqueue(new MockResponse()
+                .setHeader(HttpHeaders.CONTENT_TYPE, "application/json")
+                .setBody("""
+                        {"success":true,"data":[
+                          {"created_at":%d,"model_name":"gpt-4o","quota":40,"count":2,"token_used":10},
+                          {"created_at":%d,"model_name":"gpt-4o","quota":20,"count":1,"token_used":5},
+                          {"created_at":%d,"model_name":"claude","quota":30,"count":3,"token_used":8}
+                        ]}
+                        """.formatted(today - 86_400, today, today)));
+
+        DashboardAnalytics result = client.getDashboardAnalytics(new PortalPrincipal(7L, "alice", "access-token"), 7);
+
+        RecordedRequest request = NEW_API.takeRequest();
+        assertThat(result.dailyUsage()).containsExactly(
+                new DashboardAnalytics.DailyUsage(Instant.ofEpochSecond(today - 86_400).toString().substring(0, 10), 40L, 2L),
+                new DashboardAnalytics.DailyUsage(Instant.ofEpochSecond(today).toString().substring(0, 10), 50L, 4L));
+        assertThat(result.topModels()).containsExactly(
+                new DashboardAnalytics.ModelUsage("gpt-4o", 60L),
+                new DashboardAnalytics.ModelUsage("claude", 30L));
+        assertThat(result.tokenUsage()).hasSize(7)
+                .contains(new DashboardAnalytics.TokenUsage(Instant.ofEpochSecond(today - 86_400).toString().substring(0, 10), 10L))
+                .contains(new DashboardAnalytics.TokenUsage(Instant.ofEpochSecond(today).toString().substring(0, 10), 13L));
+        assertThat(request.getPath()).startsWith("/api/data/self?");
+        assertThat(request.getHeader(HttpHeaders.AUTHORIZATION)).isEqualTo("Bearer access-token");
+        assertThat(request.getHeader("New-Api-User")).isEqualTo("7");
+    }
+
+    @Test
+    void analyticsKeepsEmptyUpstreamStatisticsEmptyInsteadOfCreatingMockData() throws Exception {
+        NEW_API.enqueue(new MockResponse()
+                .setHeader(HttpHeaders.CONTENT_TYPE, "application/json")
+                .setBody("{\"success\":true,\"data\":[]}"));
+
+        DashboardAnalytics result = client.getDashboardAnalytics(new PortalPrincipal(7L, "alice", "access-token"), 30);
+
+        assertThat(result).isEqualTo(new DashboardAnalytics(List.of(), List.of(), List.of()));
+        NEW_API.takeRequest();
+    }
+
+    @Test
+    void analyticsIgnoresRowsWithoutTimestampAndMapsMissingModelNameSafely() throws Exception {
+        long today = Instant.now().truncatedTo(ChronoUnit.DAYS).getEpochSecond();
+        NEW_API.enqueue(new MockResponse()
+                .setHeader(HttpHeaders.CONTENT_TYPE, "application/json")
+                .setBody("""
+                        {"success":true,"data":[
+                          {"model_name":"ignored","quota":99,"count":9,"token_used":9},
+                          {"created_at":%d,"quota":5,"count":1,"token_used":2}
+                        ]}
+                        """.formatted(today)));
+
+        DashboardAnalytics result = client.getDashboardAnalytics(new PortalPrincipal(7L, "alice", "access-token"), 7);
+
+        assertThat(result.dailyUsage()).containsExactly(
+                new DashboardAnalytics.DailyUsage(Instant.ofEpochSecond(today).toString().substring(0, 10), 5L, 1L));
+        assertThat(result.topModels()).containsExactly(new DashboardAnalytics.ModelUsage("未知模型", 5L));
+        assertThat(result.tokenUsage()).contains(new DashboardAnalytics.TokenUsage(
+                Instant.ofEpochSecond(today).toString().substring(0, 10), 2L));
+        NEW_API.takeRequest();
+    }
+
+    @Test
+    void analyticsCombinesModelsAfterTheTopFiveIntoOther() throws Exception {
+        long today = Instant.now().truncatedTo(ChronoUnit.DAYS).getEpochSecond();
+        NEW_API.enqueue(new MockResponse()
+                .setHeader(HttpHeaders.CONTENT_TYPE, "application/json")
+                .setBody("""
+                        {"success":true,"data":[
+                          {"created_at":%d,"model_name":"model-a","quota":60,"count":0,"token_used":0},
+                          {"created_at":%d,"model_name":"model-b","quota":50,"count":0,"token_used":0},
+                          {"created_at":%d,"model_name":"model-c","quota":40,"count":0,"token_used":0},
+                          {"created_at":%d,"model_name":"model-d","quota":30,"count":0,"token_used":0},
+                          {"created_at":%d,"model_name":"model-e","quota":20,"count":0,"token_used":0},
+                          {"created_at":%d,"model_name":"model-f","quota":10,"count":0,"token_used":0}
+                        ]}
+                        """.formatted(today, today, today, today, today, today)));
+
+        DashboardAnalytics result = client.getDashboardAnalytics(new PortalPrincipal(7L, "alice", "access-token"), 30);
+
+        assertThat(result.topModels()).containsExactly(
+                new DashboardAnalytics.ModelUsage("model-a", 60L),
+                new DashboardAnalytics.ModelUsage("model-b", 50L),
+                new DashboardAnalytics.ModelUsage("model-c", 40L),
+                new DashboardAnalytics.ModelUsage("model-d", 30L),
+                new DashboardAnalytics.ModelUsage("model-e", 20L),
+                new DashboardAnalytics.ModelUsage("__other__", 10L));
+        NEW_API.takeRequest();
+    }
+
+    @Test
+    void analyticsRejectsUpstreamBusinessFailureWithoutLeakingItsMessage() throws Exception {
+        NEW_API.enqueue(new MockResponse()
+                .setHeader(HttpHeaders.CONTENT_TYPE, "application/json")
+                .setBody("{\"success\":false,\"message\":\"internal statistics detail\"}"));
+
+        Throwable thrown = catchThrowable(() -> client.getDashboardAnalytics(
+                new PortalPrincipal(7L, "alice", "access-token"), 7));
+
+        assertThat(thrown).isInstanceOf(NewApiException.class);
+        assertThat(thrown.getMessage()).doesNotContain("internal statistics detail");
+        NEW_API.takeRequest();
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"quota", "count", "token_used"})
+    void analyticsReturnsEmptyWhenARequiredMetricIsMissing(String missingMetric) throws Exception {
+        long timestamp = Instant.parse("2024-03-09T16:30:00Z").getEpochSecond();
+        String metrics = switch (missingMetric) {
+            case "quota" -> "\"count\":2,\"token_used\":10";
+            case "count" -> "\"quota\":40,\"token_used\":10";
+            default -> "\"quota\":40,\"count\":2";
+        };
+        NEW_API.enqueue(new MockResponse()
+                .setHeader(HttpHeaders.CONTENT_TYPE, "application/json")
+                .setBody("{\"success\":true,\"data\":[{\"created_at\":" + timestamp
+                        + ",\"model_name\":\"gpt-4o\"," + metrics + "}]}"));
+
+        DashboardAnalytics result = clientAt(Instant.parse("2024-03-09T16:30:00Z"))
+                .getDashboardAnalytics(new PortalPrincipal(7L, "alice", "access-token"), 7);
+
+        assertThat(result).isEqualTo(new DashboardAnalytics(List.of(), List.of(), List.of()));
+        NEW_API.takeRequest();
+    }
+
+    @Test
+    void analyticsReturnsEmptyWhenValidAndIncompleteRowsAreMixed() throws Exception {
+        long timestamp = Instant.parse("2024-03-09T16:30:00Z").getEpochSecond();
+        NEW_API.enqueue(new MockResponse()
+                .setHeader(HttpHeaders.CONTENT_TYPE, "application/json")
+                .setBody("""
+                        {"success":true,"data":[
+                          {"created_at":%d,"model_name":"gpt-4o","quota":40,"count":2,"token_used":10},
+                          {"created_at":%d,"model_name":"claude","quota":30,"count":1}
+                        ]}
+                        """.formatted(timestamp, timestamp)));
+
+        DashboardAnalytics result = clientAt(Instant.parse("2024-03-09T16:30:00Z"))
+                .getDashboardAnalytics(new PortalPrincipal(7L, "alice", "access-token"), 7);
+
+        assertThat(result).isEqualTo(new DashboardAnalytics(List.of(), List.of(), List.of()));
+        NEW_API.takeRequest();
+    }
+
+    @Test
+    void analyticsUsesShanghaiBusinessDateForDailyGroupingAndSevenDayFill() throws Exception {
+        Instant earlyShanghai = Instant.parse("2024-03-09T16:30:00Z");
+        NEW_API.enqueue(new MockResponse()
+                .setHeader(HttpHeaders.CONTENT_TYPE, "application/json")
+                .setBody("""
+                        {"success":true,"data":[
+                          {"created_at":%d,"model_name":"gpt-4o","quota":40,"count":2,"token_used":10}
+                        ]}
+                        """.formatted(earlyShanghai.getEpochSecond())));
+
+        DashboardAnalytics result = clientAt(earlyShanghai)
+                .getDashboardAnalytics(new PortalPrincipal(7L, "alice", "access-token"), 7);
+
+        assertThat(result.dailyUsage()).containsExactly(new DashboardAnalytics.DailyUsage("2024-03-10", 40L, 2L));
+        assertThat(result.tokenUsage()).containsExactly(
+                new DashboardAnalytics.TokenUsage("2024-03-04", 0L),
+                new DashboardAnalytics.TokenUsage("2024-03-05", 0L),
+                new DashboardAnalytics.TokenUsage("2024-03-06", 0L),
+                new DashboardAnalytics.TokenUsage("2024-03-07", 0L),
+                new DashboardAnalytics.TokenUsage("2024-03-08", 0L),
+                new DashboardAnalytics.TokenUsage("2024-03-09", 0L),
+                new DashboardAnalytics.TokenUsage("2024-03-10", 10L));
+        NEW_API.takeRequest();
+    }
+
+    @Test
+    void analyticsQueriesWholeShanghaiCalendarDaysInsteadOfRollingHours() throws Exception {
+        Instant earlyShanghai = Instant.parse("2024-03-09T16:30:00Z");
+        Instant expectedStart = Instant.parse("2024-03-03T16:00:00Z");
+        NEW_API.enqueue(new MockResponse()
+                .setHeader(HttpHeaders.CONTENT_TYPE, "application/json")
+                .setBody("{\"success\":true,\"data\":[]}"));
+
+        clientAt(earlyShanghai).getDashboardAnalytics(new PortalPrincipal(7L, "alice", "access-token"), 7);
+
+        RecordedRequest request = NEW_API.takeRequest();
+        assertThat(request.getPath()).contains("start_timestamp=" + expectedStart.getEpochSecond());
     }
 
     @Test
@@ -406,5 +601,11 @@ class NewApiHttpClientTest {
 
         assertThat(thrown).isInstanceOf(NewApiException.class);
         assertThat(thrown.getMessage()).doesNotContain("最大令牌");
+    }
+
+    private NewApiHttpClient clientAt(Instant instant) {
+        PortalProperties properties = new PortalProperties();
+        properties.getNewApi().setBaseUrl(NEW_API.url("/").toString());
+        return new NewApiHttpClient(properties, new ObjectMapper(), Clock.fixed(instant, ZoneId.of("Asia/Shanghai")));
     }
 }

@@ -5,6 +5,13 @@ export interface DashboardSummary {
   tokenUsage: number | null
 }
 
+/** 后端已按当前账户权限聚合的图表数据，浏览器不接触 New API 的访问凭据。 */
+export interface DashboardAnalytics {
+  dailyUsage: Array<{ date: string; quota: number; requestCount: number }>
+  topModels: Array<{ modelName: string; quota: number }>
+  tokenUsage: Array<{ date: string; tokenUsage: number }>
+}
+
 export interface TokenSummary {
   id: number
   name: string
@@ -79,6 +86,11 @@ async function requestJson<T>(path: string, init?: RequestInit): Promise<T> {
 
 export function getDashboard(): Promise<DashboardSummary> {
   return requestJson('/api/console/dashboard')
+}
+
+/** 获取指定时间范围的个人用量分析；范围被限制为服务端支持的两个安全选项。 */
+export function getDashboardAnalytics(range: '7d' | '30d'): Promise<DashboardAnalytics> {
+  return requestJson(`/api/console/dashboard/analytics${queryString({ range })}`)
 }
 
 export function getTokens(page = 1, pageSize = 50): Promise<TokenPage> {

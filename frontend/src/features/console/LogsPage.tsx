@@ -1,5 +1,5 @@
 import { Button, Empty, Input, Pagination, Select, Space, Table } from '@douyinfe/semi-ui'
-import { IconRefresh } from '@douyinfe/semi-icons'
+import { IconCalendar, IconCreditCard, IconFilter, IconHistogram, IconPulse, IconRefresh, IconSearch } from '@douyinfe/semi-icons'
 import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
@@ -93,23 +93,23 @@ export function LogsPage() {
   return (
     <main>
       <ConsolePageHeader title={t('logs.title')} description={t('logs.description')} actions={<Button icon={<IconRefresh />} onClick={() => setQuery({ ...query })}>{t('dashboard.refresh')}</Button>} />
-      <section className="console-filter-bar" aria-label={t('logs.title')}>
-        <label>{t('logs.model')}<Input value={filters.modelName} onChange={(value) => setFilters((current) => ({ ...current, modelName: value }))} /></label>
-        <label>{t('logs.token')}<Input value={filters.tokenName} onChange={(value) => setFilters((current) => ({ ...current, tokenName: value }))} /></label>
-        <label>{t('logs.type')}<Select value={filters.type || undefined} onChange={(value) => setFilters((current) => ({ ...current, type: String(value ?? '') }))} optionList={[
+      <section className="console-filter-bar console-table-toolbar" aria-label={t('logs.filters')}>
+        <label>{t('logs.model')}<Input prefix={<IconSearch />} value={filters.modelName} onChange={(value) => setFilters((current) => ({ ...current, modelName: value }))} /></label>
+        <label>{t('logs.token')}<Input prefix={<IconSearch />} value={filters.tokenName} onChange={(value) => setFilters((current) => ({ ...current, tokenName: value }))} /></label>
+        <label>{t('logs.type')}<Select prefix={<IconFilter />} value={filters.type || undefined} onChange={(value) => setFilters((current) => ({ ...current, type: String(value ?? '') }))} optionList={[
           { label: t('logs.allTypes'), value: '' },
           { label: t('logs.consume'), value: '2' },
           { label: t('logs.errorType'), value: '5' },
         ]} /></label>
-        <label>{t('logs.start')}<Input type="datetime-local" value={filters.start} onChange={(value) => setFilters((current) => ({ ...current, start: value }))} /></label>
-        <label>{t('logs.end')}<Input type="datetime-local" value={filters.end} onChange={(value) => setFilters((current) => ({ ...current, end: value }))} /></label>
+        <label>{t('logs.start')}<Input prefix={<IconCalendar />} type="datetime-local" value={filters.start} onChange={(value) => setFilters((current) => ({ ...current, start: value }))} /></label>
+        <label>{t('logs.end')}<Input prefix={<IconCalendar />} type="datetime-local" value={filters.end} onChange={(value) => setFilters((current) => ({ ...current, end: value }))} /></label>
         <Space><Button theme="solid" type="primary" onClick={applyFilters}>{t('logs.apply')}</Button><Button onClick={clearFilters}>{t('logs.clear')}</Button></Space>
       </section>
-      <Space className="metric-grid" spacing="tight" wrap>
-        <MetricCard label={t('logs.quota')} value={stats.quota.toLocaleString()} />
-        <MetricCard label={t('logs.rpm')} value={stats.rpm.toLocaleString()} />
-        <MetricCard label={t('logs.tpm')} value={stats.tpm.toLocaleString()} />
-      </Space>
+      <section className="console-summary-grid" aria-label={t('logs.title')}>
+        <MetricCard label={t('logs.quota')} value={stats.quota.toLocaleString()} icon={<IconCreditCard />} tone="blue" />
+        <MetricCard label={t('logs.rpm')} value={stats.rpm.toLocaleString()} icon={<IconPulse />} tone="mint" />
+        <MetricCard label={t('logs.tpm')} value={stats.tpm.toLocaleString()} icon={<IconHistogram />} tone="amber" />
+      </section>
       {logs.items.length === 0
         ? <Empty description={t('logs.empty')} />
         : <div className="console-table-wrap"><Table columns={columns} dataSource={logs.items} rowKey="id" pagination={false} /></div>}

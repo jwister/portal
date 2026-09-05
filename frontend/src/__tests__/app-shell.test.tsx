@@ -40,6 +40,11 @@ describe('portal application shell', () => {
         usedQuota: 100,
         requestCount: 12,
         tokenUsage: null,
+      }), { status: 200 }))
+      .mockResolvedValueOnce(new Response(JSON.stringify({
+        dailyUsage: [],
+        topModels: [],
+        tokenUsage: [],
       }), { status: 200 })))
 
     render(<App />)

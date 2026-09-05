@@ -1,6 +1,7 @@
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, expect, it, vi } from 'vitest'
+import { IconCoinMoney } from '@douyinfe/semi-icons'
 
 import '../../i18n'
 import { ConsolePageHeader } from '../ConsolePageHeader'
@@ -28,7 +29,7 @@ describe('console shared components', () => {
     render(
       <>
         <ConsolePageHeader title="Console overview" description="Account activity at a glance." />
-        <MetricCard label="Available quota" value="1,200" hint="Updated now" />
+        <MetricCard icon={<IconCoinMoney />} label="Available quota" value="1,200" hint="Updated now" />
       </>,
     )
 
@@ -37,5 +38,6 @@ describe('console shared components', () => {
     expect(screen.getByText('Available quota')).toBeVisible()
     expect(screen.getByText('1,200')).toBeVisible()
     expect(screen.getByText('Updated now')).toBeVisible()
+    expect(screen.getByTestId('metric-card-icon')).toBeVisible()
   })
 })

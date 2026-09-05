@@ -23,6 +23,7 @@ describe('ProfilePage', () => {
 
     render(<ProfilePage />)
 
+    expect(await screen.findByText('Account identity')).toBeVisible()
     expect(await screen.findByDisplayValue('alice')).toBeDisabled()
     expect(screen.getByDisplayValue('alice@example.com')).toBeDisabled()
     await user.clear(screen.getByLabelText('Display name'))

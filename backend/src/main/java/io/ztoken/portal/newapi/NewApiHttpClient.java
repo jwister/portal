@@ -5,6 +5,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.ztoken.portal.config.PortalProperties;
 import io.ztoken.portal.console.DashboardSummary;
+import io.ztoken.portal.console.DashboardAnalytics;
 import io.ztoken.portal.console.TokenKey;
 import io.ztoken.portal.console.TokenList;
 import io.ztoken.portal.console.TokenSummary;
@@ -21,6 +22,7 @@ import io.ztoken.portal.session.NewApiIdentity;
 import io.ztoken.portal.session.PortalPrincipal;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 import org.springframework.web.reactive.function.client.WebClient;
 import org.springframework.web.reactive.function.client.WebClientResponseException;
@@ -30,6 +32,12 @@ import org.slf4j.LoggerFactory;
 
 import java.net.URI;
 import java.time.Duration;
+import java.time.Instant;
+import java.time.LocalDate;
+import java.time.Clock;
+import java.time.ZoneId;
+import java.util.HashMap;
+import java.util.TreeMap;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.List;
@@ -40,15 +48,27 @@ import java.util.stream.StreamSupport;
 public class NewApiHttpClient implements NewApiClient {
 
     private static final Logger log = LoggerFactory.getLogger(NewApiHttpClient.class);
+    /** 控制台按中国业务日展示统计，不能依赖服务器的默认时区。 */
+    private static final ZoneId DASHBOARD_ZONE = ZoneId.of("Asia/Shanghai");
 
     private final WebClient client;
     private final ObjectMapper objectMapper;
     private final String pricingToken;
+    private final Clock clock;
 
+    @Autowired
     public NewApiHttpClient(PortalProperties properties, ObjectMapper objectMapper) {
+        this(properties, objectMapper, Clock.system(DASHBOARD_ZONE));
+    }
+
+    /**
+     * 时钟作为协作依赖注入，既让统计边界固定使用上海业务时区，也让跨日聚合可被稳定测试。
+     */
+    NewApiHttpClient(PortalProperties properties, ObjectMapper objectMapper, Clock clock) {
         this.client = WebClient.builder().baseUrl(properties.getNewApi().getBaseUrl()).build();
         this.objectMapper = objectMapper;
         this.pricingToken = properties.getNewApi().getPricingToken();
+        this.clock = clock;
     }
 
     @Override
@@ -137,10 +157,71 @@ public class NewApiHttpClient implements NewApiClient {
         );
     }
 
+    /**
+     * 读取当前登录用户的 New API 用量明细并在服务端聚合。请求明确使用会话中的 Bearer Token 与用户编号，
+     * 因此浏览器只能获取自己的图表数据，且不会接触上游访问令牌。
+     */
+    @Override
+    public DashboardAnalytics getDashboardAnalytics(PortalPrincipal principal, int rangeDays) {
+        if (rangeDays != 7 && rangeDays != 30) {
+            throw new IllegalArgumentException("不支持的统计时间范围");
+        }
+        long endTimestamp = currentTimestamp();
+        // 图表按北京时间自然日展示，起点必须是首日零点，不能使用滚动 N×24 小时窗口而混入第 N+1 天。
+        LocalDate endDate = Instant.ofEpochSecond(endTimestamp).atZone(DASHBOARD_ZONE).toLocalDate();
+        long startTimestamp = endDate.minusDays(rangeDays - 1L).atStartOfDay(DASHBOARD_ZONE).toEpochSecond();
+        JsonNode rows = getData("/api/data/self?start_timestamp=" + startTimestamp
+                + "&end_timestamp=" + endTimestamp, principal);
+        Map<LocalDate, DashboardAnalytics.DailyAggregate> dailyTotals = new TreeMap<>();
+        Map<String, Long> modelQuotas = new HashMap<>();
+
+        if (!rows.isArray()) {
+            throw new NewApiException("NewAPI statistics response did not include an array");
+        }
+        for (JsonNode row : rows) {
+            if (!hasCompleteAnalyticsMetrics(row)) {
+                // 三项指标任一缺失时无法保证图表口径正确，整批数据降级为空状态而不是把缺失值补成零。
+                log.warn("NewAPI 用量统计存在缺少 quota、count 或 token_used 的记录，已返回空统计数据");
+                return emptyAnalytics();
+            }
+            long createdAt = row.path("created_at").asLong(0L);
+            if (createdAt <= 0L) {
+                // 无时间戳的明细无法归属到某一天，直接忽略，避免将缺失字段误统计为 1970 年的数据。
+                log.warn("NewAPI 用量统计存在缺少 created_at 的记录，已忽略");
+                continue;
+            }
+            LocalDate date = Instant.ofEpochSecond(createdAt).atZone(DASHBOARD_ZONE).toLocalDate();
+            long quota = row.path("quota").asLong(0L);
+            long requestCount = row.path("count").asLong(0L);
+            long tokenUsage = row.path("token_used").asLong(0L);
+            String modelName = row.path("model_name").asText("").trim();
+            if (modelName.isEmpty()) {
+                // 上游偶发缺失模型名时仍保留真实额度，并以稳定的占位名称合并展示。
+                modelName = "未知模型";
+            }
+            dailyTotals.computeIfAbsent(date, ignored -> new DashboardAnalytics.DailyAggregate())
+                    .add(quota, requestCount, tokenUsage);
+            modelQuotas.merge(modelName, quota, Long::sum);
+        }
+        return DashboardAnalytics.from(dailyTotals, modelQuotas, endDate);
+    }
+
     private static final long MAX_DATA_RANGE_SECONDS = 2_592_000L;
 
     private long currentTimestamp() {
-        return System.currentTimeMillis() / 1_000L;
+        return clock.instant().getEpochSecond();
+    }
+
+    /**
+     * New API 的三项核心指标必须同时存在；只要缺少任一项，累计值都会误导用户，因此不返回部分结果。
+     */
+    private boolean hasCompleteAnalyticsMetrics(JsonNode row) {
+        return row.hasNonNull("quota") && row.hasNonNull("count") && row.hasNonNull("token_used");
+    }
+
+    /** 为前端空状态提供统一、无伪造数据的统计响应。 */
+    private DashboardAnalytics emptyAnalytics() {
+        return new DashboardAnalytics(List.of(), List.of(), List.of());
     }
 
     private JsonNode getData(String uri, PortalPrincipal principal) {

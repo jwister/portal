@@ -33,6 +33,7 @@ describe('LogsPage', () => {
 
     expect(await screen.findByText('gpt-4o')).toBeVisible()
     expect(screen.getByText('1,500')).toBeVisible()
+    expect(screen.getByRole('region', { name: 'Log filters' })).toBeVisible()
     expect(screen.queryByText('private-channel')).not.toBeInTheDocument()
 
     await user.type(screen.getByLabelText('Model name'), 'gpt-4.1')

@@ -1,10 +1,11 @@
-import { Button, Empty, Input, Modal, Pagination, Space, Table, Tag, Toast, Typography } from '@douyinfe/semi-ui'
-import { IconEdit, IconEyeOpened, IconPlus, IconRefresh, IconDelete, IconCopy } from '@douyinfe/semi-icons'
+import { Button, Empty, Input, Modal, Pagination, Space, Table, Tag, Toast, Tooltip, Typography } from '@douyinfe/semi-ui'
+import { IconEdit, IconEyeOpened, IconPlus, IconRefresh, IconDelete, IconCopy, IconCreditCard, IconKey, IconPause, IconPlay, IconTickCircle } from '@douyinfe/semi-icons'
 import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import '../../i18n'
 import { ConsolePageHeader } from '../../components/ConsolePageHeader'
+import { MetricCard } from '../../components/MetricCard'
 import { RemoteState } from '../../components/RemoteState'
 import {
   createToken,
@@ -118,6 +119,12 @@ export function TokensPage() {
   if (failed) return <RemoteState kind="error" onRetry={refresh} />
   if (!tokens) return <RemoteState kind="loading" />
 
+  // 仅统计当前页已加载的令牌，避免把分页外未读取的数据误判为活跃或有限额令牌。
+  const activeTokenCount = tokens.items.filter((token) => token.enabled).length
+  const limitedQuota = tokens.items
+    .filter((token) => !token.unlimited)
+    .reduce((total, token) => total + token.remainingQuota, 0)
+
   const columns = [
     { title: t('tokens.name'), dataIndex: 'name' },
     { title: t('tokens.key'), dataIndex: 'maskedKey', render: (value: string) => <Typography.Text code>{value}</Typography.Text> },
@@ -132,10 +139,10 @@ export function TokensPage() {
       title: t('tokens.actions'),
       render: (_: unknown, token: TokenSummary) => (
         <Space spacing="tight">
-          <Button theme="borderless" icon={<IconEyeOpened />} aria-label={t('tokens.reveal')} onClick={() => reveal(token)} />
-          <Button theme="borderless" icon={<IconEdit />} aria-label={t('tokens.edit')} onClick={() => openEditor({ mode: 'edit', token })} />
-          <Button theme="borderless" onClick={() => changeStatus(token)}>{token.enabled ? t('tokens.disable') : t('tokens.enable')}</Button>
-          <Button theme="borderless" type="danger" icon={<IconDelete />} aria-label={t('tokens.delete')} onClick={() => setPendingDelete(token)} />
+          <Tooltip content={t('tokens.reveal')}><Button theme="borderless" icon={<IconEyeOpened />} aria-label={t('tokens.reveal')} onClick={() => reveal(token)} /></Tooltip>
+          <Tooltip content={t('tokens.edit')}><Button theme="borderless" icon={<IconEdit />} aria-label={t('tokens.edit')} onClick={() => openEditor({ mode: 'edit', token })} /></Tooltip>
+          <Tooltip content={token.enabled ? t('tokens.disable') : t('tokens.enable')}><Button theme="borderless" icon={token.enabled ? <IconPause /> : <IconPlay />} aria-label={token.enabled ? t('tokens.disable') : t('tokens.enable')} onClick={() => changeStatus(token)} /></Tooltip>
+          <Tooltip content={t('tokens.delete')}><Button theme="borderless" type="danger" icon={<IconDelete />} aria-label={t('tokens.delete')} onClick={() => setPendingDelete(token)} /></Tooltip>
         </Space>
       ),
     },
@@ -147,6 +154,11 @@ export function TokensPage() {
         title={t('tokens.title')}
         actions={<Space><Button icon={<IconRefresh />} onClick={refresh}>{t('dashboard.refresh')}</Button><Button theme="solid" type="primary" icon={<IconPlus />} onClick={() => openEditor({ mode: 'create' })}>{t('tokens.create')}</Button></Space>}
       />
+      <section className="console-summary-grid" aria-label={t('tokens.title')}>
+        <MetricCard label={t('tokens.total')} value={tokens.total} icon={<IconKey />} tone="blue" />
+        <MetricCard label={t('tokens.activeCount')} value={activeTokenCount} icon={<IconTickCircle />} tone="mint" />
+        <MetricCard label={t('tokens.limitedQuota')} value={limitedQuota.toLocaleString()} icon={<IconCreditCard />} tone="amber" />
+      </section>
       {tokens.items.length === 0
         ? <Empty description={t('tokens.empty')} />
         : <div className="console-table-wrap"><Table columns={columns} dataSource={tokens.items} rowKey="id" pagination={false} /> </div>}

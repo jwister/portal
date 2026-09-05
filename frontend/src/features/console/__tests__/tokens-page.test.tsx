@@ -25,10 +25,28 @@ describe('TokensPage', () => {
     render(<TokensPage />)
 
     expect(await screen.findByText('server')).toBeVisible()
-    expect(screen.getByText('500')).toBeVisible()
+    expect(screen.getAllByText('500').some((element) => element.tagName === 'TD')).toBe(true)
     expect(screen.getByText('Active')).toBeVisible()
     expect(screen.getByText('sk-abcd********wxyz')).toBeVisible()
     expect(screen.queryByText('sk-full-secret')).not.toBeInTheDocument()
+  })
+
+  it('shows a compact token summary above the management table', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response(JSON.stringify({
+      page: 1,
+      pageSize: 50,
+      total: 7,
+      items: [
+        { id: 3, name: 'server', enabled: true, remainingQuota: 500, usedQuota: 20, unlimited: false, expiredTime: -1, maskedKey: 'sk-abcd********wxyz' },
+        { id: 4, name: 'archive', enabled: false, remainingQuota: 0, usedQuota: 30, unlimited: true, expiredTime: -1, maskedKey: 'sk-efgh********ijkl' },
+      ],
+    }), { status: 200 })))
+
+    render(<TokensPage />)
+
+    expect(await screen.findByText('Active tokens (this page)')).toBeVisible()
+    expect(screen.getByText('Limited quota remaining (this page)')).toBeVisible()
+    expect(screen.getByText('Total tokens').closest('.metric-card')).toHaveTextContent('7')
   })
 
   it('creates a token through the Portal BFF and refreshes the list', async () => {
