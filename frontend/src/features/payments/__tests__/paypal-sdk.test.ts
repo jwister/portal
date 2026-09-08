@@ -43,6 +43,14 @@ describe('paypal-sdk', () => {
     expect(url).not.toContain('client-secret')
   })
 
+  it('uses the same supported SDK endpoint for live mode', () => {
+    const url = buildPayPalSdkUrl('live-client', 'live')
+
+    expect(url).toContain('https://www.paypal.com/sdk/js?')
+    expect(url).toContain('client-id=live-client')
+    expect(url).not.toContain('sdkBaseUrl')
+  })
+
   it('loads the PayPal script once and resolves with the loaded namespace', async () => {
     let script: HTMLScriptElement | null = null
     const observer = new MutationObserver(() => {

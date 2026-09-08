@@ -22,13 +22,12 @@ const PAYPAL_SCRIPT_ID = 'ztoken-paypal-sdk';
 
 const scriptPromises = new Map<string, Promise<PayPalNamespace>>();
 
-export function buildPayPalSdkUrl(clientId: string, mode: 'sandbox' | 'live'): string {
+export function buildPayPalSdkUrl(clientId: string, _mode: 'sandbox' | 'live'): string {
   const params = new URLSearchParams({
     'client-id': clientId,
     currency: 'USD',
     intent: 'capture',
   });
-  if (mode === 'live') params.set('sdkBaseUrl', 'https://www.paypal.com');
   return `https://www.paypal.com/sdk/js?${params.toString()}`;
 }
 
