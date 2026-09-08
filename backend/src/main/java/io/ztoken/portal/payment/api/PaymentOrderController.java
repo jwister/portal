@@ -40,7 +40,7 @@ public class PaymentOrderController {
             @Valid @RequestBody CreatePaymentOrderRequest request) {
         PortalPrincipal principal = sessions.require(sessionId);
         try {
-            PaymentOrderView order = orders.createForUser(principal, new BigDecimal(request.amount()));
+            PaymentOrderView order = orders.createForUser(principal, new BigDecimal(request.amount()), request.method());
             return noStore(ResponseEntity.status(201).body(PaymentOrderResponse.from(order)));
         } catch (IllegalArgumentException exception) {
             throw PaymentApiException.invalidRequest(exception);

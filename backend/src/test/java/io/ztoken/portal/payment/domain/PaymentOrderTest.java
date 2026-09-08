@@ -53,4 +53,18 @@ class PaymentOrderTest {
         assertThat(order.getStatus()).isEqualTo(PaymentOrderStatus.PAID);
         assertThat(order.getCreditedAt()).isEqualTo(now.plusSeconds(2));
     }
+
+    @Test
+    void trc20OrderRetainsItsExactServerAssignedPaymentInstruction() {
+        PaymentAddress address = new PaymentAddress("TQn9Y2khEsLJW1ChVWFMSMeRDow5KcbLSE", now);
+
+        PaymentOrder order = PaymentOrder.usdtTrc20(
+                "PO-TRON-1", 7L, 2_500L, 12_500_000L, address, 2_500_017L, now, now.plusSeconds(30 * 60));
+
+        assertThat(order.getPaymentMethod()).isEqualTo(PaymentMethod.USDT_TRC20);
+        assertThat(order.getReceiveAddress()).isEqualTo(address.getAddress());
+        assertThat(order.getPayableMinor()).isEqualTo(2_500_017L);
+        assertThat(order.getPayableCurrency()).isEqualTo("USDT");
+        assertThat(order.getPayableScale()).isEqualTo(6);
+    }
 }

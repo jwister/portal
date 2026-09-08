@@ -7,6 +7,8 @@ import jakarta.persistence.Enumerated;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
 
 import java.time.Instant;
@@ -35,6 +37,25 @@ public class PaymentOrder {
 
     @Column(name = "quota_to_credit", nullable = false, updatable = false)
     private long quotaToCredit;
+
+    /** TRC20 地址池关联；PayPal 订单不分配链上地址。 */
+    @ManyToOne
+    @JoinColumn(name = "payment_address_id")
+    private PaymentAddress paymentAddress;
+
+    /** 下单时固化的收款地址，避免地址池记录后续变动影响历史订单。 */
+    @Column(name = "receive_address", length = 64)
+    private String receiveAddress;
+
+    /** TRC20 使用 USDT 六位最小单位；PayPal 订单为 null。 */
+    @Column(name = "payable_minor")
+    private Long payableMinor;
+
+    @Column(name = "payable_currency", length = 8)
+    private String payableCurrency;
+
+    @Column(name = "payable_scale")
+    private Integer payableScale;
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 32)
@@ -75,6 +96,19 @@ public class PaymentOrder {
                                       Instant createdAt, Instant expiresAt) {
         return new PaymentOrder(orderNo, newApiUserId, PaymentMethod.PAYPAL, amountUsdMinor, quotaToCredit,
                 createdAt, expiresAt);
+    }
+
+    /** 创建仅由服务端地址池和金额识别码决定的 TRC20-USDT 支付订单。 */
+    public static PaymentOrder usdtTrc20(String orderNo, long newApiUserId, long amountUsdMinor, long quotaToCredit,
+                                         PaymentAddress paymentAddress, long payableMinor, Instant createdAt, Instant expiresAt) {
+        PaymentOrder order = new PaymentOrder(orderNo, newApiUserId, PaymentMethod.USDT_TRC20, amountUsdMinor,
+                quotaToCredit, createdAt, expiresAt);
+        order.paymentAddress = Objects.requireNonNull(paymentAddress, "paymentAddress");
+        order.receiveAddress = paymentAddress.getAddress();
+        order.payableMinor = payableMinor;
+        order.payableCurrency = "USDT";
+        order.payableScale = 6;
+        return order;
     }
 
     public boolean confirm(Instant now) {
@@ -180,6 +214,12 @@ public class PaymentOrder {
     public long getQuotaToCredit() {
         return quotaToCredit;
     }
+
+    public PaymentAddress getPaymentAddress() { return paymentAddress; }
+    public String getReceiveAddress() { return receiveAddress; }
+    public Long getPayableMinor() { return payableMinor; }
+    public String getPayableCurrency() { return payableCurrency; }
+    public Integer getPayableScale() { return payableScale; }
 
     public PaymentOrderStatus getStatus() {
         return status;

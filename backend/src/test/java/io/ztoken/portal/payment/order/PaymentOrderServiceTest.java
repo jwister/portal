@@ -2,7 +2,9 @@ package io.ztoken.portal.payment.order;
 
 import io.ztoken.portal.payment.config.PaymentProperties;
 import io.ztoken.portal.payment.domain.PaymentOrder;
+import io.ztoken.portal.payment.domain.PaymentMethod;
 import io.ztoken.portal.payment.repository.PaymentOrderRepository;
+import io.ztoken.portal.payment.trc20.Trc20AddressPoolService;
 import io.ztoken.portal.session.PortalPrincipal;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -20,6 +22,7 @@ import java.util.Optional;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatIllegalArgumentException;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
@@ -32,6 +35,9 @@ class PaymentOrderServiceTest {
 
     @Mock
     private PaymentOrderRepository orders;
+
+    @Mock
+    private Trc20AddressPoolService trc20AddressPool;
 
     @Captor
     private ArgumentCaptor<PaymentOrder> savedOrder;
@@ -184,6 +190,21 @@ class PaymentOrderServiceTest {
         Optional<PaymentOrderView> result = service.findForUser(USER_SEVEN, "PO_FOREIGN");
 
         assertThat(result).isEmpty();
+    }
+
+    @Test
+    void delegatesTrc20OrderCreationToTheAddressPoolWithoutTrustingClientPaymentInstructions() {
+        PaymentOrder trc20Order = PaymentOrder.usdtTrc20("PO_TRON", 7L, 100L, 500_000L,
+                new io.ztoken.portal.payment.domain.PaymentAddress("TQn9Y2khEsLJW1ChVWFMSMeRDow5KcbLSE", Instant.now()),
+                1_000_001L, Instant.now(), Instant.now().plusSeconds(60));
+        when(trc20AddressPool.createOrder(anyLong(), anyLong(), anyLong(), any(), any())).thenReturn(trc20Order);
+        PaymentOrderService trc20Service = new PaymentOrderService(orders, new PaymentProperties(), trc20AddressPool);
+
+        PaymentOrderView created = trc20Service.createForUser(USER_SEVEN, new BigDecimal("1.00"), PaymentMethod.USDT_TRC20);
+
+        assertThat(created.orderNo()).isEqualTo("PO_TRON");
+        verify(trc20AddressPool).createOrder(anyLong(), anyLong(), anyLong(), any(), any());
+        verify(orders, never()).save(trc20Order);
     }
 
     @Test

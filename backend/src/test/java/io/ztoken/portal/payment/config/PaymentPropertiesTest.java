@@ -42,4 +42,13 @@ class PaymentPropertiesTest {
 
         assertThat(newApiCredit.isConfigured()).isTrue();
     }
+
+    @Test
+    void exposesTrc20DefaultsAndAnEmptyAddressPool() {
+        PaymentProperties properties = new PaymentProperties();
+
+        assertThat(properties.getTrc20().getUsdtContract()).isEqualTo("TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t");
+        assertThat(properties.getTrc20().getConfirmationCount()).isEqualTo(20);
+        assertThat(properties.getTrc20().getAddresses()).isEmpty();
+    }
 }
