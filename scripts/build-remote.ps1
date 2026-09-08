@@ -1,4 +1,4 @@
-# 在远程 Docker daemon 上构建 Portal 镜像。
+﻿# 在远程 Docker daemon 上构建 Portal 镜像。
 #
 # 用法：
 #   .\scripts\build-remote.ps1
@@ -8,7 +8,7 @@
 
 [CmdletBinding()]
 param(
-    [string]$Remote = 'tcp://192.168.100.153:2375',
+    [string]$Remote = 'tcp://192.168.9.187:2375',
     [string]$Image = 'wenyou7/ztoken-portal',
     [string]$Tag = '',
     [string]$Platform = 'linux/amd64',
