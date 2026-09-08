@@ -69,4 +69,13 @@ describe('PurchasePage', () => {
     expect(screen.getByTestId('purchase-ledger-steps')).toHaveTextContent('2')
     expect(screen.getByTestId('purchase-ledger-summary')).toHaveTextContent('$5')
   })
+
+  it('renders exactly the two supported payment icons', () => {
+    render(<PurchasePage />)
+
+    expect(screen.getByAltText('PayPal')).toHaveAttribute('src', '/Paypal.png')
+    expect(screen.getByAltText('TRC20 USDT')).toHaveAttribute('src', '/Tron.png')
+    expect(screen.queryByText('Other payment method')).not.toBeInTheDocument()
+    expect(screen.queryByText('Coming soon')).not.toBeInTheDocument()
+  })
 })

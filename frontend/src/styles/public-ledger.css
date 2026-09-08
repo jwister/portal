@@ -1,6 +1,7 @@
 /* Public-page visual system: Quiet Ledger. Scoped to avoid console regressions. */
 .models-page,
-.purchase-page {
+.purchase-page,
+.recharge-page {
   --ledger-paper: #f4f6f0;
   --ledger-surface: rgba(255, 255, 252, .88);
   --ledger-ink: #183128;
@@ -65,7 +66,7 @@
 .amount-selector h4,
 .purchase-panel h4 { color: var(--ledger-ink); }.amount-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); }.amount-grid .semi-button { border-color: var(--ledger-line); border-radius: 9px; color: var(--ledger-green-dark); font-family: ui-monospace, monospace; }.amount-grid .semi-button-primary-solid { background: var(--ledger-green); border-color: var(--ledger-green); color: #fff; }.amount-grid .semi-button:hover { border-color: var(--ledger-green); }
 .purchase-ledger-summary { align-items: center; background: var(--ledger-soft); border: 1px solid #d1e2d4; border-radius: 12px; display: flex; justify-content: space-between; padding: 14px 16px; }.purchase-ledger-summary strong { color: var(--ledger-ink); font: 700 25px ui-monospace, monospace; letter-spacing: -.05em; }
-.payment-method-grid { gap: 12px; }.payment-method-grid > .semi-typography-h4 { grid-column: 1 / -1; }.payment-method-card { border-color: var(--ledger-line); border-radius: 12px; box-shadow: none; transition: border-color .18s ease, box-shadow .18s ease, transform .18s ease; }.payment-method-card:hover { border-color: #92b59d; box-shadow: 0 10px 20px rgba(33, 67, 48, .09); transform: translateY(-2px); }.payment-method-card .semi-card-header { border-color: #e4ebe4; }.payment-method-card .semi-card-header-wrapper-title { color: var(--ledger-ink); }.payment-method-card .semi-button-primary { background: var(--ledger-green); border-color: var(--ledger-green); }.payment-method-description { color: var(--ledger-muted); }
+.payment-method-grid { gap: 12px; grid-template-columns: repeat(2, minmax(0, 1fr)); }.payment-method-grid > .semi-typography-h4 { grid-column: 1 / -1; }.payment-method-card { border-color: var(--ledger-line); border-radius: 12px; box-shadow: none; transition: border-color .18s ease, box-shadow .18s ease, transform .18s ease; }.payment-method-card:hover { border-color: #92b59d; box-shadow: 0 10px 20px rgba(33, 67, 48, .09); transform: translateY(-2px); }.payment-method-card .semi-card-header { border-color: #e4ebe4; min-height: 64px; }.payment-method-card .semi-card-header-wrapper-title { color: var(--ledger-ink); }.payment-method-card .semi-button-primary { background: var(--ledger-green); border-color: var(--ledger-green); }.payment-method-card .payment-method-logo { height: 28px; max-width: 112px; object-fit: contain; object-position: left center; width: auto; }.payment-method-card--paypal .payment-method-logo { height: 25px; }.payment-method-card--trc20 .payment-method-logo { height: 30px; }.payment-method-description { color: var(--ledger-muted); }
 .purchase-footnote { color: var(--ledger-muted); }.purchase-back { color: var(--ledger-green-dark); }
 
 .paypal-checkout,

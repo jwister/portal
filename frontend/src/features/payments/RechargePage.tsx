@@ -14,7 +14,7 @@ export function RechargePage() {
   const [order, setOrder] = useState<PaymentOrder | null>(null)
 
   return (
-    <main>
+    <main className="recharge-page">
       <ConsolePageHeader title={t('console.recharge')} description={t('purchase.copy')} />
       {order
         ? (

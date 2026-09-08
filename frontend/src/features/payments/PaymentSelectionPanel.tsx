@@ -51,7 +51,7 @@ export function PaymentSelectionPanel({ onConfirm }: PaymentSelectionPanelProps)
       </aside>
       <div className="payment-method-grid" aria-labelledby="payment-method-title">
         <Typography.Title heading={4} id="payment-method-title">{t('payment.title')}</Typography.Title>
-        <Card className="payment-method-card" title={t('payment.paypal')}>
+        <Card className="payment-method-card payment-method-card--paypal" title={<img className="payment-method-logo" src="/Paypal.png" alt="PayPal" />}>
           <Space spacing={8} align="center">
             <Tag color="green">{t('payment.paypalAvailable')}</Tag>
           </Space>
@@ -69,14 +69,11 @@ export function PaymentSelectionPanel({ onConfirm }: PaymentSelectionPanelProps)
             {t('payment.continuePaypal')}
           </Button>
         </Card>
-        <Card className="payment-method-card" title={t('payment.crypto')}>
+        <Card className="payment-method-card payment-method-card--trc20" title={<img className="payment-method-logo" src="/Tron.png" alt="TRC20 USDT" />}>
           <Typography.Paragraph type="tertiary" className="payment-method-description">{t('payment.trc20Description')}</Typography.Paragraph>
           <Button theme="solid" type="primary" block disabled={!amountIsUsable || submitting} loading={submitting} onClick={() => { void handleMethod('USDT_TRC20') }}>
             {t('payment.continueTrc20')}
           </Button>
-        </Card>
-        <Card className="payment-method-card" title={t('payment.other')}>
-          <Tag color="grey">{t('payment.comingSoon')}</Tag>
         </Card>
       </div>
       {error && <Typography.Text type="danger" role="alert">{error}</Typography.Text>}
