@@ -1,0 +1,6 @@
+**
+!Dockerfile
+!backend
+!backend/target
+!backend/target/ztoken-portal-*.jar
+backend/target/*.jar.original
