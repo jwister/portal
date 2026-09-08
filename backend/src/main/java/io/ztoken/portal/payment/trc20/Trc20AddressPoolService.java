@@ -8,6 +8,7 @@ import io.ztoken.portal.payment.repository.PaymentAmountRegistryRepository;
 import io.ztoken.portal.payment.repository.PaymentOrderRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.beans.factory.annotation.Autowired;
 
 import java.security.SecureRandom;
 import java.time.Instant;
@@ -27,6 +28,7 @@ public class Trc20AddressPoolService {
     private final PaymentOrderRepository orders;
     private final boolean amountSuffixEnabled;
 
+    @Autowired
     public Trc20AddressPoolService(PaymentAddressRepository addresses, PaymentAmountRegistryRepository amounts,
                                    PaymentOrderRepository orders, io.ztoken.portal.payment.config.PaymentProperties properties) {
         this(addresses, amounts, orders, properties.getTrc20().isAmountSuffixEnabled());

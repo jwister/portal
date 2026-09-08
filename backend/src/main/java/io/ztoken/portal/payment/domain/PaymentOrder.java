@@ -57,6 +57,12 @@ public class PaymentOrder {
     @Column(name = "payable_scale")
     private Integer payableScale;
 
+    @Column(name = "submitted_txid", length = 128)
+    private String submittedTxid;
+
+    @Column(name = "last_txid_check_result", length = 64)
+    private String lastTxidCheckResult;
+
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 32)
     private PaymentOrderStatus status;
@@ -122,6 +128,7 @@ public class PaymentOrder {
             return false;
         }
         status = PaymentOrderStatus.CONFIRMED;
+        releaseTrc20AddressLoad();
         confirmedAt = transitionTime;
         updatedAt = transitionTime;
         return true;
@@ -133,6 +140,7 @@ public class PaymentOrder {
             return false;
         }
         status = PaymentOrderStatus.EXPIRED;
+        releaseTrc20AddressLoad();
         updatedAt = transitionTime;
         return true;
     }
@@ -220,6 +228,28 @@ public class PaymentOrder {
     public Long getPayableMinor() { return payableMinor; }
     public String getPayableCurrency() { return payableCurrency; }
     public Integer getPayableScale() { return payableScale; }
+
+    /** 只有仍在等待链上付款的 TRC20 订单可以由扫描或 TxID 查询确认。 */
+    public boolean isWaitingForTrc20Payment() {
+        return paymentMethod == PaymentMethod.USDT_TRC20 && status == PaymentOrderStatus.WAITING_PAYMENT;
+    }
+
+    /** 保存用户提交的 TxID；链上结果始终由服务端查询后更新。 */
+    public void submitTxid(String txid, Instant now) {
+        if (!isWaitingForTrc20Payment() || txid == null || txid.isBlank()) throw new IllegalArgumentException("TxID 无效");
+        this.submittedTxid = txid.trim();
+        this.lastTxidCheckResult = "SUBMITTED";
+        this.updatedAt = now;
+    }
+
+    public void finishTxidCheck(String result, Instant now) { this.lastTxidCheckResult = result; this.updatedAt = now; }
+    public String getSubmittedTxid() { return submittedTxid; }
+    public String getLastTxidCheckResult() { return lastTxidCheckResult; }
+
+    /** 确认或过期只会离开待支付态一次，因此地址负载恰好释放一次。 */
+    private void releaseTrc20AddressLoad() {
+        if (paymentMethod == PaymentMethod.USDT_TRC20 && paymentAddress != null) paymentAddress.decrementActiveOrderCount();
+    }
 
     public PaymentOrderStatus getStatus() {
         return status;
