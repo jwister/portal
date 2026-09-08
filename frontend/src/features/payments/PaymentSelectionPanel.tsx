@@ -4,7 +4,7 @@ import { useTranslation } from 'react-i18next'
 
 import '../../i18n'
 import { AmountSelector, isValidCustomAmount, type AmountSelection } from './AmountSelector'
-import type { PaymentOrder, PaymentMethod } from '../../api/portal'
+import { createPaymentOrder, type PaymentOrder, type PaymentMethod } from '../../api/portal'
 
 interface PaymentSelectionPanelProps {
   onConfirm: (order: PaymentOrder) => void
@@ -20,23 +20,12 @@ export function PaymentSelectionPanel({ onConfirm }: PaymentSelectionPanelProps)
   const amount = selected === 'custom' ? customAmount : String(selected)
   const amountIsUsable = customValid && amount !== ''
 
-  const handlePayPal = async () => {
+  const handleMethod = async (method: PaymentMethod) => {
     if (!amountIsUsable) return
     setError(null)
     setSubmitting(true)
     try {
-      const response = await fetch('/api/payments/orders', {
-        method: 'POST',
-        credentials: 'include',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ amount, method: 'PAYPAL' satisfies PaymentMethod }),
-      })
-      if (!response.ok) {
-        setError(t('payment.createFailed'))
-        return
-      }
-      const order = (await response.json()) as PaymentOrder
-      onConfirm(order)
+      onConfirm(await createPaymentOrder({ amount, method }))
     } catch {
       setError(t('payment.createFailed'))
     } finally {
@@ -70,13 +59,16 @@ export function PaymentSelectionPanel({ onConfirm }: PaymentSelectionPanelProps)
             block
             disabled={!amountIsUsable || submitting}
             loading={submitting}
-            onClick={handlePayPal}
+            onClick={() => { void handleMethod('PAYPAL') }}
           >
             {t('payment.continuePaypal')}
           </Button>
         </Card>
         <Card className="payment-method-card" title={t('payment.crypto')}>
-          <Tag color="grey">{t('payment.comingSoon')}</Tag>
+          <Typography.Paragraph type="tertiary" className="payment-method-description">{t('payment.trc20Description')}</Typography.Paragraph>
+          <Button theme="solid" type="primary" block disabled={!amountIsUsable || submitting} loading={submitting} onClick={() => { void handleMethod('USDT_TRC20') }}>
+            {t('payment.continueTrc20')}
+          </Button>
         </Card>
         <Card className="payment-method-card" title={t('payment.other')}>
           <Tag color="grey">{t('payment.comingSoon')}</Tag>

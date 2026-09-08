@@ -15,7 +15,7 @@ describe('RechargePage', () => {
     vi.unstubAllGlobals()
   })
 
-  it('shows the amount selector, exposes the PayPal option, and keeps the other methods labelled as coming soon', async () => {
+  it('shows the amount selector, exposes PayPal and TRC20 options, and keeps only other methods labelled as coming soon', async () => {
     const fetchMock = vi.mocked(fetch)
     const user = userEvent.setup()
     render(<RechargePage />)
@@ -23,9 +23,10 @@ describe('RechargePage', () => {
     expect(screen.getByRole('heading', { name: 'Recharge balance' })).toBeVisible()
     expect(screen.getByRole('button', { name: '$500' })).toBeVisible()
     expect(screen.getByRole('button', { name: 'Continue with PayPal' })).toBeVisible()
+    expect(screen.getByRole('button', { name: 'Pay with TRC20 USDT' })).toBeVisible()
     expect(screen.getByText('Crypto / USDT')).toBeVisible()
     expect(screen.getByText('Other payment method')).toBeVisible()
-    expect(screen.getAllByText('Coming soon')).toHaveLength(2)
+    expect(screen.getAllByText('Coming soon')).toHaveLength(1)
 
     await user.click(screen.getByRole('button', { name: '$50' }))
     await user.click(screen.getByRole('button', { name: 'Continue with PayPal' }))

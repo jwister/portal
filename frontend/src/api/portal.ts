@@ -214,7 +214,7 @@ export async function getModelCatalog(): Promise<ModelCatalogItem[]> {
   return body.items
 }
 
-export type PaymentMethod = 'PAYPAL'
+export type PaymentMethod = 'PAYPAL' | 'USDT_TRC20'
 
 export type PaymentOrderStatus =
   | 'WAITING_PAYMENT'
@@ -236,6 +236,19 @@ export interface PaymentOrder {
   confirmedAt: string | null
   creditedAt: string | null
   createdAt: string
+}
+
+export interface Trc20PaymentInstruction {
+  receiveAddress: string
+  payableAmount: string
+  payableCurrency: 'USDT'
+  status: PaymentOrderStatus
+  expiresAt: string
+  txidCheckResult: string | null
+}
+
+export interface TxidVerification {
+  result: 'CONFIRMED' | 'PENDING_CONFIRMATION' | 'UNMATCHED' | 'DUPLICATE'
 }
 
 export interface PaymentOrderPage {
@@ -269,6 +282,16 @@ export function createPaymentOrder(input: CreatePaymentOrderInput): Promise<Paym
 
 export function getPaymentOrder(orderNo: string): Promise<PaymentOrder> {
   return requestJson<PaymentOrder>(`/api/payments/orders/${encodeURIComponent(orderNo)}`)
+}
+
+export function getTrc20PaymentStatus(orderNo: string): Promise<Trc20PaymentInstruction> {
+  return requestJson(`/api/payments/orders/${encodeURIComponent(orderNo)}/trc20/status`)
+}
+
+export function submitTrc20Txid(orderNo: string, txid: string): Promise<TxidVerification> {
+  return requestJson(`/api/payments/orders/${encodeURIComponent(orderNo)}/trc20/txid`, {
+    method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ txid }),
+  })
 }
 
 export function getPaymentOrders(page = 1, pageSize = 20): Promise<PaymentOrderPage> {

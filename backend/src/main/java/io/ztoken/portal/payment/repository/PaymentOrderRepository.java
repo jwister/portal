@@ -10,6 +10,7 @@ import org.springframework.data.repository.query.Param;
 import jakarta.persistence.LockModeType;
 import java.util.List;
 import java.util.Optional;
+import java.time.Instant;
 
 public interface PaymentOrderRepository extends JpaRepository<PaymentOrder, Long> {
 
@@ -22,4 +23,14 @@ public interface PaymentOrderRepository extends JpaRepository<PaymentOrder, Long
     List<PaymentOrder> findByNewApiUserIdOrderByCreatedAtDesc(long newApiUserId);
 
     List<PaymentOrder> findByStatus(PaymentOrderStatus status);
+
+    @Query("select paymentOrder from PaymentOrder paymentOrder where paymentOrder.status = io.ztoken.portal.payment.domain.PaymentOrderStatus.WAITING_PAYMENT and paymentOrder.submittedTxid is not null and paymentOrder.nextTxidCheckAt <= :now")
+    List<PaymentOrder> findDueTxidChecks(@Param("now") Instant now);
+
+    @Query("select paymentOrder from PaymentOrder paymentOrder where paymentOrder.status = io.ztoken.portal.payment.domain.PaymentOrderStatus.WAITING_PAYMENT and paymentOrder.expiresAt <= :now")
+    List<PaymentOrder> findWaitingOrdersExpiredAt(@Param("now") Instant now);
+
+    @Query("select paymentOrder from PaymentOrder paymentOrder where paymentOrder.status = io.ztoken.portal.payment.domain.PaymentOrderStatus.WAITING_PAYMENT and paymentOrder.receiveAddress = :receiveAddress and paymentOrder.payableMinor = :payableMinor")
+    Optional<PaymentOrder> findWaitingByReceiveAddressAndPayableMinor(@Param("receiveAddress") String receiveAddress,
+                                                                        @Param("payableMinor") long payableMinor);
 }

@@ -7,6 +7,7 @@ import { ConsolePageHeader } from '../../components/ConsolePageHeader'
 import type { PaymentOrder } from '../../api/portal'
 import { PaymentSelectionPanel } from './PaymentSelectionPanel'
 import { PayPalCheckout } from './PayPalCheckout'
+import { Trc20Checkout } from './Trc20Checkout'
 
 export function RechargePage() {
   const { t } = useTranslation()
@@ -18,7 +19,7 @@ export function RechargePage() {
       {order
         ? (
           <>
-            <PayPalCheckout order={order} onCompleted={(next) => setOrder(next)} />
+            {order.method === 'USDT_TRC20' ? <Trc20Checkout order={order} onCompleted={setOrder} /> : <PayPalCheckout order={order} onCompleted={setOrder} />}
             <button type="button" className="purchase-back" onClick={() => setOrder(null)}>
               {t('payment.changeAmount')}
             </button>

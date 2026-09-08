@@ -60,6 +60,15 @@ public class PaymentOrder {
     @Column(name = "submitted_txid", length = 128)
     private String submittedTxid;
 
+    @Column(name = "txid_check_count", nullable = false)
+    private int txidCheckCount;
+
+    @Column(name = "last_txid_checked_at")
+    private Instant lastTxidCheckedAt;
+
+    @Column(name = "next_txid_check_at")
+    private Instant nextTxidCheckAt;
+
     @Column(name = "last_txid_check_result", length = 64)
     private String lastTxidCheckResult;
 
@@ -124,6 +133,7 @@ public class PaymentOrder {
         }
         if (!expiresAt.isAfter(transitionTime)) {
             status = PaymentOrderStatus.EXPIRED;
+            releaseTrc20AddressLoad();
             updatedAt = transitionTime;
             return false;
         }
@@ -152,10 +162,12 @@ public class PaymentOrder {
         }
         if (!expiresAt.isAfter(transitionTime)) {
             status = PaymentOrderStatus.EXPIRED;
+            releaseTrc20AddressLoad();
             updatedAt = transitionTime;
             return false;
         }
         status = PaymentOrderStatus.CANCELLED;
+        releaseTrc20AddressLoad();
         updatedAt = transitionTime;
         return true;
     }
@@ -239,11 +251,31 @@ public class PaymentOrder {
         if (!isWaitingForTrc20Payment() || txid == null || txid.isBlank()) throw new IllegalArgumentException("TxID 无效");
         this.submittedTxid = txid.trim();
         this.lastTxidCheckResult = "SUBMITTED";
+        this.txidCheckCount = 0;
+        this.lastTxidCheckedAt = null;
+        this.nextTxidCheckAt = now;
         this.updatedAt = now;
     }
 
-    public void finishTxidCheck(String result, Instant now) { this.lastTxidCheckResult = result; this.updatedAt = now; }
+    /** 记录下一次链上检查，防止节点索引或确认数延迟导致人工重复提交。 */
+    public void scheduleTxidRetry(Instant nextCheckAt, String result, Instant checkedAt) {
+        this.txidCheckCount++;
+        this.lastTxidCheckedAt = Objects.requireNonNull(checkedAt, "checkedAt");
+        this.nextTxidCheckAt = Objects.requireNonNull(nextCheckAt, "nextCheckAt");
+        this.lastTxidCheckResult = requireText(result, "result");
+        this.updatedAt = checkedAt;
+    }
+
+    public void finishTxidCheck(String result, Instant now) {
+        this.lastTxidCheckedAt = now;
+        this.nextTxidCheckAt = null;
+        this.lastTxidCheckResult = requireText(result, "result");
+        this.updatedAt = now;
+    }
     public String getSubmittedTxid() { return submittedTxid; }
+    public int getTxidCheckCount() { return txidCheckCount; }
+    public Instant getLastTxidCheckedAt() { return lastTxidCheckedAt; }
+    public Instant getNextTxidCheckAt() { return nextTxidCheckAt; }
     public String getLastTxidCheckResult() { return lastTxidCheckResult; }
 
     /** 确认或过期只会离开待支付态一次，因此地址负载恰好释放一次。 */

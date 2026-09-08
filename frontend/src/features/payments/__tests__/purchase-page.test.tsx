@@ -47,4 +47,18 @@ describe('PurchasePage', () => {
     expect(body).not.toContain('userId')
     expect(body).not.toContain('newapiUserId')
   })
+
+  it('creates a TRC20 order with only the selected amount and payment method', async () => {
+    const user = userEvent.setup()
+    const fetchMock = vi.fn()
+    vi.stubGlobal('fetch', fetchMock)
+    render(<PurchasePage />)
+
+    await user.click(screen.getByRole('button', { name: 'Pay with TRC20 USDT' }))
+
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+    const [url, init] = fetchMock.mock.calls[0] as [string, RequestInit]
+    expect(url).toBe('/api/payments/orders')
+    expect(init.body).toBe(JSON.stringify({ amount: '5', method: 'USDT_TRC20' }))
+  })
 })

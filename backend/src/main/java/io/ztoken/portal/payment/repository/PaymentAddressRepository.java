@@ -14,6 +14,8 @@ public interface PaymentAddressRepository extends JpaRepository<PaymentAddress, 
 
     Optional<PaymentAddress> findByAddress(String address);
 
+    List<PaymentAddress> findByEnabledTrue();
+
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("select address from PaymentAddress address where address.enabled = true order by address.activeOrderCount asc, address.id asc")
     List<PaymentAddress> lockEnabledOrderedByLoad();

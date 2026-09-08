@@ -23,7 +23,7 @@ public record PaymentOrderResponse(
     static PaymentOrderResponse from(PaymentOrderView order) {
         Objects.requireNonNull(order, "order");
         return new PaymentOrderResponse(order.orderNo(), order.amountUsdMinor(), order.quotaToCredit(),
-                PaymentMethod.PAYPAL, order.status(), order.expiresAt(), order.confirmedAt(), order.creditedAt(),
+                order.method(), order.status(), order.expiresAt(), order.confirmedAt(), order.creditedAt(),
                 order.createdAt());
     }
 
