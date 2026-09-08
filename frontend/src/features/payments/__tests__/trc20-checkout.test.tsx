@@ -33,6 +33,8 @@ describe('Trc20Checkout', () => {
 
     expect(await screen.findByText('25.5001 USDT')).toBeVisible()
     expect(screen.getByText('TJxA4YfDSE5v9cYrgeArHQkCZcqW45wBzQ')).toBeVisible()
+    expect(screen.getByTestId('trc20-ledger-summary')).toHaveTextContent('Pay with TRC20 USDT')
+    expect(screen.getByTestId('trc20-ledger-summary')).toHaveTextContent('Waiting for a confirmed TRC20 transfer')
     await user.type(screen.getByLabelText('Transaction ID'), 'a'.repeat(64))
     await user.click(screen.getByRole('button', { name: 'Verify transaction' }))
 

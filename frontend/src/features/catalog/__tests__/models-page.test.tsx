@@ -38,6 +38,14 @@ describe('ModelsPage', () => {
     expect(screen.getByTestId('model-card-gpt-5-mini-pricing')).toBeVisible()
   })
 
+  it('renders the Quiet Ledger catalog status and a labelled results region', async () => {
+    render(<ModelsPage />)
+
+    expect(await screen.findByText('gpt-5-mini')).toBeVisible()
+    expect(screen.getByTestId('models-ledger-status')).toHaveTextContent('实时目录')
+    expect(screen.getByRole('region', { name: '模型目录' })).toBeVisible()
+  })
+
   it('filters models by selected group and keeps search scoped to that group', async () => {
     const user = userEvent.setup()
     render(<ModelsPage />)

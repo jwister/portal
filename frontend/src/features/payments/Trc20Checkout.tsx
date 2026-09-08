@@ -34,12 +34,11 @@ export function Trc20Checkout({ order, onCompleted }: Trc20CheckoutProps) {
       : current.status === 'EXPIRED' ? t('payment.status.expired') : t('payment.trc20Waiting')
 
   return <section className="trc20-checkout" aria-label={t('payment.trc20Title')}>
-    <header><p className="trc20-kicker">TRON · TRC20</p><h3>{t('payment.trc20Title')}</h3><p>{t('payment.quotaEquivalent', { quota: formatQuota(current.quotaToCredit) })}</p></header>
+    <header className="trc20-checkout-summary" data-testid="trc20-ledger-summary"><p className="trc20-kicker">TRON · TRC20</p><h3>{t('payment.trc20Title')}</h3><p>{t('payment.quotaEquivalent', { quota: formatQuota(current.quotaToCredit) })}</p><p className="trc20-checkout-status" data-status={current.status}>{status}</p></header>
     {instruction && <div className="trc20-instruction">
       <div><span>{t('payment.trc20Amount')}</span><strong>{instruction.payableAmount} {instruction.payableCurrency}</strong><Button theme="borderless" size="small" onClick={() => { void copy(instruction.payableAmount) }}>{t('payment.trc20CopyAmount')}</Button></div>
       <div><span>{t('payment.trc20Address')}</span><code>{instruction.receiveAddress}</code><Button theme="borderless" size="small" onClick={() => { void copy(instruction.receiveAddress) }}>{t('payment.trc20CopyAddress')}</Button></div>
     </div>}
-    <p className="trc20-status">{status}</p>
     <div className="trc20-txid"><Input aria-label={t('payment.trc20Txid')} value={txid} onChange={setTxid} placeholder={t('payment.trc20TxidPlaceholder')} /><Button type="primary" disabled={!txid.trim()} onClick={() => { void verify() }}>{t('payment.trc20Verify')}</Button></div>
     {message && <Typography.Text type="tertiary">{message}</Typography.Text>}
   </section>

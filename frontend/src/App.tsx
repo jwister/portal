@@ -53,8 +53,8 @@ export function App() {
   if (path === '/console/orders') return <ConsoleRoute activeKey="orders" onNavigate={navigateConsole}><OrdersPage /></ConsoleRoute>
   if (path === '/sign-in') return <SignInPage />
   if (path === '/sign-up') return <SignUpPage onRegistered={() => window.location.assign('/sign-in')} />
-  if (path === '/models') return <><PublicHeader /><ModelsPage /></>
-  if (path === '/purchase') return <><PublicHeader /><PurchasePage /></>
+  if (path === '/models') return <div className="public-ledger-route" data-testid="public-ledger-route"><PublicHeader /><ModelsPage /></div>
+  if (path === '/purchase') return <div className="public-ledger-route" data-testid="public-ledger-route"><PublicHeader /><PurchasePage /></div>
   if (path === '/') return <><PublicHeader /><HomePage /></>
   return <><PublicHeader /><main className="models-page"><h1>Not Found</h1></main></>
 }

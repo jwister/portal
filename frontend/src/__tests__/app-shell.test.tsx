@@ -31,6 +31,14 @@ describe('portal application shell', () => {
     expect(screen.getByRole('link', { name: '模型' })).toBeVisible()
   })
 
+  it('scopes the ledger treatment to catalog and purchase routes', () => {
+    window.history.pushState({}, '', '/models')
+
+    render(<App />)
+
+    expect(screen.getByTestId('public-ledger-route')).toBeVisible()
+  })
+
   it('renders the console dashboard at its direct route', async () => {
     window.history.pushState({}, '', '/console/dashboard')
     vi.stubGlobal('fetch', vi.fn()

@@ -198,6 +198,10 @@ export function ModelsPage() {
           <Text type="tertiary">{t('models.copy', { count: models.length })}</Text>
         </div>
         <aside className="models-summary" data-testid="models-summary" aria-label={t('models.summaryLabel')}>
+          <div className="models-ledger-status" data-testid="models-ledger-status">
+            <span aria-hidden="true" />
+            {t('models.liveCatalog')}
+          </div>
           <span className="models-summary-kicker">{t('models.liveCatalog')}</span>
           <strong>{models.length.toString().padStart(2, '0')}</strong>
           <span className="models-summary-label">{t('models.modelsAvailable')}</span>
@@ -213,7 +217,7 @@ export function ModelsPage() {
             <span>{name}</span><b>{count}</b>
           </button>)}
         </nav>
-        <section className="models-results">
+        <section className="models-results" aria-label={t('models.catalogLabel')}>
           <div className="models-toolbar">
             <span className="models-toolbar-label">{t('models.catalogLabel')}</span>
             <Input prefix={<IconSearch />} placeholder={t('models.search')} value={query} onChange={setQuery} showClear />

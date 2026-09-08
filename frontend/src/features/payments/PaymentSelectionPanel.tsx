@@ -35,15 +35,20 @@ export function PaymentSelectionPanel({ onConfirm }: PaymentSelectionPanelProps)
 
   return (
     <section className="purchase-panel">
+      <ol className="purchase-ledger-steps" data-testid="purchase-ledger-steps" aria-label={t('purchase.title')}>
+        <li className="is-current"><span>1</span>{t('purchase.amount')}</li>
+        <li><span>2</span>{t('payment.title')}</li>
+      </ol>
       <AmountSelector
         selected={selected}
         customAmount={customAmount}
         onSelect={setSelected}
         onCustomAmount={setCustomAmount}
       />
-      <Typography.Text type="tertiary">
-        {t('purchase.selected')}: ${amount || '—'}
-      </Typography.Text>
+      <aside className="purchase-ledger-summary" data-testid="purchase-ledger-summary" aria-live="polite">
+        <Typography.Text type="tertiary">{t('purchase.selected')}</Typography.Text>
+        <strong>${amount || '—'}</strong>
+      </aside>
       <div className="payment-method-grid" aria-labelledby="payment-method-title">
         <Typography.Title heading={4} id="payment-method-title">{t('payment.title')}</Typography.Title>
         <Card className="payment-method-card" title={t('payment.paypal')}>

@@ -61,4 +61,12 @@ describe('PurchasePage', () => {
     expect(url).toBe('/api/payments/orders')
     expect(init.body).toBe(JSON.stringify({ amount: '5', method: 'USDT_TRC20' }))
   })
+
+  it('keeps the selected amount in the ledger summary while choosing a payment method', () => {
+    render(<PurchasePage />)
+
+    expect(screen.getByTestId('purchase-ledger-steps')).toHaveTextContent('1')
+    expect(screen.getByTestId('purchase-ledger-steps')).toHaveTextContent('2')
+    expect(screen.getByTestId('purchase-ledger-summary')).toHaveTextContent('$5')
+  })
 })

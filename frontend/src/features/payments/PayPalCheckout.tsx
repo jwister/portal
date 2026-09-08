@@ -188,7 +188,7 @@ export function PayPalCheckout({ order, onCompleted }: PayPalCheckoutProps) {
 
   return (
     <section className="paypal-checkout" aria-label={t('payment.checkoutTitle')}>
-      <header className="paypal-checkout-summary">
+      <header className="paypal-checkout-summary" data-testid="paypal-ledger-summary">
         <h3>{t('payment.checkoutTitle')}</h3>
         <p>
           <strong>{amountText}</strong>
