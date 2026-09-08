@@ -4,7 +4,9 @@ import io.ztoken.portal.payment.config.PaymentProperties;
 import io.ztoken.portal.payment.domain.PaymentOrder;
 import io.ztoken.portal.payment.domain.PaymentMethod;
 import io.ztoken.portal.payment.repository.PaymentOrderRepository;
-import io.ztoken.portal.payment.trc20.Trc20AddressPoolService;
+import io.ztoken.portal.payment.provider.PaymentProvider;
+import io.ztoken.portal.payment.provider.PaymentProviderRegistry;
+import io.ztoken.portal.payment.provider.PayPalPaymentProvider;
 import io.ztoken.portal.session.PortalPrincipal;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -37,7 +39,7 @@ class PaymentOrderServiceTest {
     private PaymentOrderRepository orders;
 
     @Mock
-    private Trc20AddressPoolService trc20AddressPool;
+    private PaymentProvider trc20Provider;
 
     @Captor
     private ArgumentCaptor<PaymentOrder> savedOrder;
@@ -47,7 +49,7 @@ class PaymentOrderServiceTest {
     @BeforeEach
     void setUp() {
         PaymentProperties properties = new PaymentProperties();
-        service = new PaymentOrderService(orders, properties);
+        service = service(properties);
     }
 
     @Test
@@ -67,7 +69,7 @@ class PaymentOrderServiceTest {
     void calculatesQuotaFromTheConfiguredPerDollarRate() {
         PaymentProperties properties = new PaymentProperties();
         properties.setQuotaPerUsd(600_000L);
-        PaymentOrderService configuredService = new PaymentOrderService(orders, properties);
+        PaymentOrderService configuredService = service(properties);
         returnSavedOrder();
 
         PaymentOrderView order = configuredService.createForUser(USER_SEVEN, new BigDecimal("1.00"));
@@ -80,7 +82,7 @@ class PaymentOrderServiceTest {
     void rejectsAConfiguredQuotaRateThatCannotRepresentEveryCentAmount() {
         PaymentProperties properties = new PaymentProperties();
         properties.setQuotaPerUsd(500_001L);
-        PaymentOrderService configuredService = new PaymentOrderService(orders, properties);
+        PaymentOrderService configuredService = service(properties);
 
         assertThatIllegalArgumentException().isThrownBy(
                 () -> configuredService.createForUser(USER_SEVEN, new BigDecimal("1.00")));
@@ -104,7 +106,7 @@ class PaymentOrderServiceTest {
     void rejectsQuotaAboveTheDefaultNewApiWalletLimitBeforeSavingTheOrder() {
         PaymentProperties properties = new PaymentProperties();
         properties.setQuotaPerUsd(2_147_483_700L);
-        PaymentOrderService configuredService = new PaymentOrderService(orders, properties);
+        PaymentOrderService configuredService = service(properties);
 
         assertThatIllegalArgumentException().isThrownBy(
                 () -> configuredService.createForUser(USER_SEVEN, new BigDecimal("1.00")));
@@ -116,7 +118,7 @@ class PaymentOrderServiceTest {
         PaymentProperties properties = new PaymentProperties();
         properties.getNewApiCredit().setMaxWalletQuota(1_000_000L);
         properties.setQuotaPerUsd(1_000_100L);
-        PaymentOrderService configuredService = new PaymentOrderService(orders, properties);
+        PaymentOrderService configuredService = service(properties);
 
         assertThatIllegalArgumentException().isThrownBy(
                 () -> configuredService.createForUser(USER_SEVEN, new BigDecimal("1.00")));
@@ -128,7 +130,7 @@ class PaymentOrderServiceTest {
         PaymentProperties properties = new PaymentProperties();
         properties.getNewApiCredit().setMaxWalletQuota(2_147_483_600L);
         properties.setQuotaPerUsd(2_147_483_600L);
-        PaymentOrderService configuredService = new PaymentOrderService(orders, properties);
+        PaymentOrderService configuredService = service(properties);
         returnSavedOrder();
 
         PaymentOrderView order = configuredService.createForUser(USER_SEVEN, new BigDecimal("1.00"));
@@ -140,7 +142,7 @@ class PaymentOrderServiceTest {
     void rejectsAConfiguredQuotaRateWhenNoPaymentAmountFitsTheWalletLimit() {
         PaymentProperties properties = new PaymentProperties();
         properties.setQuotaPerUsd(9_223_372_036_854_775_800L);
-        PaymentOrderService configuredService = new PaymentOrderService(orders, properties);
+        PaymentOrderService configuredService = service(properties);
 
         assertThatIllegalArgumentException().isThrownBy(
                 () -> configuredService.createForUser(USER_SEVEN, new BigDecimal("10000.00")));
@@ -151,7 +153,7 @@ class PaymentOrderServiceTest {
     void acceptsTheInclusiveMinimumAndMaximumAmounts() {
         PaymentProperties properties = new PaymentProperties();
         properties.setQuotaPerUsd(200_000L);
-        PaymentOrderService lowerRateService = new PaymentOrderService(orders, properties);
+        PaymentOrderService lowerRateService = service(properties);
         returnSavedOrder();
         PaymentOrderView minimum = lowerRateService.createForUser(USER_SEVEN, new BigDecimal("1.00"));
         PaymentOrderView maximum = lowerRateService.createForUser(USER_SEVEN, new BigDecimal("10000.00"));
@@ -197,13 +199,14 @@ class PaymentOrderServiceTest {
         PaymentOrder trc20Order = PaymentOrder.usdtTrc20("PO_TRON", 7L, 100L, 500_000L,
                 new io.ztoken.portal.payment.domain.PaymentAddress("TQn9Y2khEsLJW1ChVWFMSMeRDow5KcbLSE", Instant.now()),
                 1_000_001L, Instant.now(), Instant.now().plusSeconds(60));
-        when(trc20AddressPool.createOrder(anyLong(), anyLong(), anyLong(), any(), any())).thenReturn(trc20Order);
-        PaymentOrderService trc20Service = new PaymentOrderService(orders, new PaymentProperties(), trc20AddressPool);
+        when(trc20Provider.method()).thenReturn(PaymentMethod.USDT_TRC20);
+        when(trc20Provider.createOrder(anyLong(), anyLong(), anyLong(), any(), any())).thenReturn(trc20Order);
+        PaymentOrderService trc20Service = service(new PaymentProperties(), trc20Provider);
 
         PaymentOrderView created = trc20Service.createForUser(USER_SEVEN, new BigDecimal("1.00"), PaymentMethod.USDT_TRC20);
 
         assertThat(created.orderNo()).isEqualTo("PO_TRON");
-        verify(trc20AddressPool).createOrder(anyLong(), anyLong(), anyLong(), any(), any());
+        verify(trc20Provider).createOrder(anyLong(), anyLong(), anyLong(), any(), any());
         verify(orders, never()).save(trc20Order);
     }
 
@@ -221,5 +224,12 @@ class PaymentOrderServiceTest {
 
     private void returnSavedOrder() {
         when(orders.save(any(PaymentOrder.class))).thenAnswer(invocation -> invocation.getArgument(0));
+    }
+
+    private PaymentOrderService service(PaymentProperties properties, PaymentProvider... providers) {
+        List<PaymentProvider> allProviders = new java.util.ArrayList<>();
+        allProviders.add(new PayPalPaymentProvider(orders));
+        allProviders.addAll(List.of(providers));
+        return new PaymentOrderService(orders, properties, new PaymentProviderRegistry(allProviders));
     }
 }
