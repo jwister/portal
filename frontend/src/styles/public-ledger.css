@@ -82,3 +82,103 @@
 @media (max-width: 760px) { .models-page,.purchase-page { padding: 102px 20px 58px; }.models-hero { grid-template-columns: 1fr; margin-bottom: 32px; }.models-summary { max-width: none; }.models-toolbar { align-items: stretch; }.purchase-header { margin-bottom: 24px; }.payment-method-grid { grid-template-columns: 1fr; }.payment-method-grid > .semi-typography-h4 { grid-column: auto; } }
 @media (max-width: 520px) { .public-ledger-route .public-header { padding: 0 10px; }.public-ledger-route .public-header .public-nav .semi-navigation-header-list-outer { flex: 1; min-width: 0; }.public-ledger-route .public-header .public-nav .semi-navigation-header { flex: 0 0 auto; margin-right: 7px; }.public-ledger-route .public-header .semi-brand { font-size: 0; }.public-ledger-route .public-header .semi-brand img { margin: 0; }.public-ledger-route .public-header .public-nav .semi-navigation-list-wrapper { flex: 1; left: auto; overflow-x: auto; position: static; transform: none; }.public-ledger-route .public-header .public-nav .semi-navigation-list { min-width: max-content; }.public-ledger-route .public-header .public-nav .semi-navigation-item { padding: 0 7px; }.public-ledger-route .public-header .public-nav .semi-navigation-footer { flex: 0 0 auto; }.public-ledger-route .public-header .public-header-actions { gap: 0; }.public-ledger-route .public-header .public-header-actions .semi-button { padding-left: 7px; padding-right: 7px; }.models-hero h1 { font-size: clamp(46px, 15vw, 68px); }.models-toolbar .semi-input-wrapper { flex-basis: 100%; }.model-prices,.amount-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }.purchase-ledger-steps { gap: 12px; }.purchase-ledger-summary { align-items: flex-start; flex-direction: column; gap: 4px; }.trc20-instruction > div { grid-template-columns: 1fr auto; }.trc20-instruction span { grid-column: 1 / -1; } }
 @media (prefers-reduced-motion: reduce) { .model-card,.payment-method-card { transition: none; }.model-card:hover,.payment-method-card:hover { transform: none; } }
+
+/* Unified Ledger: public, authentication, and console surfaces. */
+.ledger-public-page,
+.ledger-auth-page,
+.console-shell,
+.console-shell .recharge-page {
+  --ledger-paper: #f4f6f0;
+  --ledger-surface: #fffefb;
+  --ledger-ink: #183128;
+  --ledger-muted: #61746a;
+  --ledger-green: #147b57;
+  --ledger-green-dark: #0d5d40;
+  --ledger-soft: #e4efe6;
+  --ledger-line: #d5dfd6;
+  --semi-color-primary: #147b57;
+  --semi-color-primary-hover: #0d5d40;
+  --semi-color-primary-light-default: #e4efe6;
+}
+
+.ledger-public-page,
+.ledger-auth-page {
+  background: radial-gradient(circle at 88% 3%, rgba(191, 222, 201, .7), transparent 23%), radial-gradient(circle at 5% 42%, rgba(228, 237, 208, .75), transparent 25%), var(--ledger-paper);
+  color: var(--ledger-ink);
+}
+.ledger-public-page .public-header { background: rgba(255, 254, 251, .94); border-color: var(--ledger-line); }
+.ledger-public-page .public-nav .semi-navigation-footer a,
+.ledger-public-page .public-nav .semi-button-borderless { color: var(--ledger-ink); }
+.ledger-public-page .semi-home { background: transparent; color: var(--ledger-ink); }
+.ledger-public-page .semi-hero h1,
+.ledger-public-page .section-intro h2,
+.ledger-public-page .home-cta h2,
+.ledger-auth-page h1 { color: var(--ledger-ink); font-family: Georgia, 'Times New Roman', serif; }
+.ledger-public-page .semi-hero-description,
+.ledger-public-page .section-intro .semi-typography-tertiary,
+.ledger-public-page .feature-card .semi-typography-tertiary,
+.ledger-public-page .step-card .semi-typography-tertiary { color: var(--ledger-muted); }
+.ledger-public-page .feature-card,
+.ledger-public-page .step-card,
+.ledger-public-page .api-panel,
+.ledger-public-page .home-cta,
+.ledger-auth-page .auth-panel { background: var(--ledger-surface); border: 1px solid var(--ledger-line); box-shadow: 0 16px 38px rgba(33, 67, 48, .08); }
+.ledger-public-page .feature-card,
+.ledger-public-page .step-card { border-radius: 16px; }
+.ledger-public-page .home-cta { background: linear-gradient(135deg, #fffefb, #e4efe6); }
+.ledger-public-page .semi-tag-blue-light,
+.ledger-public-page .semi-tag-green-light { background: var(--ledger-soft); border-color: #cfe1d2; color: var(--ledger-green-dark); }
+.ledger-public-page .api-panel-tabs strong { border-color: var(--ledger-green); color: var(--ledger-green-dark); }
+.ledger-public-page .api-panel code { color: var(--ledger-green-dark); }
+.ledger-public-page .api-panel code b { background: var(--ledger-soft); }
+.ledger-public-page .api-panel pre,
+.ledger-public-page .api-panel-result { color: var(--ledger-muted); }
+.ledger-public-page .semi-button-primary.semi-button-solid,
+.ledger-auth-page .semi-button-primary.semi-button-solid { background: var(--ledger-green); border-color: var(--ledger-green); }
+.ledger-public-page .semi-button-primary.semi-button-borderless { background: transparent; color: var(--ledger-green-dark); }
+.ledger-public-page .home-metrics { border-color: var(--ledger-line); }
+.ledger-public-page .home-metrics strong { color: var(--ledger-ink); }
+.ledger-public-page .home-metrics span { color: var(--ledger-muted); }
+.ledger-public-page .public-footer { background: var(--ledger-surface); border-color: var(--ledger-line); color: var(--ledger-muted); }
+.ledger-public-page .public-footer strong { color: var(--ledger-ink); }
+.ledger-auth-page .auth-page { background: transparent; }
+.ledger-auth-page .auth-panel { color: var(--ledger-ink); }
+.ledger-auth-page .brand-mark { background: var(--ledger-green); }
+.ledger-auth-page .semi-input-wrapper { border-color: var(--ledger-line); }
+.ledger-auth-page .semi-form-field-label { color: var(--ledger-ink); }
+
+.console-shell { background: var(--ledger-paper); color: var(--ledger-ink); }
+.console-shell .console-sider,
+.console-shell .console-topbar { background: var(--ledger-surface); border-color: var(--ledger-line); }
+.console-shell .console-brand,
+.console-shell .console-topbar h1,
+.console-shell .console-sider .semi-navigation-item { color: var(--ledger-ink); }
+.console-shell .console-sider .semi-navigation-item:hover { background: #eff4ef; }
+.console-shell .console-sider .semi-navigation-item-selected { background: var(--ledger-soft); color: var(--ledger-green-dark); }
+.console-shell .console-sider .semi-navigation-item:focus-visible { outline-color: #a7cbb1; }
+.console-shell .console-content .console-page-header h2,
+.console-shell .console-content .console-page-header p { color: var(--ledger-ink); }
+.console-shell .console-content .console-page-header p,
+.console-shell .console-content .semi-typography-tertiary { color: var(--ledger-muted); }
+.console-shell .console-content .semi-card,
+.console-shell .console-content .console-table-wrap,
+.console-shell .console-content .console-filter-bar,
+.console-shell .console-content .profile-form,
+.console-shell .console-content .dashboard-chart,
+.console-shell .console-content .remote-state { background: var(--ledger-surface); border-color: var(--ledger-line); }
+.console-shell .console-content .semi-table-thead > .semi-table-row > .semi-table-row-head { background: #f5f8f3; color: var(--ledger-ink); }
+.console-shell .console-content .semi-table-tbody > .semi-table-row > .semi-table-row-cell { border-color: #e5ebe5; color: var(--ledger-muted); }
+.console-shell .console-content .semi-button-primary,
+.console-shell .console-content .semi-button-primary.semi-button-solid { background: var(--ledger-green); border-color: var(--ledger-green); }
+.console-shell .console-content .semi-button-primary.semi-button-light { background: var(--ledger-soft); border-color: #cfe1d2; color: var(--ledger-green-dark); }
+.console-shell .console-content .metric-card::before { background: var(--ledger-green); }
+.console-shell .console-content .metric-card-icon { background: var(--ledger-soft); color: var(--ledger-green-dark); }
+.console-shell .console-content .metric-card .semi-typography-h3,
+.console-shell .console-content .dashboard-chart h3 { color: var(--ledger-ink); }
+.console-shell .console-content .console-identity-card { background: linear-gradient(135deg, #183128, #276c4e); }
+.console-shell .recharge-page .console-page-header { margin-bottom: 22px; }
+
+@media (max-width: 760px) {
+  .ledger-public-page .semi-home { padding-left: 20px; padding-right: 20px; }
+  .ledger-auth-page .auth-panel { box-shadow: 0 12px 28px rgba(33, 67, 48, .08); }
+}

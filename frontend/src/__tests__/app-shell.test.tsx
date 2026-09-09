@@ -31,6 +31,17 @@ describe('portal application shell', () => {
     expect(screen.getByRole('link', { name: '模型' })).toBeVisible()
   })
 
+  it('mounts the ledger system on public and authentication routes', () => {
+    window.history.pushState({}, '', '/sign-in')
+    const { unmount } = render(<App />)
+    expect(screen.getByTestId('ledger-auth-page')).toBeVisible()
+
+    unmount()
+    window.history.pushState({}, '', '/')
+    render(<App />)
+    expect(screen.getByTestId('ledger-public-page')).toBeVisible()
+  })
+
   it('scopes the ledger treatment to catalog and purchase routes', () => {
     window.history.pushState({}, '', '/models')
 

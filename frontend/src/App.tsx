@@ -55,6 +55,6 @@ export function App() {
   if (path === '/sign-up') return <SignUpPage onRegistered={() => window.location.assign('/sign-in')} />
   if (path === '/models') return <div className="public-ledger-route" data-testid="public-ledger-route"><PublicHeader /><ModelsPage /></div>
   if (path === '/purchase') return <div className="public-ledger-route" data-testid="public-ledger-route"><PublicHeader /><PurchasePage /></div>
-  if (path === '/') return <><PublicHeader /><HomePage /></>
+  if (path === '/') return <div className="ledger-public-page" data-testid="ledger-public-page"><PublicHeader /><HomePage /></div>
   return <><PublicHeader /><main className="models-page"><h1>Not Found</h1></main></>
 }
