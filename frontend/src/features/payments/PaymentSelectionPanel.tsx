@@ -1,4 +1,4 @@
-import { Button, Card, Space, Tag, Typography } from '@douyinfe/semi-ui'
+import { Button, Typography } from '@douyinfe/semi-ui'
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
@@ -13,6 +13,7 @@ interface PaymentSelectionPanelProps {
 export function PaymentSelectionPanel({ onConfirm }: PaymentSelectionPanelProps) {
   const { t } = useTranslation()
   const [selected, setSelected] = useState<AmountSelection>(5)
+  const [method, setMethod] = useState<PaymentMethod>('PAYPAL')
   const [customAmount, setCustomAmount] = useState('')
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -20,7 +21,7 @@ export function PaymentSelectionPanel({ onConfirm }: PaymentSelectionPanelProps)
   const amount = selected === 'custom' ? customAmount : String(selected)
   const amountIsUsable = customValid && amount !== ''
 
-  const handleMethod = async (method: PaymentMethod) => {
+  const handleConfirm = async () => {
     if (!amountIsUsable) return
     setError(null)
     setSubmitting(true)
@@ -51,31 +52,20 @@ export function PaymentSelectionPanel({ onConfirm }: PaymentSelectionPanelProps)
       </aside>
       <div className="payment-method-grid" aria-labelledby="payment-method-title">
         <Typography.Title heading={4} id="payment-method-title">{t('payment.title')}</Typography.Title>
-        <Card className="payment-method-card payment-method-card--paypal" title={<img className="payment-method-logo" src="/Paypal.png" alt="PayPal" />}>
-          <Space spacing={8} align="center">
-            <Tag color="green">{t('payment.paypalAvailable')}</Tag>
-          </Space>
-          <Typography.Paragraph type="tertiary" className="payment-method-description">
-            {t('payment.paypalDescription')}
-          </Typography.Paragraph>
-          <Button
-            theme="solid"
-            type="primary"
-            block
-            disabled={!amountIsUsable || submitting}
-            loading={submitting}
-            onClick={() => { void handleMethod('PAYPAL') }}
-          >
-            {t('payment.continuePaypal')}
-          </Button>
-        </Card>
-        <Card className="payment-method-card payment-method-card--trc20" title={<img className="payment-method-logo" src="/Tron.png" alt="TRC20 USDT" />}>
-          <Typography.Paragraph type="tertiary" className="payment-method-description">{t('payment.trc20Description')}</Typography.Paragraph>
-          <Button theme="solid" type="primary" block disabled={!amountIsUsable || submitting} loading={submitting} onClick={() => { void handleMethod('USDT_TRC20') }}>
-            {t('payment.continueTrc20')}
-          </Button>
-        </Card>
+        <label className={`payment-method-card ${method === 'PAYPAL' ? 'is-selected' : ''}`}>
+          <input type="radio" name="payment-method" aria-label="PayPal" checked={method === 'PAYPAL'} onChange={() => setMethod('PAYPAL')} />
+          <img className="payment-method-logo" src="/Paypal.png" alt="" />
+          <span>PayPal</span>
+        </label>
+        <label className={`payment-method-card ${method === 'USDT_TRC20' ? 'is-selected' : ''}`}>
+          <input type="radio" name="payment-method" aria-label="TRC20 USDT" checked={method === 'USDT_TRC20'} onChange={() => setMethod('USDT_TRC20')} />
+          <img className="payment-method-logo" src="/Tron.png" alt="" />
+          <span>TRC20 USDT</span>
+        </label>
       </div>
+      <Button className="payment-confirm-button" theme="solid" type="primary" block disabled={!amountIsUsable || submitting} loading={submitting} onClick={() => { void handleConfirm() }}>
+        {t('payment.confirm')}
+      </Button>
       {error && <Typography.Text type="danger" role="alert">{error}</Typography.Text>}
     </section>
   )

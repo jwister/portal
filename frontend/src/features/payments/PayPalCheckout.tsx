@@ -184,7 +184,7 @@ export function PayPalCheckout({ order, onCompleted }: PayPalCheckoutProps) {
             : t('payment.status.waiting')
 
   const amountText = formatUsd(currentOrder.amountUsdMinor)
-  const quotaText = formatQuota(currentOrder.quotaToCredit)
+  const creditText = amountText.endsWith('.00') ? amountText.slice(0, -3) : amountText
 
   return (
     <section className="paypal-checkout" aria-label={t('payment.checkoutTitle')}>
@@ -192,7 +192,7 @@ export function PayPalCheckout({ order, onCompleted }: PayPalCheckoutProps) {
         <h3>{t('payment.checkoutTitle')}</h3>
         <p>
           <strong>{amountText}</strong>
-          <span> · {t('payment.quotaEquivalent', { quota: quotaText })}</span>
+          <span> · {t('payment.quotaEquivalent', { amount: creditText })}</span>
         </p>
         <p className="paypal-checkout-status" data-status={currentOrder.status}>{statusText}</p>
       </header>

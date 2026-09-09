@@ -32,7 +32,7 @@ describe('PurchasePage', () => {
 
     await user.clear(input)
     await user.type(input, '25.5')
-    await user.click(screen.getByRole('button', { name: 'Continue with PayPal' }))
+    await user.click(screen.getByRole('button', { name: 'Confirm payment' }))
 
     expect(fetchMock).toHaveBeenCalledTimes(1)
     const [url, init] = fetchMock.mock.calls[0]
@@ -54,7 +54,8 @@ describe('PurchasePage', () => {
     vi.stubGlobal('fetch', fetchMock)
     render(<PurchasePage />)
 
-    await user.click(screen.getByRole('button', { name: 'Pay with TRC20 USDT' }))
+    await user.click(screen.getByRole('radio', { name: 'TRC20 USDT' }))
+    await user.click(screen.getByRole('button', { name: 'Confirm payment' }))
 
     expect(fetchMock).toHaveBeenCalledTimes(1)
     const [url, init] = fetchMock.mock.calls[0] as [string, RequestInit]
@@ -70,12 +71,30 @@ describe('PurchasePage', () => {
     expect(screen.getByTestId('purchase-ledger-summary')).toHaveTextContent('$5')
   })
 
-  it('renders exactly the two supported payment icons', () => {
+  it('renders exactly the two supported payment choices', () => {
     render(<PurchasePage />)
 
-    expect(screen.getByAltText('PayPal')).toHaveAttribute('src', '/Paypal.png')
-    expect(screen.getByAltText('TRC20 USDT')).toHaveAttribute('src', '/Tron.png')
+    expect(screen.getByRole('radio', { name: 'PayPal' })).toBeVisible()
+    expect(screen.getByRole('radio', { name: 'TRC20 USDT' })).toBeVisible()
     expect(screen.queryByText('Other payment method')).not.toBeInTheDocument()
     expect(screen.queryByText('Coming soon')).not.toBeInTheDocument()
+  })
+
+  it('submits the selected TRC20 method only when payment is confirmed', async () => {
+    const user = userEvent.setup()
+    const fetchMock = vi.fn()
+    vi.stubGlobal('fetch', fetchMock)
+    render(<PurchasePage />)
+
+    const trc20 = screen.getByRole('radio', { name: 'TRC20 USDT' })
+    expect(screen.getByRole('radio', { name: 'PayPal' })).toBeChecked()
+    await user.click(trc20)
+    expect(trc20).toBeChecked()
+    expect(fetchMock).not.toHaveBeenCalled()
+
+    await user.click(screen.getByRole('button', { name: 'Confirm payment' }))
+    expect(fetchMock).toHaveBeenCalledWith('/api/payments/orders', expect.objectContaining({
+      body: JSON.stringify({ amount: '5', method: 'USDT_TRC20' }),
+    }))
   })
 })

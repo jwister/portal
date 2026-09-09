@@ -2,7 +2,7 @@ import { Button, Input, Typography } from '@douyinfe/semi-ui'
 import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
-import { formatQuota, getPaymentOrder, getTrc20PaymentStatus, submitTrc20Txid, type PaymentOrder, type Trc20PaymentInstruction } from '../../api/portal'
+import { formatQuota, formatUsd, getPaymentOrder, getTrc20PaymentStatus, submitTrc20Txid, type PaymentOrder, type Trc20PaymentInstruction } from '../../api/portal'
 
 interface Trc20CheckoutProps { order: PaymentOrder; onCompleted?: (order: PaymentOrder) => void }
 const terminal = new Set<PaymentOrder['status']>(['PAID', 'CREDIT_FAILED', 'CREDIT_UNKNOWN', 'EXPIRED', 'CANCELLED'])
@@ -32,9 +32,10 @@ export function Trc20Checkout({ order, onCompleted }: Trc20CheckoutProps) {
   const status = current.status === 'PAID' ? t('payment.status.paid', { quota: formatQuota(current.quotaToCredit) })
     : current.status === 'CONFIRMED' || current.status === 'CREDITING' ? t('payment.status.processing')
       : current.status === 'EXPIRED' ? t('payment.status.expired') : t('payment.trc20Waiting')
+  const creditText = formatUsd(current.amountUsdMinor).replace(/\.00$/, '')
 
   return <section className="trc20-checkout" aria-label={t('payment.trc20Title')}>
-    <header className="trc20-checkout-summary" data-testid="trc20-ledger-summary"><p className="trc20-kicker">TRON · TRC20</p><h3>{t('payment.trc20Title')}</h3><p>{t('payment.quotaEquivalent', { quota: formatQuota(current.quotaToCredit) })}</p><p className="trc20-checkout-status" data-status={current.status}>{status}</p></header>
+    <header className="trc20-checkout-summary" data-testid="trc20-ledger-summary"><p className="trc20-kicker">TRON · TRC20</p><h3>{t('payment.trc20Title')}</h3><p>{t('payment.quotaEquivalent', { amount: creditText })}</p><p className="trc20-checkout-status" data-status={current.status}>{status}</p></header>
     {instruction && <div className="trc20-instruction">
       <div><span>{t('payment.trc20Amount')}</span><strong>{instruction.payableAmount} {instruction.payableCurrency}</strong><Button theme="borderless" size="small" onClick={() => { void copy(instruction.payableAmount) }}>{t('payment.trc20CopyAmount')}</Button></div>
       <div><span>{t('payment.trc20Address')}</span><code>{instruction.receiveAddress}</code><Button theme="borderless" size="small" onClick={() => { void copy(instruction.receiveAddress) }}>{t('payment.trc20CopyAddress')}</Button></div>

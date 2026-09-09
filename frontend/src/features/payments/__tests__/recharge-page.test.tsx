@@ -22,15 +22,16 @@ describe('RechargePage', () => {
 
     expect(screen.getByRole('heading', { name: 'Recharge balance' })).toBeVisible()
     expect(screen.getByRole('button', { name: '$500' })).toBeVisible()
-    expect(screen.getByRole('button', { name: 'Continue with PayPal' })).toBeVisible()
-    expect(screen.getByRole('button', { name: 'Pay with TRC20 USDT' })).toBeVisible()
-    expect(screen.getByAltText('PayPal')).toHaveAttribute('src', '/Paypal.png')
-    expect(screen.getByAltText('TRC20 USDT')).toHaveAttribute('src', '/Tron.png')
+    expect(screen.getByRole('radio', { name: 'PayPal' })).toBeChecked()
+    expect(screen.getByRole('radio', { name: 'TRC20 USDT' })).not.toBeChecked()
+    expect(screen.getByRole('button', { name: 'Confirm payment' })).toBeVisible()
+    expect(screen.queryByText(/Authorize the charge/i)).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Continue with PayPal' })).not.toBeInTheDocument()
     expect(screen.queryByText('Other payment method')).not.toBeInTheDocument()
     expect(screen.queryByText('Coming soon')).not.toBeInTheDocument()
 
     await user.click(screen.getByRole('button', { name: '$50' }))
-    await user.click(screen.getByRole('button', { name: 'Continue with PayPal' }))
+    await user.click(screen.getByRole('button', { name: 'Confirm payment' }))
 
     expect(fetchMock).toHaveBeenCalledTimes(1)
     const [, init] = fetchMock.mock.calls[0]

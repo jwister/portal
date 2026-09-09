@@ -178,6 +178,14 @@
 .console-shell .console-content .console-identity-card { background: linear-gradient(135deg, #183128, #276c4e); }
 .console-shell .recharge-page .console-page-header { margin-bottom: 22px; }
 
+.payment-method-card { align-items: center; background: var(--ledger-surface); border: 1px solid var(--ledger-line); border-radius: 12px; cursor: pointer; display: flex; gap: 12px; min-height: 92px; padding: 18px; }
+.payment-method-card input { appearance: none; border: 1px solid var(--ledger-line); border-radius: 50%; height: 18px; margin: 0; width: 18px; }
+.payment-method-card input:checked { border: 5px solid var(--ledger-green); }
+.payment-method-card.is-selected { background: var(--ledger-soft); border-color: var(--ledger-green); }
+.payment-method-card .payment-method-logo { height: 30px; max-width: 112px; object-fit: contain; object-position: left center; width: auto; }
+.payment-method-card > span { color: var(--ledger-ink); font-weight: 700; }
+.payment-confirm-button { margin-top: 4px; min-height: 46px; }
+
 @media (max-width: 760px) {
   .ledger-public-page .semi-home { padding-left: 20px; padding-right: 20px; }
   .ledger-auth-page .auth-panel { box-shadow: 0 12px 28px rgba(33, 67, 48, .08); }
