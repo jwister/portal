@@ -13,7 +13,7 @@ import io.ztoken.portal.console.LogStats;
 import io.ztoken.portal.console.Profile;
 import io.ztoken.portal.console.ProfileUpdateRequest;
 import io.ztoken.portal.console.LogQuery;
-import io.ztoken.portal.catalog.ModelCatalog;
+import org.springframework.util.MultiValueMap;
 
 public interface NewApiClient {
 
@@ -49,5 +49,9 @@ public interface NewApiClient {
 
     Profile updateProfile(PortalPrincipal principal, ProfileUpdateRequest request);
 
-    ModelCatalog getModelCatalog();
+    NewApiRawResponse getPricing();
+
+    NewApiRawResponse getPerformanceSummary(MultiValueMap<String, String> query);
+
+    NewApiRawResponse getPerformanceMetrics(MultiValueMap<String, String> query);
 }

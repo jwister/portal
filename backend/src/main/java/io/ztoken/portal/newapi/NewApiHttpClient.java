@@ -16,8 +16,6 @@ import io.ztoken.portal.console.LogQuery;
 import io.ztoken.portal.console.LogStats;
 import io.ztoken.portal.console.Profile;
 import io.ztoken.portal.console.ProfileUpdateRequest;
-import io.ztoken.portal.catalog.ModelCatalog;
-import io.ztoken.portal.catalog.ModelCatalogItem;
 import io.ztoken.portal.session.NewApiIdentity;
 import io.ztoken.portal.session.PortalPrincipal;
 import org.springframework.http.HttpHeaders;
@@ -27,6 +25,8 @@ import org.springframework.stereotype.Component;
 import org.springframework.web.reactive.function.client.WebClient;
 import org.springframework.web.reactive.function.client.WebClientResponseException;
 import org.springframework.web.util.UriBuilder;
+import org.springframework.util.LinkedMultiValueMap;
+import org.springframework.util.MultiValueMap;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -538,63 +538,44 @@ public class NewApiHttpClient implements NewApiClient {
     }
 
     @Override
-    public ModelCatalog getModelCatalog() {
-        WebClient.RequestHeadersSpec<?> request = client.get().uri("/api/pricing");
-        if (hasText(pricingToken)) {
-            request = request.header(HttpHeaders.AUTHORIZATION, "Bearer " + pricingToken);
+    public NewApiRawResponse getPricing() {
+        return proxyModelSquare("/api/pricing", new LinkedMultiValueMap<>());
+    }
+
+    @Override
+    public NewApiRawResponse getPerformanceSummary(MultiValueMap<String, String> query) {
+        return proxyModelSquare("/api/perf-metrics/summary", query);
+    }
+
+    @Override
+    public NewApiRawResponse getPerformanceMetrics(MultiValueMap<String, String> query) {
+        return proxyModelSquare("/api/perf-metrics", query);
+    }
+
+    /**
+     * 仅代理模型广场明确使用的固定路径；上游响应以字节形式保留，避免 Portal 改写字段或错误状态。
+     */
+    private NewApiRawResponse proxyModelSquare(String path, MultiValueMap<String, String> query) {
+        try {
+            return client.get()
+                    .uri(builder -> builder.path(path).queryParams(query).build())
+                    .headers(this::applyPricingHeaders)
+                    .exchangeToMono(response -> response.bodyToMono(byte[].class).defaultIfEmpty(new byte[0])
+                            .map(body -> new NewApiRawResponse(response.statusCode(),
+                                    response.headers().contentType().orElse(MediaType.APPLICATION_JSON), body)))
+                    .block(Duration.ofSeconds(10));
+        } catch (RuntimeException exception) {
+            log.warn("NewAPI 模型广场请求失败: upstream={}, path={}, exceptionType={}", upstreamTarget, path,
+                    exception.getClass().getSimpleName());
+            throw new NewApiException("NewAPI model square request failed");
         }
-        JsonNode root = request.retrieve().bodyToMono(JsonNode.class).block(Duration.ofSeconds(10));
-        JsonNode models = requireData(root);
-        if (!models.isArray()) throw new NewApiException("NewAPI pricing response did not include models");
-        List<ModelCatalogItem> items = StreamSupport.stream(models.spliterator(), false).map(model -> {
-            int quotaType = model.path("quota_type").asInt(0);
-            Double inputPrice;
-            Double outputPrice;
-            Double cachePrice = null;
-            boolean available;
+    }
 
-            if (quotaType == 1) {
-                // 按量计费模式：使用 model_price
-                Double modelPrice = model.hasNonNull("model_price") ? model.path("model_price").asDouble() : null;
-                Double completionRatio = model.hasNonNull("completion_ratio") ? model.path("completion_ratio").asDouble() : 1.0;
-                available = modelPrice != null;
-                inputPrice = available ? modelPrice : null;
-                outputPrice = available ? modelPrice * completionRatio : null;
-                if (available && model.hasNonNull("cache_ratio")) {
-                    cachePrice = modelPrice * model.path("cache_ratio").asDouble();
-                }
-            } else {
-                // 倍率模式：使用 model_ratio
-                Double modelRatio = model.hasNonNull("model_ratio") ? model.path("model_ratio").asDouble() : null;
-                Double completionRatio = model.hasNonNull("completion_ratio") ? model.path("completion_ratio").asDouble() : 1.0;
-                available = modelRatio != null;
-                inputPrice = available ? modelRatio : null;
-                outputPrice = available ? modelRatio * completionRatio : null;
-                if (available && model.hasNonNull("cache_ratio")) {
-                    cachePrice = modelRatio * model.path("cache_ratio").asDouble();
-                }
-            }
-
-            List<String> groups = model.path("enable_groups").isArray()
-                    ? StreamSupport.stream(model.path("enable_groups").spliterator(), false)
-                    .map(JsonNode::asText)
-                    .filter(this::hasText)
-                    .toList()
-                    : List.of();
-            if (groups.isEmpty()) {
-                groups = List.of("default");
-            }
-            return new ModelCatalogItem(
-                    model.path("model_name").asText(),
-                    model.path("vendor_name").asText("Independent"),
-                    groups,
-                    inputPrice,
-                    outputPrice,
-                    cachePrice,
-                    available
-            );
-        }).toList();
-        return new ModelCatalog(items);
+    /** 模型广场令牌只在服务器到上游的请求中加入，不能泄露给浏览器。 */
+    private void applyPricingHeaders(HttpHeaders headers) {
+        if (hasText(pricingToken)) {
+            headers.setBearerAuth(pricingToken);
+        }
     }
 
     private JsonNode getSelfData(PortalPrincipal principal) {
