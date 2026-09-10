@@ -14,6 +14,31 @@ Start the packaged application with Java 17 and the user-scoped portal session k
 .\scripts\start-portal.ps1
 ```
 
+## 前后端分离开发
+
+开发时，前端运行在 Vite 的 `http://127.0.0.1:5173`，后端运行在 Spring Boot 的 `http://127.0.0.1:8084`。前端所有 `/api/*` 请求由 Vite 代理到后端，因此前端代码继续使用相对 API 路径，不需要配置浏览器 CORS。
+
+```powershell
+# 终端 1：后端。跳过 Maven 内嵌的前端打包步骤。
+mvn -f backend/pom.xml spring-boot:run "-Dskip.frontend=true"
+
+# 终端 2：前端。
+Set-Location frontend
+npm ci
+npm run dev
+```
+
+默认代理目标为 `http://127.0.0.1:8084`。如需连接其他本地后端实例，启动前设置 `VITE_API_PROXY_TARGET`，例如：
+
+```powershell
+$env:VITE_API_PROXY_TARGET = 'http://127.0.0.1:18084'
+npm run dev
+```
+
+发布流程不变：`mvn -f backend/pom.xml clean package` 仍会运行前端生产构建，并将 `frontend/dist` 打进 Spring Boot JAR 的静态资源；线上仍只暴露 Portal 的一个端口，同时提供页面和 `/api/*`。
+
+The values after `:` in `application.yml` are local defaults. Docker can override Spring Boot properties with their canonical environment-variable names, such as `PORTAL_NEW_API_BASE_URL`, `PORTAL_NEW_API_PRICING_TOKEN`, or `PORTAL_SESSION_KEY`.
+
 ## PayPal Sandbox 充值
 
 `Portal` exposes a PayPal Sandbox 充值闭环：本地订单、服务端 Capture、签名验证 Webhook 和 NewAPI quota 入账。生产只通过环境变量切到 PayPal Live；任何 PayPal Secret、Webhook ID 或 NewAPI 管理员 Access Token 都不得写入源码或 `application.yml`。
