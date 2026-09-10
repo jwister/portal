@@ -4,7 +4,10 @@ import okhttp3.mockwebserver.MockResponse;
 import okhttp3.mockwebserver.MockWebServer;
 import okhttp3.mockwebserver.RecordedRequest;
 import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.MethodOrderer;
+import org.junit.jupiter.api.Order;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestMethodOrder;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.web.client.TestRestTemplate;
@@ -18,6 +21,7 @@ import org.springframework.test.context.DynamicPropertySource;
 import static org.assertj.core.api.Assertions.assertThat;
 
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
+@TestMethodOrder(MethodOrderer.OrderAnnotation.class)
 class ModelCatalogControllerTest {
 
     private static final MockWebServer NEW_API = startServer();
@@ -37,6 +41,7 @@ class ModelCatalogControllerTest {
     }
 
     @Test
+    @Order(1)
     void pricingForwardsCompletePayloadAndPricingToken() throws Exception {
         String body = """
                 {"success":true,"data":[{"model_name":"gpt-5-mini","billing_usage_schema":{"duration":"second"}}],"vendors":[{"id":7,"name":"OpenAI"}],"group_ratio":{"default":1},"pricing_version":"v42"}
@@ -54,6 +59,24 @@ class ModelCatalogControllerTest {
     }
 
     @Test
+    @Order(4)
+    void statusForwardsCompletePublicPayloadWithoutPricingToken() throws Exception {
+        String body = """
+                {"success":true,"data":{"price":1.5,"usd_exchange_rate":7.2,"HeaderNavModules":"{\\"pricing\\":true}"}}
+                """.trim();
+        NEW_API.enqueue(new MockResponse().setHeader(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE).setBody(body));
+
+        ResponseEntity<String> response = http.getForEntity("/api/catalog/status", String.class);
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
+        assertThat(response.getBody()).isEqualTo(body);
+        RecordedRequest upstream = NEW_API.takeRequest();
+        assertThat(upstream.getPath()).isEqualTo("/api/status");
+        assertThat(upstream.getHeader(HttpHeaders.AUTHORIZATION)).isNull();
+    }
+
+    @Test
+    @Order(2)
     void performanceSummaryForwardsHoursAndPayload() throws Exception {
         String body = """
                 {"success":true,"data":{"models":[{"model_name":"gpt-5-mini","success_rate":99.9}]}}
@@ -68,6 +91,7 @@ class ModelCatalogControllerTest {
     }
 
     @Test
+    @Order(3)
     void performanceMetricsForwardsQueryAndUpstreamError() throws Exception {
         String body = """
                 {"success":false,"message":"metrics unavailable"}

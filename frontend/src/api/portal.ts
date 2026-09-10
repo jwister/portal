@@ -239,6 +239,11 @@ export function getPricing(): Promise<NewApiPricingResponse> {
   return requestJson('/api/catalog/pricing')
 }
 
+/** 读取模型广场汇率和导航配置使用的 NewAPI 公开状态响应。 */
+export function getModelSquareStatus(): Promise<unknown> {
+  return requestJson('/api/catalog/status')
+}
+
 /** 读取模型广场列表卡片使用的性能汇总数据。 */
 export function getPerformanceSummary(query: { hours?: number } = {}): Promise<unknown> {
   return requestJson(`/api/catalog/perf-metrics/summary${queryString(query)}`)

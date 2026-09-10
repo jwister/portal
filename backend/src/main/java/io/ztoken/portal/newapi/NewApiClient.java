@@ -49,6 +49,8 @@ public interface NewApiClient {
 
     Profile updateProfile(PortalPrincipal principal, ProfileUpdateRequest request);
 
+    NewApiRawResponse getModelSquareStatus();
+
     NewApiRawResponse getPricing();
 
     NewApiRawResponse getPerformanceSummary(MultiValueMap<String, String> query);

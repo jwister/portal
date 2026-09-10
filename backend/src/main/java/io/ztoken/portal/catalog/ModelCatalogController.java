@@ -18,6 +18,12 @@ public class ModelCatalogController {
         this.newApiClient = newApiClient;
     }
 
+    /** 透传模型广场汇率和导航配置使用的公开状态响应。 */
+    @GetMapping("/status")
+    public ResponseEntity<byte[]> status() {
+        return passthrough(newApiClient.getModelSquareStatus());
+    }
+
     /** 透传 NewAPI 模型广场的完整定价响应，避免 Portal 自行换算字段。 */
     @GetMapping("/pricing")
     public ResponseEntity<byte[]> pricing() {

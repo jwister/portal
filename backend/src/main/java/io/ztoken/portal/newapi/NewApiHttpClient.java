@@ -538,28 +538,38 @@ public class NewApiHttpClient implements NewApiClient {
     }
 
     @Override
+    public NewApiRawResponse getModelSquareStatus() {
+        return proxyModelSquare("/api/status", new LinkedMultiValueMap<>(), false);
+    }
+
+    @Override
     public NewApiRawResponse getPricing() {
-        return proxyModelSquare("/api/pricing", new LinkedMultiValueMap<>());
+        return proxyModelSquare("/api/pricing", new LinkedMultiValueMap<>(), true);
     }
 
     @Override
     public NewApiRawResponse getPerformanceSummary(MultiValueMap<String, String> query) {
-        return proxyModelSquare("/api/perf-metrics/summary", query);
+        return proxyModelSquare("/api/perf-metrics/summary", query, true);
     }
 
     @Override
     public NewApiRawResponse getPerformanceMetrics(MultiValueMap<String, String> query) {
-        return proxyModelSquare("/api/perf-metrics", query);
+        return proxyModelSquare("/api/perf-metrics", query, true);
     }
 
     /**
      * 仅代理模型广场明确使用的固定路径；上游响应以字节形式保留，避免 Portal 改写字段或错误状态。
      */
-    private NewApiRawResponse proxyModelSquare(String path, MultiValueMap<String, String> query) {
+    private NewApiRawResponse proxyModelSquare(String path, MultiValueMap<String, String> query,
+                                                 boolean includePricingToken) {
         try {
             return client.get()
                     .uri(builder -> builder.path(path).queryParams(query).build())
-                    .headers(this::applyPricingHeaders)
+                    .headers(headers -> {
+                        if (includePricingToken) {
+                            applyPricingHeaders(headers);
+                        }
+                    })
                     .exchangeToMono(response -> response.bodyToMono(byte[].class).defaultIfEmpty(new byte[0])
                             .map(body -> new NewApiRawResponse(response.statusCode(),
                                     response.headers().contentType().orElse(MediaType.APPLICATION_JSON), body)))
