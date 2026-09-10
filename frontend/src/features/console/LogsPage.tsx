@@ -17,7 +17,12 @@ interface LogFilters {
   end: string
 }
 
-const initialFilters: LogFilters = { modelName: '', tokenName: '', type: '', start: '', end: '' }
+function localDateTime(value: Date): string {
+  const pad = (number: number) => String(number).padStart(2, '0')
+  return `${value.getFullYear()}-${pad(value.getMonth() + 1)}-${pad(value.getDate())}T${pad(value.getHours())}:${pad(value.getMinutes())}`
+}
+function todayFilters(): LogFilters { const end = new Date(); const start = new Date(end); start.setHours(0, 0, 0, 0); return { modelName: '', tokenName: '', type: '', start: localDateTime(start), end: localDateTime(end) } }
+const initialFilters: LogFilters = todayFilters()
 
 function toTimestamp(value: string): number | undefined {
   if (!value) return undefined
@@ -29,10 +34,14 @@ function formatTimestamp(timestamp: number): string {
   return new Date(timestamp * 1000).toLocaleString()
 }
 
+const QUOTA_PER_USD = 500_000
+const formatUsd = (quota: number) => `$${(quota / QUOTA_PER_USD).toFixed(4)}`
+const formatSeconds = (seconds: number) => `${seconds.toFixed(1)}s`
+
 export function LogsPage() {
   const { t } = useTranslation()
   const [filters, setFilters] = useState<LogFilters>(initialFilters)
-  const [query, setQuery] = useState<LogQuery>({ page: 1, pageSize: 50 })
+  const [query, setQuery] = useState<LogQuery>(() => ({ page: 1, pageSize: 50, startTimestamp: toTimestamp(initialFilters.start), endTimestamp: toTimestamp(initialFilters.end) }))
   const [logs, setLogs] = useState<LogPage | null>(null)
   const [stats, setStats] = useState<LogStats | null>(null)
   const [failed, setFailed] = useState(false)
@@ -50,8 +59,9 @@ export function LogsPage() {
   }
 
   const clearFilters = () => {
-    setFilters(initialFilters)
-    setQuery({ page: 1, pageSize: 50 })
+    const next = todayFilters()
+    setFilters(next)
+    setQuery({ page: 1, pageSize: 50, startTimestamp: toTimestamp(next.start), endTimestamp: toTimestamp(next.end) })
   }
 
   useEffect(() => {
@@ -83,11 +93,13 @@ export function LogsPage() {
 
   const columns = [
     { title: t('logs.time'), dataIndex: 'createdAt', render: (value: number) => formatTimestamp(value) },
-    { title: t('logs.model'), dataIndex: 'modelName' },
     { title: t('logs.token'), dataIndex: 'tokenName' },
-    { title: t('logs.quota'), dataIndex: 'quota' },
-    { title: t('logs.content'), dataIndex: 'content' },
-    { title: t('logs.request'), dataIndex: 'requestId' },
+    { title: t('logs.model'), dataIndex: 'modelName' },
+    { title: t('logs.stream'), render: (_: unknown, log: LogPage['items'][number]) => log.stream && log.useTime > 0 ? `${(log.completionTokens / log.useTime).toFixed(1)} t/s` : '-' },
+    { title: t('logs.tokens'), render: (_: unknown, log: LogPage['items'][number]) => <span>{t('logs.inputTokens')} {log.promptTokens} / {t('logs.outputTokens')} {log.completionTokens}<br />{t('logs.cacheRead')} {log.cacheTokens} / {t('logs.cacheWrite')} {log.cacheCreationTokens}</span> },
+    { title: t('logs.cost'), dataIndex: 'quota', render: (value: number) => formatUsd(value) },
+    { title: t('logs.duration'), render: (_: unknown, log: LogPage['items'][number]) => <span>{t('logs.firstToken')} {log.firstResponseTime > 0 ? formatSeconds(log.firstResponseTime / 1000) : '-'}<br />{t('logs.totalTime')} {formatSeconds(log.useTime)}</span> },
+    { title: t('logs.content'), dataIndex: 'content', width: '10%', render: (value: string) => <span className="log-detail" title={value}>{value}</span> },
   ]
 
   return (
@@ -105,14 +117,14 @@ export function LogsPage() {
         <label>{t('logs.end')}<Input prefix={<IconCalendar />} type="datetime-local" value={filters.end} onChange={(value) => setFilters((current) => ({ ...current, end: value }))} /></label>
         <Space><Button theme="solid" type="primary" onClick={applyFilters}>{t('logs.apply')}</Button><Button onClick={clearFilters}>{t('logs.clear')}</Button></Space>
       </section>
-      <section className="console-summary-grid" aria-label={t('logs.title')}>
-        <MetricCard label={t('logs.quota')} value={stats.quota.toLocaleString()} icon={<IconCreditCard />} tone="blue" />
+      <section className="console-summary-grid logs-summary-grid" aria-label={t('logs.title')}>
+        <MetricCard label={t('logs.quota')} value={formatUsd(stats.quota)} icon={<IconCreditCard />} tone="blue" />
         <MetricCard label={t('logs.rpm')} value={stats.rpm.toLocaleString()} icon={<IconPulse />} tone="mint" />
         <MetricCard label={t('logs.tpm')} value={stats.tpm.toLocaleString()} icon={<IconHistogram />} tone="amber" />
       </section>
       {logs.items.length === 0
         ? <Empty description={t('logs.empty')} />
-        : <div className="console-table-wrap"><Table columns={columns} dataSource={logs.items} rowKey="id" pagination={false} /></div>}
+        : <div className="console-table-wrap logs-table-wrap"><Table columns={columns} dataSource={logs.items} rowKey="id" pagination={false} /></div>}
       {logs.total > logs.pageSize && <Pagination currentPage={logs.page} pageSize={logs.pageSize} total={logs.total} onPageChange={(page) => setQuery({ ...query, page })} />}
     </main>
   )

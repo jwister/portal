@@ -12,5 +12,8 @@ public record LogEntry(
         long completionTokens,
         long useTime,
         boolean stream,
-        String requestId
+        String requestId,
+        long cacheTokens,
+        long cacheCreationTokens,
+        double firstResponseTime
 ) {}

@@ -5,7 +5,7 @@ import { useTranslation } from 'react-i18next'
 
 import { signOut } from '../api/auth'
 import { useAuthStatus } from '../auth/use-auth-status'
-import '../i18n'
+import i18n, { setStoredLanguage } from '../i18n'
 
 export type ConsoleKey = 'dashboard' | 'recharge' | 'tokens' | 'logs' | 'profile' | 'orders'
 
@@ -28,6 +28,7 @@ export function ConsoleLayout(props: ConsoleLayoutProps) {
   const { t } = useTranslation()
   const status = useAuthStatus()
   const accountName = status.kind === 'authenticated' ? status.profile.username : t('console.account')
+  const nextLanguage = i18n.language.startsWith('zh') ? 'en' : 'zh-CN'
   const labels: Record<ConsoleKey, string> = { dashboard: t('console.dashboard'), recharge: t('console.recharge'), tokens: t('console.tokens'), logs: t('console.logs'), profile: t('console.profile'), orders: t('console.orders') }
   const handleSignOut = async () => {
     try {
@@ -39,7 +40,7 @@ export function ConsoleLayout(props: ConsoleLayoutProps) {
   }
   return (
     <Layout className="console-shell">
-      <Layout.Sider className="console-sider">
+      <Layout.Sider className="console-sider" style={{ flex: '0 0 180px', width: 180 }}>
         <a className="console-brand" href="/"><img src="/small-logo.png" alt="" /><strong>{t('brand.name')}</strong></a>
         <nav aria-label={t('console.navigation')}><Nav mode="vertical" selectedKeys={[props.activeKey]} onSelect={({ itemKey }) => {
           const path = destinations[itemKey as ConsoleKey]
@@ -55,7 +56,7 @@ export function ConsoleLayout(props: ConsoleLayoutProps) {
         ]} /></nav>
       </Layout.Sider>
       <Layout>
-        <Layout.Header className="console-topbar"><h1>{labels[props.activeKey]}</h1><Space spacing="tight"><Button theme="borderless" icon={<IconBell />} aria-label={t('console.notifications')} /><div className="console-account public-account"><Avatar size="small" className="public-avatar" aria-label={t('auth.avatarLabel', { username: accountName })} tabIndex={0}>{accountName.charAt(0).toUpperCase()}</Avatar><div className="public-account-menu"><span className="public-username"><IconUser aria-hidden="true" />{accountName}</span><Button theme="borderless" className="public-logout" icon={<IconExit aria-hidden="true" />} onClick={() => void handleSignOut()}>{t('auth.signOut')}</Button></div></div></Space></Layout.Header>
+        <Layout.Header className="console-topbar"><h1>{labels[props.activeKey]}</h1><Space spacing="tight"><Button theme="borderless" aria-label={nextLanguage === 'zh-CN' ? '中文' : 'English'} onClick={() => setStoredLanguage(nextLanguage)}>{nextLanguage === 'zh-CN' ? '中文' : 'EN'}</Button><Button theme="borderless" icon={<IconBell />} aria-label={t('console.notifications')} /><div className="console-account public-account"><Avatar size="small" className="public-avatar" aria-label={t('auth.avatarLabel', { username: accountName })} tabIndex={0}>{accountName.charAt(0).toUpperCase()}</Avatar><div className="public-account-menu"><span className="public-username"><IconUser aria-hidden="true" />{accountName}</span><Button theme="borderless" className="public-logout" icon={<IconExit aria-hidden="true" />} onClick={() => void handleSignOut()}>{t('auth.signOut')}</Button></div></div></Space></Layout.Header>
         <Layout.Content className="console-content">{props.children}</Layout.Content>
       </Layout>
     </Layout>

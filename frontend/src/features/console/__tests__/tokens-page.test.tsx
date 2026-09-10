@@ -12,6 +12,7 @@ describe('TokensPage', () => {
 
   afterEach(() => {
     vi.unstubAllGlobals()
+    vi.restoreAllMocks()
   })
 
   it('renders token metadata with only the masked key', async () => {
@@ -25,10 +26,45 @@ describe('TokensPage', () => {
     render(<TokensPage />)
 
     expect(await screen.findByText('server')).toBeVisible()
-    expect(screen.getAllByText('500').some((element) => element.tagName === 'TD')).toBe(true)
+    // 令牌额度表格采用美元金额展示，而不是内部 quota 整数。
+    expect(screen.getAllByText('$0.00').some((element) => element.tagName === 'TD')).toBe(true)
     expect(screen.getByText('Active')).toBeVisible()
+    expect(screen.getByText('API Key')).toBeVisible()
     expect(screen.getByText('sk-abcd********wxyz')).toBeVisible()
     expect(screen.queryByText('sk-full-secret')).not.toBeInTheDocument()
+  })
+
+  it('copies a revealed API key with the native fallback when Clipboard API is unavailable', async () => {
+    const user = userEvent.setup()
+    const execCommand = vi.fn().mockImplementation((command: string) => {
+      const activeElement = document.activeElement
+      // 部分嵌入式浏览器要求复制目标获得焦点并完整选中，否则会拒绝复制。
+      return command === 'copy'
+        && activeElement instanceof HTMLTextAreaElement
+        && activeElement.selectionStart === 0
+        && activeElement.selectionEnd === activeElement.value.length
+    })
+    Object.defineProperty(document, 'execCommand', { configurable: true, value: execCommand })
+    Object.defineProperty(navigator, 'clipboard', { configurable: true, value: undefined })
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce(new Response(JSON.stringify({
+        page: 1,
+        pageSize: 50,
+        total: 1,
+        items: [{ id: 3, name: 'server', enabled: true, remainingQuota: 500, usedQuota: 20, unlimited: false, expiredTime: -1, maskedKey: 'sk-abcd********wxyz' }],
+      }), { status: 200 }))
+      .mockResolvedValueOnce(new Response(JSON.stringify({ key: 'sk-live-key' }), { status: 200 }))
+    vi.stubGlobal('fetch', fetchMock)
+
+    render(<TokensPage />)
+    await screen.findByText('server')
+    await user.click(screen.getByRole('button', { name: 'Show key' }))
+    expect(await screen.findByText('sk-live-key')).toBeVisible()
+
+    await user.click(screen.getByRole('button', { name: /copy/i }))
+
+    expect(execCommand).toHaveBeenCalledWith('copy')
+    expect(await screen.findByText('Key copied.')).toBeVisible()
   })
 
   it('shows a compact token summary above the management table', async () => {

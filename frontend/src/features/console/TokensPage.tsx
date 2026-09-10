@@ -24,12 +24,60 @@ interface TokenEditor {
   token?: TokenSummary
 }
 
+const QUOTA_PER_USD = 500_000
+
+function formatUsdQuota(quota: number): string {
+  return `$${(quota / QUOTA_PER_USD).toFixed(2)}`
+}
+
+function displayKey(key: string): string {
+  return key.startsWith('sk-') ? key : `sk-${key}`
+}
+
+function dateFromTimestamp(timestamp: number): string {
+  if (timestamp <= 0) return ''
+  return new Date(timestamp * 1000).toISOString().slice(0, 10)
+}
+
 function initialDraft(token?: TokenSummary): TokenWriteRequest {
   return {
     name: token?.name ?? '',
     unlimited: token?.unlimited ?? false,
     remainingQuota: token?.remainingQuota ?? 0,
     expiredTime: token?.expiredTime ?? -1,
+  }
+}
+
+/**
+ * Clipboard API 在 HTTP 或未授予权限的浏览器中可能不可用；此处回退到原生复制，
+ * 让局域网部署与嵌入式浏览器也能复制已展示的 API Key。
+ */
+async function copyText(value: string): Promise<boolean> {
+  try {
+    if (navigator.clipboard?.writeText) {
+      await navigator.clipboard.writeText(value)
+      return true
+    }
+  } catch {
+    // 继续使用兼容性复制方案。
+  }
+
+  const textarea = document.createElement('textarea')
+  textarea.value = value
+  textarea.setAttribute('readonly', '')
+  textarea.style.cssText = 'position:fixed;left:-9999px;top:0;opacity:0'
+  document.body.appendChild(textarea)
+  // 兼容要求复制源获得焦点的嵌入式浏览器，并确保不会只复制到部分 API Key。
+  textarea.focus()
+  textarea.select()
+  textarea.setSelectionRange(0, textarea.value.length)
+  try {
+    if (typeof document.execCommand !== 'function') return false
+    return document.execCommand('copy')
+  } catch {
+    return false
+  } finally {
+    document.body.removeChild(textarea)
   }
 }
 
@@ -92,18 +140,19 @@ export function TokensPage() {
   }
 
   const reveal = (token: TokenSummary) => {
-    void getTokenKey(token.id).then(({ key }) => setRevealedKey(key))
+    void getTokenKey(token.id).then(({ key }) => setRevealedKey(displayKey(key)))
       .catch(() => Toast.error(t('tokens.actionError')))
   }
 
   const copyRevealedKey = () => {
-    if (!revealedKey || !navigator.clipboard) {
+    if (!revealedKey) {
       Toast.error(t('tokens.copyError'))
       return
     }
-    void navigator.clipboard.writeText(revealedKey)
-      .then(() => Toast.success(t('tokens.copySuccess')))
-      .catch(() => Toast.error(t('tokens.copyError')))
+    void copyText(revealedKey).then((copied) => {
+      if (copied) Toast.success(t('tokens.copySuccess'))
+      else Toast.error(t('tokens.copyError'))
+    }).catch(() => Toast.error(t('tokens.copyError')))
   }
 
   const remove = () => {
@@ -127,14 +176,13 @@ export function TokensPage() {
 
   const columns = [
     { title: t('tokens.name'), dataIndex: 'name' },
-    { title: t('tokens.key'), dataIndex: 'maskedKey', render: (value: string) => <Typography.Text code>{value}</Typography.Text> },
     {
       title: t('tokens.status'),
       dataIndex: 'enabled',
       render: (enabled: boolean) => <Tag color={enabled ? 'green' : 'grey'}>{enabled ? t('tokens.active') : t('tokens.inactive')}</Tag>,
     },
-    { title: t('tokens.quota'), dataIndex: 'remainingQuota' },
-    { title: t('tokens.usedQuota'), dataIndex: 'usedQuota' },
+    { title: t('tokens.key'), dataIndex: 'maskedKey', render: (value: string) => <Typography.Text code>{displayKey(value)}</Typography.Text> },
+    { title: t('tokens.quota'), dataIndex: 'remainingQuota', render: (value: number, token: TokenSummary) => token.unlimited ? t('tokens.unlimited') : formatUsdQuota(value) },
     {
       title: t('tokens.actions'),
       render: (_: unknown, token: TokenSummary) => (
@@ -157,7 +205,7 @@ export function TokensPage() {
       <section className="console-summary-grid" aria-label={t('tokens.title')}>
         <MetricCard label={t('tokens.total')} value={tokens.total} icon={<IconKey />} tone="blue" />
         <MetricCard label={t('tokens.activeCount')} value={activeTokenCount} icon={<IconTickCircle />} tone="mint" />
-        <MetricCard label={t('tokens.limitedQuota')} value={limitedQuota.toLocaleString()} icon={<IconCreditCard />} tone="amber" />
+        <MetricCard label={t('tokens.limitedQuota')} value={formatUsdQuota(limitedQuota)} icon={<IconCreditCard />} tone="amber" />
       </section>
       {tokens.items.length === 0
         ? <Empty description={t('tokens.empty')} />
@@ -174,10 +222,10 @@ export function TokensPage() {
           <label htmlFor="token-name">{t('tokens.nameField')}</label>
           <Input id="token-name" value={draft.name} onChange={(value) => setDraft((current) => ({ ...current, name: value }))} />
           <label className="token-checkbox"><input type="checkbox" checked={draft.unlimited} onChange={(event) => setDraft((current) => ({ ...current, unlimited: event.target.checked }))} />{t('tokens.unlimited')}</label>
-          {!draft.unlimited && <><label htmlFor="token-quota">{t('tokens.remainingQuota')}</label><Input id="token-quota" type="number" value={String(draft.remainingQuota)} onChange={(value) => setDraft((current) => ({ ...current, remainingQuota: Number(value) || 0 }))} /></>}
+          {!draft.unlimited && <><label htmlFor="token-quota">{t('tokens.remainingQuota')} ($)</label><Input id="token-quota" type="number" value={String(draft.remainingQuota / QUOTA_PER_USD)} onChange={(value) => setDraft((current) => ({ ...current, remainingQuota: Math.round((Number(value) || 0) * QUOTA_PER_USD) }))} /></>}
+          <label className="token-checkbox"><input type="checkbox" checked={draft.expiredTime === -1} onChange={(event) => setDraft((current) => ({ ...current, expiredTime: event.target.checked ? -1 : Math.floor(Date.now() / 1000) }))} />{t('tokens.neverExpires')}</label>
           <label htmlFor="token-expiration">{t('tokens.expiration')}</label>
-          <Input id="token-expiration" type="number" value={String(draft.expiredTime)} onChange={(value) => setDraft((current) => ({ ...current, expiredTime: Number(value) || -1 }))} />
-          <Typography.Text type="tertiary">{t('tokens.neverExpires')}: -1</Typography.Text>
+          <Input id="token-expiration" type="date" disabled={draft.expiredTime === -1} value={dateFromTimestamp(draft.expiredTime)} onChange={(value) => setDraft((current) => ({ ...current, expiredTime: value ? Math.floor(new Date(`${value}T23:59:59`).getTime() / 1000) : current.expiredTime }))} />
         </div>
       </Modal>
 

@@ -1,6 +1,7 @@
 package io.ztoken.portal.console;
 
 import io.ztoken.portal.newapi.NewApiClient;
+import io.ztoken.portal.payment.config.PaymentProperties;
 import io.ztoken.portal.session.PortalPrincipal;
 import io.ztoken.portal.session.PortalSessionService;
 import org.springframework.web.bind.annotation.CookieValue;
@@ -15,16 +16,20 @@ public class DashboardController {
 
     private final NewApiClient newApiClient;
     private final PortalSessionService sessions;
+    private final PaymentProperties paymentProperties;
 
-    public DashboardController(NewApiClient newApiClient, PortalSessionService sessions) {
+    public DashboardController(NewApiClient newApiClient, PortalSessionService sessions, PaymentProperties paymentProperties) {
         this.newApiClient = newApiClient;
         this.sessions = sessions;
+        this.paymentProperties = paymentProperties;
     }
 
     @GetMapping("/dashboard")
     public DashboardSummary dashboard(@CookieValue(value = "PORTAL_SESSION", required = false) String sessionId) {
         PortalPrincipal principal = sessions.require(sessionId);
-        return newApiClient.getDashboard(principal);
+        DashboardSummary summary = newApiClient.getDashboard(principal);
+        return new DashboardSummary(summary.availableQuota(), summary.usedQuota(), summary.requestCount(),
+                summary.tokenUsage(), paymentProperties.getQuotaPerUsd());
     }
 
     /**

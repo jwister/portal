@@ -73,7 +73,7 @@ class LogControllerTest {
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
         assertThat(response.getBody().items()).containsExactly(
                 new LogEntry(42L, 1710000000L, 2, "completed", "app-key", "GPT 4 & test", 120L,
-                        100L, 20L, 50L, true, "req-1"));
+                        100L, 20L, 50L, true, "req-1", 0L, 0L, 0D));
         assertThat(upstream.getRequestUrl().queryParameter("page_size")).isEqualTo("50");
         assertThat(upstream.getRequestUrl().queryParameter("model_name")).isEqualTo("GPT 4 & test");
         assertThat(upstream.getRequestUrl().queryParameter("token_name")).isEqualTo("app key");

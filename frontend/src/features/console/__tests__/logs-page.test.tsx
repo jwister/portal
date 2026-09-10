@@ -40,4 +40,30 @@ describe('LogsPage', () => {
     await user.click(screen.getByRole('button', { name: 'Apply filters' }))
     await waitFor(() => expect(fetchMock).toHaveBeenCalledWith(expect.stringContaining('modelName=gpt-4.1'), expect.anything()))
   })
+
+  it('localizes token breakdown and timing labels after switching languages', async () => {
+    await i18n.changeLanguage('zh-CN')
+    vi.stubGlobal('fetch', vi.fn((path: string) => {
+      if (path.startsWith('/api/console/logs/stats')) {
+        return Promise.resolve(new Response(JSON.stringify({ quota: 0, rpm: 0, tpm: 0 }), { status: 200 }))
+      }
+      return Promise.resolve(new Response(JSON.stringify({
+        page: 1,
+        pageSize: 50,
+        total: 1,
+        items: [{ id: 1, createdAt: 1710000000, type: 2, content: 'completed', tokenName: 'server', modelName: 'gpt-4o', quota: 0, promptTokens: 0, completionTokens: 0, cacheTokens: 0, cacheCreationTokens: 0, firstResponseTime: 0, useTime: 0, stream: false, requestId: 'req-1' }],
+      }), { status: 200 }))
+    }))
+
+    render(<LogsPage />)
+    expect(await screen.findByText(/输入 0/)).toBeVisible()
+    expect(screen.getByText(/首字 -/)).toBeVisible()
+
+    await i18n.changeLanguage('en')
+
+    expect(await screen.findByText(/Input 0/)).toBeVisible()
+    expect(screen.getByText(/First token -/)).toBeVisible()
+    expect(screen.getByText(/Cache read 0/)).toBeVisible()
+    expect(screen.getByText(/Total 0.0s/)).toBeVisible()
+  })
 })

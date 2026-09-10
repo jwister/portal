@@ -63,7 +63,7 @@ class DashboardControllerTest {
         RecordedRequest upstream = NEW_API.takeRequest();
         RecordedRequest dataRequest = NEW_API.takeRequest();
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
-        assertThat(response.getBody()).isEqualTo(new DashboardSummary(900L, 100L, 12L, 42L));
+        assertThat(response.getBody()).isEqualTo(new DashboardSummary(900L, 100L, 12L, 42L, 500000L));
         assertThat(upstream.getPath()).isEqualTo("/api/user/self");
         assertThat(dataRequest.getPath()).startsWith("/api/data/self?")
                 .contains("start_timestamp=")

@@ -11,3 +11,12 @@ spring:
     enabled: true
 portal:
   session-key: AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8=
+  new-api:
+    base-url: http://newapi.test
+payment:
+  trc20:
+    trongrid:
+      base-url: http://localhost
+      api-key: test-key
+    addresses:
+      - TQn9Y2khEsLJW1ChVWFMSMeRDow5KcbLSE

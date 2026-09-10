@@ -3,6 +3,7 @@ export interface DashboardSummary {
   usedQuota: number
   requestCount: number
   tokenUsage: number | null
+  quotaPerUsd: number
 }
 
 /** 后端已按当前账户权限聚合的图表数据，浏览器不接触 New API 的访问凭据。 */
@@ -142,6 +143,9 @@ export interface LogEntry {
   useTime: number
   stream: boolean
   requestId: string
+  cacheTokens: number
+  cacheCreationTokens: number
+  firstResponseTime: number
 }
 
 export interface LogPage {

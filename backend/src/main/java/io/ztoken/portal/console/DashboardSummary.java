@@ -4,6 +4,7 @@ public record DashboardSummary(
         long availableQuota,
         long usedQuota,
         long requestCount,
-        Long tokenUsage
+        Long tokenUsage,
+        long quotaPerUsd
 ) {
 }

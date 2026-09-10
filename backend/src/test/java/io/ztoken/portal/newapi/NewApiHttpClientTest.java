@@ -6,6 +6,9 @@ import io.ztoken.portal.config.PortalProperties;
 import io.ztoken.portal.console.DashboardSummary;
 import io.ztoken.portal.console.DashboardAnalytics;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import ch.qos.logback.classic.Logger;
+import ch.qos.logback.classic.spi.ILoggingEvent;
+import ch.qos.logback.core.read.ListAppender;
 import io.ztoken.portal.console.TokenKey;
 import io.ztoken.portal.console.TokenList;
 import io.ztoken.portal.console.TokenSummary;
@@ -25,6 +28,7 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.http.HttpHeaders;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
+import org.slf4j.LoggerFactory;
 
 import java.util.List;
 import java.time.Instant;
@@ -93,7 +97,7 @@ class NewApiHttpClientTest {
 
         RecordedRequest userRequest = NEW_API.takeRequest();
         RecordedRequest dataRequest = NEW_API.takeRequest();
-        assertThat(result).isEqualTo(new DashboardSummary(1000L, 100L, 8L, 20L));
+        assertThat(result).isEqualTo(new DashboardSummary(1000L, 100L, 8L, 20L, 0L));
         assertThat(userRequest.getPath()).isEqualTo("/api/user/self");
         assertThat(dataRequest.getPath()).startsWith("/api/data/self?")
                 .contains("start_timestamp=")
@@ -470,6 +474,65 @@ class NewApiHttpClientTest {
 
         assertThat(catchThrowable(() -> client.login("alice", "wrong")))
                 .isInstanceOf(NewApiAuthenticationException.class);
+        NEW_API.takeRequest();
+    }
+
+    @Test
+    void failedLoginEmitsSanitizedDiagnosticLog() throws Exception {
+        NEW_API.enqueue(new MockResponse()
+                .setResponseCode(200)
+                .setHeader(HttpHeaders.CONTENT_TYPE, "application/json")
+                .setBody("{\"success\":false,\"message\":\"账号不存在; diagnostic=expected-detail\"}"));
+        Logger logger = (Logger) LoggerFactory.getLogger(NewApiHttpClient.class);
+        ListAppender<ILoggingEvent> appender = new ListAppender<>();
+        appender.start();
+        logger.addAppender(appender);
+
+        try {
+            assertThat(catchThrowable(() -> client.login("alice", "do-not-log-this-password")))
+                    .isInstanceOf(NewApiAuthenticationException.class);
+        } finally {
+            logger.detachAppender(appender);
+            appender.stop();
+        }
+
+        assertThat(appender.list).extracting(ILoggingEvent::getFormattedMessage)
+                .anySatisfy(message -> {
+                    assertThat(message).contains("NewAPI 登录被拒绝")
+                            .contains("账号不存在; diagnostic=expected-detail")
+                            .doesNotContain("alice")
+                            .doesNotContain("do-not-log-this-password");
+                });
+        NEW_API.takeRequest();
+    }
+
+    @Test
+    void loginHttpFailureEmitsSanitizedDiagnosticLog() throws Exception {
+        NEW_API.enqueue(new MockResponse()
+                .setResponseCode(502)
+                .setHeader(HttpHeaders.CONTENT_TYPE, "application/json")
+                .setBody("{\"success\":false,\"message\":\"response-body-must-not-log\"}"));
+        Logger logger = (Logger) LoggerFactory.getLogger(NewApiHttpClient.class);
+        ListAppender<ILoggingEvent> appender = new ListAppender<>();
+        appender.start();
+        logger.addAppender(appender);
+
+        try {
+            assertThat(catchThrowable(() -> client.login("alice", "do-not-log-this-password")))
+                    .isInstanceOf(NewApiException.class);
+        } finally {
+            logger.detachAppender(appender);
+            appender.stop();
+        }
+
+        assertThat(appender.list).extracting(ILoggingEvent::getFormattedMessage)
+                .anySatisfy(message -> {
+                    assertThat(message).contains("NewAPI 登录请求失败")
+                            .contains("httpStatus=502")
+                            .doesNotContain("alice")
+                            .doesNotContain("do-not-log-this-password")
+                            .doesNotContain("response-body-must-not-log");
+                });
         NEW_API.takeRequest();
     }
 

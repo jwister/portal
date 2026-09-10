@@ -259,7 +259,10 @@ h1 { font-family: Georgia, serif; font-size: clamp(3.1rem, 8vw, 7.2rem); font-we
 @media (prefers-reduced-motion: reduce) { .model-card { transition: none; }.model-card:hover { transform: none; } }
 
 /* 控制台详情页复用的数据摘要、身份信息和订单状态样式。 */
-.console-summary-grid { display: grid; gap: 16px; grid-template-columns: repeat(3, minmax(0, 1fr)); margin-bottom: 16px; }
+.console-summary-grid { display: grid; gap: 16px; grid-template-columns: repeat(4, minmax(0, 1fr)); margin-bottom: 16px; }
+.logs-summary-grid { gap: 10px; grid-template-columns: repeat(3, minmax(0, 1fr)); }.logs-summary-grid .metric-card .semi-card-body { gap: 4px; padding: 12px 14px; }.logs-summary-grid .metric-card-top { font-size: 12px; }.logs-summary-grid .metric-card-icon { border-radius: 8px; font-size: 14px; height: 28px; width: 28px; }.logs-summary-grid .metric-card .semi-typography-h3 { font-size: 22px; margin: 0; }
+.console-sider { align-self: flex-start; height: 100dvh; position: sticky; top: 0; }.log-detail { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.logs-table-wrap .semi-table table { table-layout: fixed; width: 100%; }
 .console-table-toolbar .semi-input-wrapper,.console-table-toolbar .semi-select { background: #fbfdff; border-color: #dce6f2; }
 .console-table-toolbar .semi-input-prefix,.console-table-toolbar .semi-select-prefix { color: #6f84a0; }
 .console-identity-card { align-items: center; background: linear-gradient(135deg, #123161, #2463a6); border-radius: 16px; color: #fff; display: flex; gap: 18px; margin-bottom: 16px; overflow: hidden; padding: 24px; position: relative; }

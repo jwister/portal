@@ -54,14 +54,14 @@ describe('DashboardPage', () => {
     vi.unstubAllGlobals()
   })
 
-  it('renders four account metrics and labels unavailable token usage honestly', async () => {
+  it('renders four account metrics with the selected range token total', async () => {
     const fetchMock = vi.fn((input: RequestInfo | URL) => {
       const path = String(input)
       if (path.includes('/analytics')) {
         return Promise.resolve(new Response(JSON.stringify({
           dailyUsage: [{ date: '2026-09-01', quota: 90, requestCount: 12 }],
           topModels: [{ modelName: 'gpt-4o', quota: 90 }],
-          tokenUsage: [{ date: '2026-09-01', tokenUsage: 1200 }],
+          tokenUsage: [{ date: '2026-09-01', tokenUsage: 1_200_000 }],
         }), { status: 200 }))
       }
       return Promise.resolve(new Response(JSON.stringify({
@@ -69,22 +69,25 @@ describe('DashboardPage', () => {
         usedQuota: 100,
         requestCount: 12,
         tokenUsage: null,
+        quotaPerUsd: 10,
       }), { status: 200 }))
     })
     vi.stubGlobal('fetch', fetchMock)
 
     render(<DashboardPage />)
 
-    expect(await screen.findByText('900')).toBeVisible()
-    expect(screen.getByText('100')).toBeVisible()
+    // 额度已统一按美元展示，页面不再暴露 NewAPI 的内部额度整数。
+    expect((await screen.findAllByText('$90.00')).length).toBeGreaterThan(0)
     expect(screen.getByText('12')).toBeVisible()
     expect(screen.getByText('Token usage')).toBeVisible()
-    expect(screen.getByText('Not available')).toBeVisible()
+    expect(screen.getByText('1.2M')).toBeVisible()
     expect(screen.getByRole('heading', { name: 'Console overview' })).toBeVisible()
+    expect(screen.getByTestId('ledger-console-page')).toBeVisible()
     expect(await screen.findByRole('button', { name: '7 days' })).toBeVisible()
     expect(screen.getByRole('region', { name: '30-day usage trend' })).toBeVisible()
     expect(screen.getByRole('region', { name: 'Top 5 models by quota' })).toBeVisible()
     expect(screen.getByRole('region', { name: 'Last 7 days token usage' })).toBeVisible()
+    expect(screen.getByRole('region', { name: '30-day usage trend' }).getAttribute('data-option')).toContain('#147b57')
     expect(fetchMock).toHaveBeenCalledWith('/api/console/dashboard/analytics?range=30d', expect.anything())
   })
 

@@ -26,4 +26,5 @@ class PortalApplicationTest {
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
         assertThat(response.getBody()).contains("<div id=\"root\">");
     }
+
 }

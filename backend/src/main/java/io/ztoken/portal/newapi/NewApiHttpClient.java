@@ -54,6 +54,8 @@ public class NewApiHttpClient implements NewApiClient {
     private final WebClient client;
     private final ObjectMapper objectMapper;
     private final String pricingToken;
+    /** 仅保留协议、主机和端口，用于诊断上游故障时避免泄露配置中的敏感信息。 */
+    private final String upstreamTarget;
     private final Clock clock;
 
     @Autowired
@@ -65,9 +67,11 @@ public class NewApiHttpClient implements NewApiClient {
      * 时钟作为协作依赖注入，既让统计边界固定使用上海业务时区，也让跨日聚合可被稳定测试。
      */
     NewApiHttpClient(PortalProperties properties, ObjectMapper objectMapper, Clock clock) {
-        this.client = WebClient.builder().baseUrl(properties.getNewApi().getBaseUrl()).build();
+        String baseUrl = properties.getNewApi().getBaseUrl();
+        this.client = WebClient.builder().baseUrl(baseUrl).build();
         this.objectMapper = objectMapper;
         this.pricingToken = properties.getNewApi().getPricingToken();
+        this.upstreamTarget = upstreamTarget(baseUrl);
         this.clock = clock;
     }
 
@@ -75,6 +79,8 @@ public class NewApiHttpClient implements NewApiClient {
     public NewApiLogin login(String username, String password) {
         JsonNode root = post("/api/user/login", Map.of("username", username, "password", password), null);
         if (root == null || !root.path("success").asBoolean(false)) {
+            log.warn("NewAPI 登录被拒绝: upstream={}, httpStatus=200, success={}, message={}", upstreamTarget,
+                    root != null && root.path("success").asBoolean(false), safeUpstreamMessage(root));
             throw new NewApiAuthenticationException();
         }
         JsonNode data = requireData(root);
@@ -153,7 +159,8 @@ public class NewApiHttpClient implements NewApiClient {
                 user.path("quota").asLong(),
                 user.path("used_quota").asLong(),
                 user.path("request_count").asLong(),
-                tokenUsageFrom(data)
+                tokenUsageFrom(data),
+                0L
         );
     }
 
@@ -465,10 +472,17 @@ public class NewApiHttpClient implements NewApiClient {
     }
 
     private LogEntry logFrom(JsonNode item) {
+        JsonNode other = parseLogOther(item.path("other").asText(""));
         return new LogEntry(item.path("id").asLong(), item.path("created_at").asLong(), item.path("type").asInt(),
                 item.path("content").asText(), item.path("token_name").asText(), item.path("model_name").asText(),
                 item.path("quota").asLong(), item.path("prompt_tokens").asLong(), item.path("completion_tokens").asLong(),
-                item.path("use_time").asLong(), item.path("is_stream").asBoolean(false), item.path("request_id").asText());
+                item.path("use_time").asLong(), item.path("is_stream").asBoolean(false), item.path("request_id").asText(),
+                other.path("cache_tokens").asLong(), other.path("cache_creation_tokens").asLong(), other.path("frt").asDouble());
+    }
+
+    private JsonNode parseLogOther(String other) {
+        try { return other.isBlank() ? objectMapper.createObjectNode() : objectMapper.readTree(other); }
+        catch (JsonProcessingException exception) { return objectMapper.createObjectNode(); }
     }
 
     private Profile profileFrom(JsonNode user) {
@@ -493,6 +507,34 @@ public class NewApiHttpClient implements NewApiClient {
 
     private boolean hasText(String value) {
         return value != null && !value.isBlank();
+    }
+
+    /**
+     * 登录失败日志只允许包含上游的简化说明，防止异常响应通过日志泄露凭据或过长内容。
+     */
+    private String safeUpstreamMessage(JsonNode root) {
+        String message = root == null ? "" : root.path("message").asText("");
+        String normalized = message.replace('\r', ' ').replace('\n', ' ').trim();
+        if (normalized.isEmpty()) {
+            return "<empty>";
+        }
+        return normalized.length() <= 200 ? normalized : normalized.substring(0, 200) + "…";
+    }
+
+    /**
+     * 配置地址可能包含路径或凭据，日志中仅记录可安全定位服务的协议、主机和端口。
+     */
+    private String upstreamTarget(String baseUrl) {
+        try {
+            URI uri = URI.create(baseUrl);
+            if (uri.getScheme() == null || uri.getHost() == null) {
+                return "<invalid-upstream>";
+            }
+            return uri.getScheme() + "://" + uri.getHost()
+                    + (uri.getPort() < 0 ? "" : ":" + uri.getPort());
+        } catch (IllegalArgumentException exception) {
+            return "<invalid-upstream>";
+        }
     }
 
     @Override
@@ -575,13 +617,25 @@ public class NewApiHttpClient implements NewApiClient {
         try {
             return request.bodyValue(body).retrieve().bodyToMono(JsonNode.class).block(Duration.ofSeconds(10));
         } catch (WebClientResponseException exception) {
+            if (isLoginPath(path)) {
+                log.warn("NewAPI 登录请求失败: upstream={}, httpStatus={}, category=http-response", upstreamTarget,
+                        exception.getStatusCode().value());
+            }
             throw new NewApiException("NewAPI request failed with status " + exception.getStatusCode().value());
         } catch (RuntimeException exception) {
             if (exception instanceof NewApiException) {
                 throw exception;
             }
+            if (isLoginPath(path)) {
+                log.warn("NewAPI 登录请求异常: upstream={}, exceptionType={}", upstreamTarget,
+                        exception.getClass().getSimpleName());
+            }
             throw new NewApiException("NewAPI request failed");
         }
+    }
+
+    private boolean isLoginPath(String path) {
+        return "/api/user/login".equals(path);
     }
 
     private void applyUserHeaders(HttpHeaders headers, PortalPrincipal principal) {
