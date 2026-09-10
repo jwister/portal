@@ -14,7 +14,7 @@
 
 Compose 仅引用环境变量，不包含实际密钥。数据库地址与密码、Portal session key、NewAPI 凭据、PayPal 凭据、TronGrid API key 与 TRC20 地址池均从部署环境传入；缺少必填值时 Compose 显式失败，不使用弱默认值。
 
-`.dockerignore` 排除 Git 元数据、前端依赖、构建产物、IDE/临时文件和本地环境文件，缩小镜像构建上下文，并避免意外复制密钥。
+`.dockerignore` 只放行 Dockerfile 与最终 JAR，缩小镜像构建上下文，并避免意外复制源码、依赖和密钥。
 
 ## 验证
 

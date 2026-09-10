@@ -8,10 +8,10 @@ The backend packages the React production build into a single executable JAR. Ru
 mvn -f backend/pom.xml clean package
 ```
 
-Start the packaged application with Java 17 and the user-scoped portal session key:
+Start the packaged application with Java 17:
 
 ```powershell
-.\scripts\start-portal.ps1
+java -jar backend\target\ztoken-portal-0.1.0-SNAPSHOT.jar
 ```
 
 ## 前后端分离开发
