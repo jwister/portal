@@ -14,7 +14,7 @@
 ## 架构与数据流
 
 1. Portal 登录页调用 `GET /api/auth/oauth/providers`。BFF 读取 NewAPI `/api/status`，仅投影已启用 provider 的公开启动参数：GitHub client ID，或 OIDC 的名称、client ID 与授权端点。
-2. 用户选择 provider 后，前端调用 `POST /api/auth/oauth/{provider}/state`。BFF 只允许 `github`、`oidc`，并将 `{provider, intent:"login"}` 转交给 NewAPI `/api/oauth/state`；返回的短期一次性 `flow_token` 作为 OAuth `state`。
+2. 用户选择 provider 后，前端调用 `POST /api/auth/oauth/{provider}/state`。BFF 只允许 `github`、`oidc`，并将 `{provider, intent:"login"}` 转交给 NewAPI `/api/oauth/state`；返回的短期一次性 `flow_token` 作为 OAuth `state`，同时写入只限当前浏览器的 HttpOnly、SameSite=Lax 短期 cookie。完成回调前 BFF 必须以常量时间比较 cookie 与 state，随后清除 cookie，阻止跨浏览器重放和登录会话置换。
 3. 前端跳转到 GitHub 或 Google 的授权地址，回调地址固定为 Portal 的 `/oauth/github` 或 `/oauth/oidc`。
 4. 回调页校验 provider 和回调查询参数，调用 `POST /api/auth/oauth/{provider}/complete`。BFF 服务器端向 NewAPI `GET /api/oauth/{provider}` 透传 `code`、`state`、`error` 与 `error_description`，不让浏览器直接持有 NewAPI 的认证响应。
 5. NewAPI 成功返回其标准登录包后，Portal 建立现有的 HttpOnly `PORTAL_SESSION`，并重定向到受保护的控制台。失败时回调页显示安全的错误文字并回到登录页。

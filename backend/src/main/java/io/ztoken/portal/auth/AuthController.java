@@ -20,11 +20,17 @@ import org.springframework.web.bind.annotation.CookieValue;
 import org.springframework.web.bind.annotation.PathVariable;
 import jakarta.servlet.http.HttpServletResponse;
 
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+import java.time.Duration;
 import java.util.Map;
 
 @RestController
 @RequestMapping("/api/auth")
 public class AuthController {
+
+    private static final String OAUTH_STATE_COOKIE = "PORTAL_OAUTH_STATE";
+    private static final Duration OAUTH_STATE_TTL = Duration.ofMinutes(10);
 
     private final NewApiClient newApiClient;
     private final PortalSessionService sessions;
@@ -64,17 +70,38 @@ public class AuthController {
 
     /** 使用 NewAPI 已有的短期 state，维持其 OAuth CSRF 防护与一次性消费语义。 */
     @PostMapping("/oauth/{provider}/state")
-    public Map<String, String> createOAuthState(@PathVariable String provider) {
+    public ResponseEntity<Map<String, String>> createOAuthState(@PathVariable String provider) {
         requireSupportedOAuthProvider(provider);
-        return Map.of("state", newApiClient.createOAuthState(provider));
+        String state = newApiClient.createOAuthState(provider);
+        return ResponseEntity.ok().header(HttpHeaders.SET_COOKIE, oauthStateCookie(state, OAUTH_STATE_TTL).toString())
+                .body(Map.of("state", state));
     }
 
     /** 完成 OAuth 后仅建立 Portal 会话；NewAPI 登录包不会暴露给浏览器。 */
     @PostMapping("/oauth/{provider}/complete")
     public ResponseEntity<Void> completeOAuth(@PathVariable String provider,
-                                              @Valid @RequestBody OAuthCompleteRequest request) {
+                                              @Valid @RequestBody OAuthCompleteRequest request,
+                                              @CookieValue(value = OAUTH_STATE_COOKIE, required = false) String browserState,
+                                              HttpServletResponse response) {
         requireSupportedOAuthProvider(provider);
+        if (browserState == null || !MessageDigest.isEqual(browserState.getBytes(StandardCharsets.UTF_8),
+                request.state().getBytes(StandardCharsets.UTF_8))) {
+            throw new IllegalArgumentException("OAuth state does not match this browser");
+        }
+        // 无论上游成功或拒绝，均清除绑定 cookie，避免同一 state 被浏览器重复提交。
+        response.addHeader(HttpHeaders.SET_COOKIE, oauthStateCookie("", Duration.ZERO).toString());
         return withPortalSession(newApiClient.completeOAuth(provider, request.toCallback()));
+    }
+
+    /** OAuth state 同时绑定到当前浏览器，阻止其他浏览器重放授权回调来置换 Portal 会话。 */
+    private ResponseCookie oauthStateCookie(String state, Duration maxAge) {
+        return ResponseCookie.from(OAUTH_STATE_COOKIE, state)
+                .httpOnly(true)
+                .secure(properties.isSessionSecureCookie())
+                .sameSite("Lax")
+                .path("/api/auth/oauth")
+                .maxAge(maxAge)
+                .build();
     }
 
     /** 密码与 OAuth 登录共用同一套受保护 cookie 属性，避免认证路径产生会话差异。 */
