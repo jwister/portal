@@ -43,10 +43,14 @@ describe('SignInPage', () => {
 
   it('shows a server-provided error message when sign-in fails', async () => {
     const user = userEvent.setup()
-    const fetchMock = vi.fn().mockResolvedValue(new Response(
-      JSON.stringify({ message: 'Unable to verify sign-in details' }),
-      { status: 401, headers: { 'Content-Type': 'application/json' } },
-    ))
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce(new Response(JSON.stringify({
+        githubEnabled: false, githubClientId: '', oidcEnabled: false, oidcClientId: '',
+        oidcAuthorizationEndpoint: '', oidcDisplayName: 'Google',
+      }), { status: 200, headers: { 'Content-Type': 'application/json' } }))
+      .mockResolvedValueOnce(new Response(JSON.stringify({ message: 'Unable to verify sign-in details' }), {
+        status: 401, headers: { 'Content-Type': 'application/json' },
+      }))
     vi.stubGlobal('fetch', fetchMock)
     render(<SignInPage onAuthenticated={vi.fn()} />)
     await user.type(screen.getByLabelText('Username'), 'alice@example.com')
@@ -54,7 +58,7 @@ describe('SignInPage', () => {
     await user.click(screen.getByRole('button', { name: 'Sign in' }))
     const messages = await screen.findAllByText('Unable to verify sign-in details')
     expect(messages.length).toBeGreaterThanOrEqual(1)
-    expect(fetchMock).toHaveBeenCalledTimes(1)
+    expect(fetchMock).toHaveBeenCalledTimes(2)
   })
 
   it('keeps the submit button busy while the request is pending', async () => {
@@ -72,5 +76,34 @@ describe('SignInPage', () => {
     expect(submitButton).toHaveClass('semi-button-loading')
     resolveFetch(new Response(null, { status: 204 }))
     await waitFor(() => expect(screen.getByRole('button', { name: 'Sign in' })).not.toHaveClass('semi-button-loading'))
+  })
+
+  it('requests a one-time state before starting GitHub OAuth', async () => {
+    const user = userEvent.setup()
+    const onOAuthNavigate = vi.fn()
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce(new Response(JSON.stringify({
+        githubEnabled: true,
+        githubClientId: 'github-client',
+        oidcEnabled: false,
+        oidcClientId: '',
+        oidcAuthorizationEndpoint: '',
+        oidcDisplayName: 'Google',
+      }), { status: 200, headers: { 'Content-Type': 'application/json' } }))
+      .mockResolvedValueOnce(new Response(JSON.stringify({ state: 'flow-token' }), {
+        status: 200, headers: { 'Content-Type': 'application/json' },
+      }))
+    vi.stubGlobal('fetch', fetchMock)
+
+    render(<SignInPage onOAuthNavigate={onOAuthNavigate} />)
+    await user.click(await screen.findByRole('button', { name: 'Continue with GitHub' }))
+
+    expect(fetchMock).toHaveBeenNthCalledWith(1, '/api/auth/oauth/providers', expect.objectContaining({
+      credentials: 'include',
+    }))
+    expect(fetchMock).toHaveBeenNthCalledWith(2, '/api/auth/oauth/github/state', expect.objectContaining({
+      method: 'POST', credentials: 'include',
+    }))
+    expect(onOAuthNavigate).toHaveBeenCalledWith(expect.stringContaining('state=flow-token'))
   })
 })

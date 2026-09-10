@@ -1,18 +1,41 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Button, Form, Toast } from '@douyinfe/semi-ui'
 
-import { AuthApiError, getSafeReturnTo, signIn } from '../../api/auth'
+import {
+  AuthApiError,
+  buildGitHubOAuthUrl,
+  buildOidcOAuthUrl,
+  createOAuthState,
+  getOAuthProviders,
+  getSafeReturnTo,
+  signIn,
+  type OAuthProviderStatus,
+} from '../../api/auth'
 import '../../i18n'
 
 interface SignInPageProps {
   onAuthenticated?: () => void
+  onOAuthNavigate?: (url: string) => void
 }
 
 export function SignInPage(props: SignInPageProps) {
   const { t } = useTranslation()
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [providers, setProviders] = useState<OAuthProviderStatus | null>(null)
+  const [oauthProvider, setOAuthProvider] = useState<'github' | 'oidc' | null>(null)
+
+  useEffect(() => {
+    let active = true
+    void getOAuthProviders().then((status) => {
+      if (active) setProviders(status)
+    }).catch(() => {
+      // OAuth 未配置或临时不可用时保留密码登录，不向用户展示上游错误。
+      if (active) setProviders(null)
+    })
+    return () => { active = false }
+  }, [])
 
   const submit = async (values: Record<string, unknown>): Promise<void> => {
     const username = typeof values.username === 'string' ? values.username.trim() : ''
@@ -31,6 +54,28 @@ export function SignInPage(props: SignInPageProps) {
       setSubmitting(false)
     }
   }
+
+  const startOAuth = async (provider: 'github' | 'oidc'): Promise<void> => {
+    if (!providers || oauthProvider) return
+    setOAuthProvider(provider)
+    setError(null)
+    try {
+      const state = await createOAuthState(provider)
+      const destination = provider === 'github'
+        ? buildGitHubOAuthUrl(providers.githubClientId, state)
+        : buildOidcOAuthUrl(providers.oidcAuthorizationEndpoint, providers.oidcClientId, state)
+      if (props.onOAuthNavigate) props.onOAuthNavigate(destination)
+      else window.location.assign(destination)
+    } catch {
+      const message = t('auth.oauthFailed')
+      setError(message)
+      Toast.error(message)
+      setOAuthProvider(null)
+    }
+  }
+
+  const githubEnabled = !!providers?.githubEnabled && !!providers.githubClientId
+  const oidcEnabled = !!providers?.oidcEnabled && !!providers.oidcClientId && !!providers.oidcAuthorizationEndpoint
 
   return (
     <main className="auth-page ledger-auth-page" data-testid="ledger-auth-page">
@@ -56,6 +101,27 @@ export function SignInPage(props: SignInPageProps) {
           />
           {error && <p className="auth-error" role="alert">{error}</p>}
           <Button type="primary" theme="solid" htmlType="submit" loading={submitting}>{t('auth.submit')}</Button>
+          {(githubEnabled || oidcEnabled) && <div className="auth-oauth" aria-label={t('auth.oauthDivider')}>
+            <span>{t('auth.oauthDivider')}</span>
+            {githubEnabled && <Button
+              type="tertiary"
+              theme="borderless"
+              htmlType="button"
+              className="auth-oauth-button"
+              loading={oauthProvider === 'github'}
+              disabled={!!oauthProvider}
+              onClick={() => void startOAuth('github')}
+            >{t('auth.continueGithub')}</Button>}
+            {oidcEnabled && <Button
+              type="tertiary"
+              theme="borderless"
+              htmlType="button"
+              className="auth-oauth-button"
+              loading={oauthProvider === 'oidc'}
+              disabled={!!oauthProvider}
+              onClick={() => void startOAuth('oidc')}
+            >{t('auth.continueGoogle', { provider: providers?.oidcDisplayName || 'Google' })}</Button>}
+          </div>}
           <p className="auth-switch">{t('auth.noAccount')} <a href="/sign-up">{t('register.submit')}</a></p>
         </Form>
       </section>

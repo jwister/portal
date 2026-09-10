@@ -19,6 +19,12 @@ public interface NewApiClient {
 
     NewApiLogin login(String username, String password);
 
+    OAuthProviderStatus getOAuthProviderStatus();
+
+    String createOAuthState(String provider);
+
+    NewApiLogin completeOAuth(String provider, OAuthCallback callback);
+
     void register(String username, String email, String password, String verificationCode);
 
     void sendEmailVerification(String email);

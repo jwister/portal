@@ -377,6 +377,37 @@ class NewApiHttpClientTest {
     }
 
     @Test
+    void oauthCompletionParsesNewApiLoginBundleWithoutSendingBrowserCredentials() throws Exception {
+        NEW_API.enqueue(new MockResponse()
+                .setHeader(HttpHeaders.CONTENT_TYPE, "application/json")
+                .setBody("{\"success\":true,\"data\":{\"access_token\":\"oauth-access-token\",\"user\":{\"id\":7,\"username\":\"alice\"}}}"));
+
+        NewApiLogin result = client.completeOAuth("github", new OAuthCallback("provider-code", "flow-token", null, null));
+
+        RecordedRequest request = NEW_API.takeRequest();
+        assertThat(result).isEqualTo(new NewApiLogin(new NewApiIdentity(7L, "alice"), "oauth-access-token"));
+        assertThat(request.getMethod()).isEqualTo("GET");
+        assertThat(request.getRequestUrl().encodedPath()).isEqualTo("/api/oauth/github");
+        assertThat(request.getRequestUrl().queryParameter("code")).isEqualTo("provider-code");
+        assertThat(request.getRequestUrl().queryParameter("state")).isEqualTo("flow-token");
+        assertThat(request.getHeader(HttpHeaders.AUTHORIZATION)).isNull();
+        assertThat(request.getHeader("New-Api-User")).isNull();
+    }
+
+    @Test
+    void oauthProviderStatusExposesOnlyPublicOAuthStartFields() throws Exception {
+        NEW_API.enqueue(new MockResponse()
+                .setHeader(HttpHeaders.CONTENT_TYPE, "application/json")
+                .setBody("{\"success\":true,\"data\":{\"github_oauth\":true,\"github_client_id\":\"github-client\",\"oidc_enabled\":true,\"oidc_client_id\":\"google-client\",\"oidc_authorization_endpoint\":\"https://accounts.google.com/o/oauth2/v2/auth\",\"oidc_display_name\":\"Google\",\"oidc_client_secret\":\"must-not-be-projected\"}}"));
+
+        OAuthProviderStatus result = client.getOAuthProviderStatus();
+
+        assertThat(result).isEqualTo(new OAuthProviderStatus(true, "github-client", true, "google-client",
+                "https://accounts.google.com/o/oauth2/v2/auth", "Google"));
+        assertThat(NEW_API.takeRequest().getPath()).isEqualTo("/api/status");
+    }
+
+    @Test
     void registerSendsEmailAndPassword() throws Exception {
         NEW_API.enqueue(new MockResponse()
                 .setResponseCode(200)

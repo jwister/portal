@@ -5,6 +5,9 @@ import okhttp3.mockwebserver.MockWebServer;
 import okhttp3.mockwebserver.RecordedRequest;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.parallel.Execution;
+import org.junit.jupiter.api.parallel.ExecutionMode;
+import org.junit.jupiter.api.parallel.ResourceLock;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.web.client.TestRestTemplate;
@@ -15,9 +18,14 @@ import org.springframework.http.HttpEntity;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
 
+import java.util.Map;
+import java.util.concurrent.TimeUnit;
+
 import static org.assertj.core.api.Assertions.assertThat;
 
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
+@Execution(ExecutionMode.SAME_THREAD)
+@ResourceLock("auth-controller-new-api-mock-server")
 class AuthControllerTest {
 
     private static final MockWebServer NEW_API = startServer();
@@ -80,6 +88,47 @@ class AuthControllerTest {
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.UNAUTHORIZED);
         assertThat(response.getBody()).contains("NEWAPI_AUTH_FAILED");
         assertThat(response.getBody()).doesNotContain("Username or password is incorrect");
+    }
+
+    @Test
+    void oauthProvidersExposeOnlyPublicNewApiStartConfiguration() throws Exception {
+        NEW_API.enqueue(new MockResponse()
+                .setHeader(HttpHeaders.CONTENT_TYPE, "application/json")
+                .setBody("{\"success\":true,\"data\":{\"github_oauth\":true,\"github_client_id\":\"github-client\",\"oidc_enabled\":true,\"oidc_client_id\":\"google-client\",\"oidc_authorization_endpoint\":\"https://accounts.google.com/o/oauth2/v2/auth\",\"oidc_display_name\":\"Google\",\"oidc_client_secret\":\"do-not-expose\"}}"));
+
+        ResponseEntity<String> response = http.getForEntity("/api/auth/oauth/providers", String.class);
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
+        assertThat(response.getBody()).contains("github-client").contains("google-client")
+                .doesNotContain("do-not-expose");
+        assertThat(NEW_API.takeRequest().getPath()).isEqualTo("/api/status");
+    }
+
+    @Test
+    void oauthCompletionCreatesPortalSessionWithoutReturningNewApiToken() throws Exception {
+        NEW_API.enqueue(new MockResponse()
+                .setHeader(HttpHeaders.CONTENT_TYPE, "application/json")
+                .setBody("{\"success\":true,\"data\":{\"access_token\":\"upstream-secret\",\"user\":{\"id\":7,\"username\":\"alice\"}}}"));
+
+        ResponseEntity<String> response = http.postForEntity("/api/auth/oauth/github/complete",
+                Map.of("code", "provider-code", "state", "flow-token"), String.class);
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.NO_CONTENT);
+        assertThat(response.getHeaders().getFirst(HttpHeaders.SET_COOKIE)).contains("PORTAL_SESSION=");
+        assertThat(response.getBody()).isNull();
+        RecordedRequest request = NEW_API.takeRequest();
+        assertThat(request.getRequestUrl().encodedPath()).isEqualTo("/api/oauth/github");
+        assertThat(request.getRequestUrl().queryParameter("code")).isEqualTo("provider-code");
+        assertThat(request.getRequestUrl().queryParameter("state")).isEqualTo("flow-token");
+    }
+
+    @Test
+    void unsupportedOAuthProviderIsRejectedBeforeCallingNewApi() throws Exception {
+        ResponseEntity<String> response = http.postForEntity("/api/auth/oauth/discord/state", null, String.class);
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
+        assertThat(response.getBody()).contains("INVALID_AUTH_REQUEST");
+        assertThat(NEW_API.takeRequest(100, TimeUnit.MILLISECONDS)).isNull();
     }
 
     @Test

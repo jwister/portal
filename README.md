@@ -39,6 +39,19 @@ npm run dev
 
 The values after `:` in `application.yml` are local defaults. Docker can override Spring Boot properties with their canonical environment-variable names, such as `PORTAL_NEW_API_BASE_URL`, `PORTAL_NEW_API_PRICING_TOKEN`, or `PORTAL_SESSION_KEY`.
 
+## GitHub 与 Google 登录
+
+Portal 复用 NewAPI 的 OAuth 账号体系：Portal 只保存加密的 NewAPI 登录令牌并签发自己的 `PORTAL_SESSION`，不保存 GitHub/Google access token 或 OAuth client secret。
+
+在 NewAPI 管理设置中启用 GitHub OAuth，并将 OIDC provider 配置为 Google。NewAPI 的 `ServerAddress` 必须是 Portal 的公网地址，例如 `https://portal.example.com`。随后在第三方平台登记以下回调地址：
+
+```text
+GitHub OAuth App:     https://portal.example.com/oauth/github
+Google OAuth Client:  https://portal.example.com/oauth/oidc
+```
+
+GitHub 和 Google 按钮只会在对应的 NewAPI provider 已启用且公开启动配置完整时显示。两个 OAuth 回调都由 Portal BFF 转发给 NewAPI 的固定 OAuth endpoint，浏览器不会获得 NewAPI access token。
+
 ## PayPal Sandbox 充值
 
 `Portal` exposes a PayPal Sandbox 充值闭环：本地订单、服务端 Capture、签名验证 Webhook 和 NewAPI quota 入账。生产只通过环境变量切到 PayPal Live；任何 PayPal Secret、Webhook ID 或 NewAPI 管理员 Access Token 都不得写入源码或 `application.yml`。
@@ -73,4 +86,4 @@ Portal 后端会调用 PayPal `verify-webhook-signature`，并在事件 ID、pro
 
 ### 不在 Plan C 范围内
 
-TRC20-USDT、地址池、链上扫描、TxID、管理员审核 UI、GitHub/Google OAuth、PayPal Live 联调、NewAPI 源码或数据库修改均不在本计划内。
+TRC20-USDT、地址池、链上扫描、TxID、管理员审核 UI、PayPal Live 联调、NewAPI 源码或数据库修改均不在本计划内。

@@ -93,6 +93,53 @@ public class NewApiHttpClient implements NewApiClient {
         return new NewApiLogin(identity, accessToken);
     }
 
+    /**
+     * 读取登录页启动 OAuth 所需的公开配置，避免 Portal 复制或持有第三方密钥。
+     */
+    @Override
+    public OAuthProviderStatus getOAuthProviderStatus() {
+        JsonNode data = requireData(getPublic("/api/status"));
+        return new OAuthProviderStatus(
+                data.path("github_oauth").asBoolean(false),
+                data.path("github_client_id").asText(""),
+                data.path("oidc_enabled").asBoolean(false),
+                data.path("oidc_client_id").asText(""),
+                data.path("oidc_authorization_endpoint").asText(""),
+                data.path("oidc_display_name").asText("OIDC"));
+    }
+
+    /**
+     * 由 NewAPI 生成十分钟有效的一次性 state，绑定其已有的 CSRF 防护与登录流程。
+     */
+    @Override
+    public String createOAuthState(String provider) {
+        requireSupportedOAuthProvider(provider);
+        String state = requireData(post("/api/oauth/state", Map.of("provider", provider, "intent", "login"), null))
+                .path("flow_token").asText();
+        if (state.isBlank()) {
+            throw new NewApiException("NewAPI OAuth state response did not include a flow token");
+        }
+        return state;
+    }
+
+    /**
+     * 让 NewAPI 完成授权码交换、用户匹配与账号创建，再转换为 Portal 可保存的登录令牌。
+     */
+    @Override
+    public NewApiLogin completeOAuth(String provider, OAuthCallback callback) {
+        requireSupportedOAuthProvider(provider);
+        if (callback == null || callback.state() == null || callback.state().isBlank()) {
+            throw new IllegalArgumentException("OAuth state is required");
+        }
+        JsonNode data = requireData(getPublic(oauthCallbackUri(provider, callback)));
+        String accessToken = data.path("access_token").asText();
+        if (accessToken.isBlank()) {
+            throw new NewApiException("NewAPI OAuth response did not include an access token");
+        }
+        JsonNode user = data.has("user") ? data.path("user") : data;
+        return new NewApiLogin(identityFrom(user), accessToken);
+    }
+
     @Override
     public void register(String username, String email, String password, String verificationCode) {
         JsonNode root = post("/api/user/register", Map.of("username", username, "email", email, "password", password,
@@ -433,6 +480,30 @@ public class NewApiHttpClient implements NewApiClient {
         }
     }
 
+    /** 公开 OAuth 回调不带用户凭据，但仍只允许调用方提供的固定路径与参数。 */
+    private JsonNode getPublic(Function<UriBuilder, URI> uriFunction) {
+        try {
+            return client.get().uri(uriFunction).retrieve().bodyToMono(JsonNode.class).block(Duration.ofSeconds(10));
+        } catch (WebClientResponseException exception) {
+            throw new NewApiException("NewAPI request failed with status " + exception.getStatusCode().value());
+        } catch (RuntimeException exception) {
+            if (exception instanceof NewApiException) throw exception;
+            throw new NewApiException("NewAPI request failed");
+        }
+    }
+
+    /** 将第三方的四个标准回调字段映射到固定的 NewAPI OAuth endpoint。 */
+    private Function<UriBuilder, URI> oauthCallbackUri(String provider, OAuthCallback callback) {
+        return uriBuilder -> {
+            UriBuilder builder = uriBuilder.path("/api/oauth/" + provider)
+                    .queryParam("state", callback.state());
+            appendQuery(builder, "code", callback.code());
+            appendQuery(builder, "error", callback.error());
+            appendQuery(builder, "error_description", callback.errorDescription());
+            return builder.build();
+        };
+    }
+
     private Function<UriBuilder, URI> logListUri(LogQuery query) {
         return uriBuilder -> {
             UriBuilder builder = uriBuilder.path("/api/log/self")
@@ -627,6 +698,13 @@ public class NewApiHttpClient implements NewApiClient {
 
     private boolean isLoginPath(String path) {
         return "/api/user/login".equals(path);
+    }
+
+    /** Portal 只支持已明确接入且经过部署配置的两个 OAuth provider。 */
+    private void requireSupportedOAuthProvider(String provider) {
+        if (!"github".equals(provider) && !"oidc".equals(provider)) {
+            throw new IllegalArgumentException("Unsupported OAuth provider");
+        }
     }
 
     private void applyUserHeaders(HttpHeaders headers, PortalPrincipal principal) {

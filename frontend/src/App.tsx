@@ -1,6 +1,7 @@
 import { DashboardPage } from './features/console/DashboardPage'
 import { SignInPage } from './features/auth/SignInPage'
 import { SignUpPage } from './features/auth/SignUpPage'
+import { OAuthCallbackPage } from './features/auth/OAuthCallbackPage'
 import { TokensPage } from './features/console/TokensPage'
 import { LogsPage } from './features/console/LogsPage'
 import { ProfilePage } from './features/console/ProfilePage'
@@ -53,6 +54,8 @@ export function App() {
   if (path === '/console/orders') return <ConsoleRoute activeKey="orders" onNavigate={navigateConsole}><OrdersPage /></ConsoleRoute>
   if (path === '/sign-in') return <SignInPage />
   if (path === '/sign-up') return <SignUpPage onRegistered={() => window.location.assign('/sign-in')} />
+  if (path === '/oauth/github') return <OAuthCallbackPage provider="github" />
+  if (path === '/oauth/oidc') return <OAuthCallbackPage provider="oidc" />
   if (path === '/models') return <div className="public-ledger-route" data-testid="public-ledger-route"><PublicHeader /><ModelsPage /></div>
   if (path === '/purchase') return <div className="public-ledger-route" data-testid="public-ledger-route"><PublicHeader /><PurchasePage /></div>
   if (path === '/') return <div className="ledger-public-page" data-testid="ledger-public-page"><PublicHeader /><HomePage /></div>
