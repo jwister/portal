@@ -38,14 +38,35 @@ export interface TokenWriteRequest {
   expiredTime: number
 }
 
-export interface ModelCatalogItem {
+/** NewAPI 模型广场的原始模型字段；Portal 不在接口层裁剪定价数据。 */
+export interface NewApiPricingModel {
+  id?: number
+  model_name: string
+  vendor_id?: number
+  vendor_name?: string
+  enable_groups?: string[]
+  model_ratio?: number
+  model_price?: number
+  completion_ratio?: number
+  cache_ratio?: number
+  quota_type?: number
+}
+
+export interface NewApiVendor {
+  id: number
   name: string
-  vendor: string
-  groups: string[]
-  inputPrice: number | null
-  outputPrice: number | null
-  cachePrice: number | null
-  priceAvailable: boolean
+}
+
+/** NewAPI 模型广场 `/api/pricing` 的完整顶层响应。 */
+export interface NewApiPricingResponse {
+  success: boolean
+  data: NewApiPricingModel[]
+  vendors: NewApiVendor[]
+  group_ratio: Record<string, number>
+  usable_group: Record<string, string>
+  supported_endpoint: Record<string, string[]>
+  auto_groups: string[]
+  pricing_version: string
 }
 
 export class PortalApiError extends Error {
@@ -213,9 +234,19 @@ export function updateProfile(profile: ProfileUpdateRequest): Promise<Profile> {
   })
 }
 
-export async function getModelCatalog(): Promise<ModelCatalogItem[]> {
-  const body = await requestJson<{ items: ModelCatalogItem[] }>('/api/catalog/models')
-  return body.items
+/** 直接读取 Portal 原样透传的 NewAPI 模型广场定价响应。 */
+export function getPricing(): Promise<NewApiPricingResponse> {
+  return requestJson('/api/catalog/pricing')
+}
+
+/** 读取模型广场列表卡片使用的性能汇总数据。 */
+export function getPerformanceSummary(query: { hours?: number } = {}): Promise<unknown> {
+  return requestJson(`/api/catalog/perf-metrics/summary${queryString(query)}`)
+}
+
+/** 读取模型广场单模型详情使用的性能数据。 */
+export function getPerformanceMetrics(query: { model: string; group?: string; hours?: number }): Promise<unknown> {
+  return requestJson(`/api/catalog/perf-metrics${queryString(query)}`)
 }
 
 export type PaymentMethod = 'PAYPAL' | 'USDT_TRC20'

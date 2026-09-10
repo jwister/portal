@@ -9,10 +9,17 @@ describe('ModelsPage', () => {
   beforeEach(async () => {
     await i18n.changeLanguage('zh-CN')
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response(JSON.stringify({
-      items: [
-        { name: 'gpt-5-mini', vendor: 'OpenAI', groups: ['default', 'premium'], inputPrice: 1, outputPrice: 2, cachePrice: null, priceAvailable: true },
-        { name: 'glm-5', vendor: 'Zhipu', groups: ['standard'], inputPrice: null, outputPrice: null, cachePrice: null, priceAvailable: false },
+      success: true,
+      data: [
+        { id: 1, model_name: 'gpt-5-mini', vendor_id: 7, enable_groups: ['default', 'premium'], model_ratio: 1, completion_ratio: 2, quota_type: 0 },
+        { id: 2, model_name: 'glm-5', vendor_id: 8, enable_groups: ['standard'], model_price: 0.5, completion_ratio: 2, quota_type: 1 },
       ],
+      vendors: [{ id: 7, name: 'OpenAI' }, { id: 8, name: 'Zhipu' }],
+      group_ratio: { default: 1, premium: 1.5, standard: 1 },
+      usable_group: { default: 'default', premium: 'premium', standard: 'standard' },
+      supported_endpoint: {},
+      auto_groups: [],
+      pricing_version: 'v42',
     }), { status: 200 })))
   })
 
@@ -21,6 +28,8 @@ describe('ModelsPage', () => {
     render(<ModelsPage />)
 
     await screen.findByText('gpt-5-mini')
+    expect(fetch).toHaveBeenCalledWith('/api/catalog/pricing', { credentials: 'include' })
+    expect(screen.getByText('OpenAI')).toBeVisible()
     await user.type(screen.getByPlaceholderText('搜索模型'), 'glm')
 
     expect(screen.getByText('glm-5')).toBeVisible()

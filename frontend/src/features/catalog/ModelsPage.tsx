@@ -4,14 +4,25 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import '../../i18n'
-import { getModelCatalog, type ModelCatalogItem } from '../../api/portal'
+import { getPricing, type NewApiPricingResponse } from '../../api/portal'
 
 const { Title, Text } = Typography
 
 interface ModelDetailModalProps {
-  model: ModelCatalogItem | null
+  model: CatalogModel | null
   visible: boolean
   onClose: () => void
+}
+
+/** 仅服务于当前卡片布局的展示模型，始终由原始模型广场响应在浏览器内导出。 */
+interface CatalogModel {
+  name: string
+  vendor: string
+  groups: string[]
+  inputPrice: number | null
+  outputPrice: number | null
+  cachePrice: number | null
+  priceAvailable: boolean
 }
 
 function ModelDetailModal({ model, visible, onClose }: ModelDetailModalProps) {
@@ -148,25 +159,43 @@ function ModelDetailModal({ model, visible, onClose }: ModelDetailModalProps) {
 
 export function ModelsPage() {
   const { t } = useTranslation()
-  const [models, setModels] = useState<ModelCatalogItem[] | null>(null)
+  const [pricing, setPricing] = useState<NewApiPricingResponse | null>(null)
   const [query, setQuery] = useState('')
   const [selectedGroup, setSelectedGroup] = useState('all')
   const [failed, setFailed] = useState(false)
-  const [selectedModel, setSelectedModel] = useState<ModelCatalogItem | null>(null)
+  const [selectedModel, setSelectedModel] = useState<CatalogModel | null>(null)
   const [detailVisible, setDetailVisible] = useState(false)
 
   useEffect(() => {
     let active = true
-    void getModelCatalog().then((items) => { if (active) setModels(items) }).catch(() => { if (active) setFailed(true) })
+    void getPricing().then((response) => { if (active) setPricing(response) }).catch(() => { if (active) setFailed(true) })
     return () => { active = false }
   }, [])
+
+  const models = useMemo<CatalogModel[] | null>(() => {
+    if (!pricing) return null
+    const vendorNames = new Map(pricing.vendors.map((vendor) => [vendor.id, vendor.name]))
+    return pricing.data.map((model) => {
+      const inputPrice = model.quota_type === 1 ? model.model_price ?? null : model.model_ratio ?? null
+      const completionRatio = model.completion_ratio ?? 1
+      return {
+        name: model.model_name,
+        vendor: model.vendor_name ?? (model.vendor_id === undefined ? undefined : vendorNames.get(model.vendor_id)) ?? 'Independent',
+        groups: model.enable_groups ?? [],
+        inputPrice,
+        outputPrice: inputPrice === null ? null : inputPrice * completionRatio,
+        cachePrice: inputPrice === null || model.cache_ratio === undefined ? null : inputPrice * model.cache_ratio,
+        priceAvailable: inputPrice !== null,
+      }
+    })
+  }, [pricing])
 
   const handleCopyName = useCallback((name: string) => {
     void navigator.clipboard.writeText(name)
     Toast.success(t('models.nameCopied'))
   }, [t])
 
-  const handleShowDetail = useCallback((model: ModelCatalogItem) => {
+  const handleShowDetail = useCallback((model: CatalogModel) => {
     setSelectedModel(model)
     setDetailVisible(true)
   }, [])
