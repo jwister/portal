@@ -6,14 +6,16 @@
 
 ## 范围
 
-Portal 仅代理 NewAPI 模型广场当前实际调用的三个只读接口：
+Portal 仅代理 NewAPI 模型广场当前实际调用的四个只读接口：
 
+- `GET /api/status`
 - `GET /api/pricing`
 - `GET /api/perf-metrics/summary?hours=...`
 - `GET /api/perf-metrics?model=...&group=...&hours=...`
 
 对应的 Portal 路由固定为：
 
+- `GET /api/catalog/status`
 - `GET /api/catalog/pricing`
 - `GET /api/catalog/perf-metrics/summary`
 - `GET /api/catalog/perf-metrics`
@@ -22,7 +24,7 @@ Portal 仅代理 NewAPI 模型广场当前实际调用的三个只读接口：
 
 ## 架构与数据流
 
-浏览器只访问 Portal 的三个固定路由。Portal 后端使用现有 `portal.new-api.base-url` 与 `portal.new-api.pricing-token` 请求相应的 NewAPI 路由，并将浏览器给出的查询参数逐项转发。上游的 HTTP 状态码、`Content-Type` 和 JSON 响应体原样返回；Portal 不解析、补全、过滤、排序或换算任何模型广场字段。
+浏览器只访问 Portal 的四个固定路由。Portal 后端使用现有 `portal.new-api.base-url` 请求相应的 NewAPI 路由，并将浏览器给出的查询参数逐项转发。`/api/pricing` 和性能接口附带 `portal.new-api.pricing-token`；公开的 `/api/status` 不附带该令牌，以匹配 NewAPI 模型广场浏览器请求。上游的 HTTP 状态码、`Content-Type` 和 JSON 响应体原样返回；Portal 不解析、补全、过滤、排序或换算任何模型广场字段。
 
 `/api/pricing` 会保留 `data`、`vendors`、`group_ratio`、`usable_group`、`supported_endpoint`、`auto_groups` 和 `pricing_version` 等完整上游响应。性能摘要与单模型性能接口同样返回完整上游 JSON，因此 Portal 与 NewAPI 在同一时刻获取到的数据结构和值一致。
 
@@ -37,7 +39,7 @@ Portal 仅代理 NewAPI 模型广场当前实际调用的三个只读接口：
 后端集成测试使用 MockWebServer，分别验证每个 Portal 路由：
 
 1. 请求路径和全部查询参数正确转发；
-2. 授权头仅由服务端加入；
+2. 定价令牌仅由服务端加入，且不用于公开状态接口；
 3. 成功响应的状态码、内容类型和 JSON 字节内容未被转换；
 4. 上游非成功响应同样保留状态码和错误 JSON。
 

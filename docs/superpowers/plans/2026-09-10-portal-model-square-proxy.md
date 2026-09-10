@@ -2,9 +2,9 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** 将 NewAPI 模型广场的价格和性能接口经 Portal 固定路由原样返回，并让 Portal 模型页读取原始价格响应。
+**Goal:** 将 NewAPI 模型广场的状态、价格和性能接口经 Portal 固定路由原样返回，并让 Portal 模型页读取原始价格响应。
 
-**Architecture:** `NewApiHttpClient` 以固定的上游路径读取字节响应，附加服务端定价令牌并逐项转发查询参数。`ModelCatalogController` 写回上游状态、内容类型和字节体；前端只在视图内从原始定价响应导出既有卡片字段。
+**Architecture:** `NewApiHttpClient` 以固定的上游路径读取字节响应；定价和性能请求附加服务端令牌，公开状态请求不附加令牌，查询参数逐项转发。`ModelCatalogController` 写回上游状态、内容类型和字节体；前端只在视图内从原始定价响应导出既有卡片字段。
 
 **Tech Stack:** Java 17、Spring Boot 3、WebClient、MockWebServer、React 19、TypeScript、Vitest。
 
@@ -14,7 +14,7 @@
 
 - 删除：`backend/src/main/java/io/ztoken/portal/catalog/ModelCatalog.java`、`backend/src/main/java/io/ztoken/portal/catalog/ModelCatalogItem.java`，消除旧的转换后目录协议。
 - 创建：`backend/src/main/java/io/ztoken/portal/newapi/NewApiRawResponse.java`，保存上游 HTTP 状态、内容类型与字节体。
-- 修改：`backend/src/main/java/io/ztoken/portal/newapi/NewApiClient.java`、`NewApiHttpClient.java` 与 `catalog/ModelCatalogController.java`，实现三个固定的原样代理路由。
+- 修改：`backend/src/main/java/io/ztoken/portal/newapi/NewApiClient.java`、`NewApiHttpClient.java` 与 `catalog/ModelCatalogController.java`，实现四个固定的原样代理路由。
 - 修改：`backend/src/test/java/io/ztoken/portal/catalog/ModelCatalogControllerTest.java`，验证所有代理契约。
 - 修改：`frontend/src/api/portal.ts`、`frontend/src/features/catalog/ModelsPage.tsx` 和对应测试，消费完整 `pricing` 响应。
 
@@ -32,7 +32,7 @@
 
 - [ ] **Step 1: 写入失败的端到端代理测试**
 
-将当前 DTO 映射测试替换为三个测试，并在动态属性加入 `portal.new-api.pricing-token=test-pricing-token`。
+将当前 DTO 映射测试替换为四个测试，并在动态属性加入 `portal.new-api.pricing-token=test-pricing-token`。
 
 ```java
 @Test
@@ -76,7 +76,7 @@ void performanceMetricsForwardsQueryAndUpstreamError() throws Exception {
 
 Run: `mvn -f backend/pom.xml -Dskip.frontend=true -Dtest=ModelCatalogControllerTest test`
 
-Expected: FAIL；三个 `/api/catalog` 代理路由尚不存在，故返回 404 而非预期响应。
+Expected: FAIL；四个 `/api/catalog` 代理路由尚不存在，故返回 404 而非预期响应。
 
 - [ ] **Step 3: 编写最小代理实现**
 
@@ -96,6 +96,7 @@ public record NewApiRawResponse(HttpStatusCode status, MediaType contentType, by
 从 `NewApiClient` 删除 `getModelCatalog()`，导入 `MultiValueMap`，并加入：
 
 ```java
+NewApiRawResponse getModelSquareStatus();
 NewApiRawResponse getPricing();
 NewApiRawResponse getPerformanceSummary(MultiValueMap<String, String> query);
 NewApiRawResponse getPerformanceMetrics(MultiValueMap<String, String> query);
@@ -104,12 +105,13 @@ NewApiRawResponse getPerformanceMetrics(MultiValueMap<String, String> query);
 从 `NewApiHttpClient` 删除旧 DTO 导入和 `getModelCatalog()`，导入 `LinkedMultiValueMap`、`MultiValueMap`，并加入：
 
 ```java
-@Override public NewApiRawResponse getPricing() { return proxyModelSquare("/api/pricing", new LinkedMultiValueMap<>()); }
-@Override public NewApiRawResponse getPerformanceSummary(MultiValueMap<String, String> query) { return proxyModelSquare("/api/perf-metrics/summary", query); }
-@Override public NewApiRawResponse getPerformanceMetrics(MultiValueMap<String, String> query) { return proxyModelSquare("/api/perf-metrics", query); }
-private NewApiRawResponse proxyModelSquare(String path, MultiValueMap<String, String> query) {
+@Override public NewApiRawResponse getModelSquareStatus() { return proxyModelSquare("/api/status", new LinkedMultiValueMap<>(), false); }
+@Override public NewApiRawResponse getPricing() { return proxyModelSquare("/api/pricing", new LinkedMultiValueMap<>(), true); }
+@Override public NewApiRawResponse getPerformanceSummary(MultiValueMap<String, String> query) { return proxyModelSquare("/api/perf-metrics/summary", query, true); }
+@Override public NewApiRawResponse getPerformanceMetrics(MultiValueMap<String, String> query) { return proxyModelSquare("/api/perf-metrics", query, true); }
+private NewApiRawResponse proxyModelSquare(String path, MultiValueMap<String, String> query, boolean includePricingToken) {
     try {
-        return client.get().uri(builder -> builder.path(path).queryParams(query).build()).headers(this::applyPricingHeaders)
+        return client.get().uri(builder -> builder.path(path).queryParams(query).build()).headers(headers -> { if (includePricingToken) applyPricingHeaders(headers); })
                 .exchangeToMono(response -> response.bodyToMono(byte[].class).defaultIfEmpty(new byte[0])
                         .map(body -> new NewApiRawResponse(response.statusCode(), response.headers().contentType().orElse(MediaType.APPLICATION_JSON), body)))
                 .block(Duration.ofSeconds(10));
@@ -121,7 +123,7 @@ private NewApiRawResponse proxyModelSquare(String path, MultiValueMap<String, St
 private void applyPricingHeaders(HttpHeaders headers) { if (hasText(pricingToken)) headers.setBearerAuth(pricingToken); }
 ```
 
-将控制器替换为 `/pricing`、`/perf-metrics/summary`、`/perf-metrics` 三条 `ResponseEntity<byte[]>` GET 路由。后两条接收 `@RequestParam MultiValueMap<String, String> query`，并统一用以下方法写回：
+将控制器替换为 `/status`、`/pricing`、`/perf-metrics/summary`、`/perf-metrics` 四条 `ResponseEntity<byte[]>` GET 路由。状态和定价路由无查询；两个性能路由接收 `@RequestParam MultiValueMap<String, String> query`，并统一用以下方法写回：
 
 ```java
 private ResponseEntity<byte[]> passthrough(NewApiRawResponse upstream) {
@@ -135,7 +137,7 @@ private ResponseEntity<byte[]> passthrough(NewApiRawResponse upstream) {
 
 Run: `mvn -f backend/pom.xml -Dskip.frontend=true -Dtest=ModelCatalogControllerTest test`
 
-Expected: PASS；状态码、`Content-Type`、JSON 字节体、查询参数和 Bearer 令牌均符合断言。
+Expected: PASS；状态码、`Content-Type`、JSON 字节体、查询参数、定价 Bearer 令牌及公开状态无令牌均符合断言。
 
 - [ ] **Step 5: 提交后端改动**
 
@@ -179,6 +181,7 @@ export interface NewApiPricingModel { id?: number; model_name: string; vendor_id
 export interface NewApiVendor { id: number; name: string }
 export interface NewApiPricingResponse { success: boolean; data: NewApiPricingModel[]; vendors: NewApiVendor[]; group_ratio: Record<string, number>; usable_group: Record<string, string>; supported_endpoint: Record<string, string[]>; auto_groups: string[]; pricing_version: string }
 export function getPricing(): Promise<NewApiPricingResponse> { return requestJson('/api/catalog/pricing') }
+export function getModelSquareStatus(): Promise<unknown> { return requestJson('/api/catalog/status') }
 export function getPerformanceSummary(query: { hours?: number } = {}): Promise<unknown> { return requestJson(`/api/catalog/perf-metrics/summary${queryString(query)}`) }
 export function getPerformanceMetrics(query: { model: string; group?: string; hours?: number }): Promise<unknown> { return requestJson(`/api/catalog/perf-metrics${queryString(query)}`) }
 ```
@@ -217,7 +220,7 @@ Expected: PASS；Vitest、TypeScript 与 Vite 均无错误。
 
 Run: `rg -n 'proxyModelSquare|/api/catalog/(pricing|perf-metrics)|pricing-token' backend/src/main frontend/src`
 
-Expected: 上游模型广场路径只有 `/api/pricing`、`/api/perf-metrics`、`/api/perf-metrics/summary` 三个固定值；`pricing-token` 只存在后端配置和请求头设置中。
+Expected: 上游模型广场路径只有 `/api/status`、`/api/pricing`、`/api/perf-metrics`、`/api/perf-metrics/summary` 四个固定值；`pricing-token` 只存在后端配置和定价/性能请求头设置中。
 
 - [ ] **Step 4: 如设计文档确需同步则提交**
 
