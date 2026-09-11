@@ -1,0 +1,80 @@
+name: 发布 Portal Docker 镜像
+
+on:
+  push:
+    branches:
+      - master
+
+permissions:
+  contents: write
+
+concurrency:
+  group: dockerhub-publish-master
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: 检出代码与标签
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: 配置 Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+          cache: maven
+
+      - name: 计算发布版本
+        id: version
+        shell: bash
+        run: |
+          existing_tag="$(git tag --points-at HEAD --list 'v[0-9]*' | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$' | sort -V | tail -n 1 || true)"
+          if [[ -n "$existing_tag" ]]; then
+            version="${existing_tag#v}"
+          else
+            latest_tag="$(git tag --list 'v[0-9]*' | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$' | sort -V | tail -n 1 || true)"
+            if [[ -z "$latest_tag" ]]; then
+              version="0.1.0"
+            else
+              IFS='.' read -r major minor patch <<< "${latest_tag#v}"
+              version="$major.$minor.$((patch + 1))"
+            fi
+          fi
+
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "git_tag=v$version" >> "$GITHUB_OUTPUT"
+
+      - name: 构建 Portal JAR
+        run: mvn -B -f backend/pom.xml clean package
+
+      - name: 登录 Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: 配置 Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: 构建并推送版本镜像
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: true
+          tags: wenyou7/ztoken-portal:${{ steps.version.outputs.version }}
+
+      - name: 推送发布标签
+        shell: bash
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          if ! git ls-remote --exit-code --tags origin "refs/tags/${{ steps.version.outputs.git_tag }}" >/dev/null 2>&1; then
+            git tag -a "${{ steps.version.outputs.git_tag }}" -m "发布 Portal 镜像 ${{ steps.version.outputs.version }}"
+            git push origin "${{ steps.version.outputs.git_tag }}"
+          fi
