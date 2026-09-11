@@ -37,6 +37,15 @@ npm run dev
 
 发布流程不变：`mvn -f backend/pom.xml clean package` 仍会运行前端生产构建，并将 `frontend/dist` 打进 Spring Boot JAR 的静态资源；线上仍只暴露 Portal 的一个端口，同时提供页面和 `/api/*`。
 
+## Docker 部署
+
+GitHub Actions 在每次推送 `master` 时发布一个精确版本的镜像，例如 `wenyou7/ztoken-portal:0.1.0`，不会发布 `latest`。首次发布前，必须在 Docker Hub 的 `wenyou7/ztoken-portal` 仓库中启用**不可变标签**；这是阻止并发或外部操作覆盖已发布版本的最终保护。部署前必须设置 `PORTAL_IMAGE` 为要使用的完整镜像名和版本，以便升级和回滚都可追溯：
+
+```powershell
+$env:PORTAL_IMAGE = 'wenyou7/ztoken-portal:0.1.0'
+docker compose up -d
+```
+
 The values after `:` in `application.yml` are local defaults. Docker can override Spring Boot properties with their canonical environment-variable names, such as `PORTAL_NEW_API_BASE_URL`, `PORTAL_NEW_API_PRICING_TOKEN`, or `PORTAL_SESSION_KEY`.
 
 ## GitHub 与 Google 登录

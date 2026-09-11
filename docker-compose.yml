@@ -1,6 +1,6 @@
 services:
   portal:
-    image: ${PORTAL_IMAGE:-wenyou7/ztoken-portal:latest}
+    image: ${PORTAL_IMAGE:?Set PORTAL_IMAGE to an exact published version, such as wenyou7/ztoken-portal:0.1.0}
     container_name: ztoken-portal
     restart: unless-stopped
     ports:

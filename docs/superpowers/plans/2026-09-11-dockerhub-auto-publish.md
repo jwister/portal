@@ -1,175 +1,50 @@
 # Portal Docker Hub 自动发布 Implementation Plan
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+> **For agentic workers:** Execute this plan task-by-task. The final workflow is the source of truth for executable YAML.
 
-**Goal:** 每次推送到 `master` 后，自动打包 Portal、推送带递增补丁版本的 Docker Hub 镜像，并创建对应 Git 标签。
+**Goal:** 每次推送到 `master` 后，自动打包 Portal、推送带唯一递增补丁版本的 Docker Hub 镜像，并创建对应 Git 标签。
 
-**Architecture:** GitHub Actions 完整检出 Git 历史与标签，以最新 `vX.Y.Z` 计算下一个补丁版本；同一分支发布使用并发组串行运行。Maven 先产出包含前端资源的 Spring Boot JAR，既有 Dockerfile 将 JAR 打入运行镜像；Docker Hub 推送成功后才将 Git 标签推回远端。
+**Architecture:** 每次推送独立运行。工作流通过原子推送 `ci/release/vX.Y.Z` 标签预约版本，避免并发任务获取相同版本；镜像携带 OCI 提交和版本标签。正式 `vX.Y.Z` 标签只在镜像存在且可验证后推送，支持“镜像已推送、正式 Git 标签失败”的安全重试。
 
 **Tech Stack:** GitHub Actions、Maven、Java 17、Docker Buildx、Docker Hub、Git 标签。
 
 ---
 
-## 文件结构
+## 最终实施记录
 
-- 创建 `.github/workflows/docker-publish.yml`：负责 `master` 分支发布、版本计算及 Git 标签回写。
-- 已创建 `docs/superpowers/specs/2026-09-11-dockerhub-auto-publish-design.md`：发布设计。
-- 创建 `docs/superpowers/plans/2026-09-11-dockerhub-auto-publish.md`：本计划。
-
-### Task 1: 创建 Docker Hub 发布工作流
+### Task 1: 发布工作流
 
 **Files:**
 
 - Create: `.github/workflows/docker-publish.yml`
-- Test: YAML 和 GitHub Actions 静态语法
+- Test: YAML 解析、版本规则静态检查
 
-- [ ] **Step 1: 验证工作流尚不存在**
+- [x] 工作流仅监听 `master` 的 `push` 事件，并申请 `contents: write` 用于预约和正式标签。
+- [x] 通过 `ci/release/vX.Y.Z` 预约标签分配版本；预约失败会有限次重试，构建失败保留预约并使后续版本跳过该编号。
+- [x] 首次无预约和正式标签时生成 `0.1.0`；已有 `v0.1.9` 或预约 `ci/release/v0.1.9` 时生成 `0.1.10`。
+- [x] 已有正式 `vX.Y.Z` 的提交不重新构建；已推送同一提交和版本的镜像会通过 OCI 标签校验后补写正式 Git 标签。
+- [x] Docker Hub 中已有但与当前提交或版本不匹配的镜像标签会失败，禁止覆盖；Docker Hub 不可变标签是最终竞态保护。
+- [x] 使用 `mvn -B -f backend/pom.xml clean package` 打包，再使用现有 Dockerfile 推送 `wenyou7/ztoken-portal:X.Y.Z`，从不推送 `latest`。
+- [x] 所有第三方 GitHub Actions 固定到完整提交 SHA。
 
-```powershell
-Test-Path .github/workflows/docker-publish.yml
-```
-
-Expected: `False`。
-
-- [ ] **Step 2: 创建工作流**
-
-创建 `.github/workflows/docker-publish.yml`，内容如下：
-
-```yaml
-name: 发布 Portal Docker 镜像
-
-on:
-  push:
-    branches:
-      - master
-
-permissions:
-  contents: write
-
-concurrency:
-  group: dockerhub-publish-master
-  cancel-in-progress: false
-
-jobs:
-  publish:
-    runs-on: ubuntu-latest
-    steps:
-      - name: 检出代码与标签
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-
-      - name: 配置 Java
-        uses: actions/setup-java@v4
-        with:
-          distribution: temurin
-          java-version: '17'
-          cache: maven
-
-      - name: 计算发布版本
-        id: version
-        shell: bash
-        run: |
-          existing_tag="$(git tag --points-at HEAD --list 'v[0-9]*' | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$' | sort -V | tail -n 1 || true)"
-          if [[ -n "$existing_tag" ]]; then
-            version="${existing_tag#v}"
-          else
-            latest_tag="$(git tag --list 'v[0-9]*' | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$' | sort -V | tail -n 1 || true)"
-            if [[ -z "$latest_tag" ]]; then
-              version="0.1.0"
-            else
-              IFS='.' read -r major minor patch <<< "${latest_tag#v}"
-              version="$major.$minor.$((patch + 1))"
-            fi
-          fi
-          echo "version=$version" >> "$GITHUB_OUTPUT"
-          echo "git_tag=v$version" >> "$GITHUB_OUTPUT"
-
-      - name: 构建 Portal JAR
-        run: mvn -B -f backend/pom.xml clean package
-
-      - name: 登录 Docker Hub
-        uses: docker/login-action@v3
-        with:
-          username: ${{ secrets.DOCKERHUB_USERNAME }}
-          password: ${{ secrets.DOCKERHUB_TOKEN }}
-
-      - name: 配置 Docker Buildx
-        uses: docker/setup-buildx-action@v3
-
-      - name: 构建并推送版本镜像
-        uses: docker/build-push-action@v6
-        with:
-          context: .
-          push: true
-          tags: wenyou7/ztoken-portal:${{ steps.version.outputs.version }}
-
-      - name: 推送发布标签
-        shell: bash
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          if ! git ls-remote --exit-code --tags origin "refs/tags/${{ steps.version.outputs.git_tag }}" >/dev/null 2>&1; then
-            git tag -a "${{ steps.version.outputs.git_tag }}" -m "发布 Portal 镜像 ${{ steps.version.outputs.version }}"
-            git push origin "${{ steps.version.outputs.git_tag }}"
-          fi
-```
-
-工作流只监听 `master`；并发组不取消已开始的发布；首个版本为 `0.1.0`；Docker 镜像只能推送精确版本标签。
-
-- [ ] **Step 3: 运行工作流静态校验**
-
-```powershell
-actionlint .github/workflows/docker-publish.yml
-```
-
-Expected: 退出码为 `0` 且无输出。若本机没有 `actionlint`，则执行：
-
-```powershell
-Get-Content -Raw .github/workflows/docker-publish.yml | Select-String -Pattern 'master|DOCKERHUB_USERNAME|DOCKERHUB_TOKEN|docker/build-push-action@v6'
-git diff --check -- .github/workflows/docker-publish.yml
-```
-
-Expected: 四个配置项都存在，且 `git diff --check` 无输出。
-
-- [ ] **Step 4: 提交工作流**
-
-```powershell
-git add -- .github/workflows/docker-publish.yml
-git commit -m "ci: 增加 Portal Docker Hub 自动发布"
-```
-
-Expected: 提交只包含工作流文件，不能包含用户现有前端或业务改动。
-
-### Task 2: 配置凭据并验证首次发布
+### Task 2: 部署契约和凭据
 
 **Files:**
 
+- Modify: `docker-compose.yml`
+- Modify: `README.md`
 - Modify: GitHub 仓库 `jwister/portal` 的 Actions Secrets（不写入 Git）
-- Test: GitHub Actions “发布 Portal Docker 镜像”运行记录
 
-- [ ] **Step 1: 设置 Docker Hub 用户名 Secret**
+- [x] `docker-compose.yml` 要求显式设置精确的 `PORTAL_IMAGE`，不再以 `latest` 作为默认镜像。
+- [x] README 说明部署时设置 `PORTAL_IMAGE=wenyou7/ztoken-portal:X.Y.Z`，以及首次发布前在 Docker Hub 启用不可变标签。
+- [ ] 在 GitHub 仓库 Settings → Secrets and variables → Actions 中设置 `DOCKERHUB_USERNAME=wenyou7`。
+- [ ] 在相同页面设置具有仓库推送权限的 `DOCKERHUB_TOKEN`。
+- [ ] 在 Docker Hub 的 `wenyou7/ztoken-portal` 仓库中启用不可变标签。
+- [ ] 推送本次提交到 `master`，并验证 Docker Hub 中存在精确版本镜像和 Git 中对应的 `vX.Y.Z` 标签。
 
-在 GitHub 仓库 Settings → Secrets and variables → Actions 中新建：
+## 已执行验证
 
-```text
-Name: DOCKERHUB_USERNAME
-Secret: wenyou7
-```
-
-- [ ] **Step 2: 设置 Docker Hub 令牌 Secret**
-
-先在 Docker Hub 创建可推送 `wenyou7/ztoken-portal` 的 Personal Access Token，再新建：
-
-```text
-Name: DOCKERHUB_TOKEN
-Secret: <Docker Hub Personal Access Token>
-```
-
-- [ ] **Step 3: 推送工作流提交并检查首次发布**
-
-```powershell
-git push origin master
-```
-
-Expected: 产生首个 Git 标签 `v0.1.0`，并在 Docker Hub 中产生 `wenyou7/ztoken-portal:0.1.0`；不得产生 `wenyou7/ztoken-portal:latest`。
+- YAML 已使用 PyYAML 解析，并验证触发分支、权限、版本镜像标签和关键步骤。
+- 在无版本标签场景验证得到 `0.1.0`，在 `0.1.9` 场景验证得到 `0.1.10`。
+- 已运行 `git diff --check`。
+- 本机 Docker 守护进程未运行，未执行本地镜像构建；首次端到端验证将在 GitHub Actions Runner 执行。
