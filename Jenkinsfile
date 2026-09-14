@@ -4,7 +4,7 @@ pipeline {
     disableConcurrentBuilds()
   }
   environment {
-    IMAGE_REPOSITORY = 'YOUR_DOCKERHUB_USER/YOUR_IMAGE'
+    IMAGE_REPOSITORY = 'wenyou7/portal'
     DOCKERHUB_CREDENTIALS = 'dockerhub-token'
   }
   stages {
