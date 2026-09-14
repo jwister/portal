@@ -78,6 +78,17 @@ pipeline {
   }
 
   post {
+    success {
+      sh '''
+        curl --fail --silent --show-error --get \
+          --connect-timeout 5 \
+          --max-time 15 \
+          --data-urlencode "t=推送成功：$IMAGE_REPOSITORY:$IMAGE_VERSION" \
+          --data-urlencode "m=镜像名称及版本号：$IMAGE_REPOSITORY:$IMAGE_VERSION，Git：$GIT_SHA" \
+          'http://192.168.100.153:9997/n/t' \
+          || echo 'Image notification failed; image publishing remains successful.'
+      '''
+    }
     always {
       sh 'docker image prune --force || true'
     }
