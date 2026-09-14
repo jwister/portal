@@ -6,7 +6,7 @@ pipeline {
   }
 
   environment {
-    IMAGE_REPOSITORY = 'wenyou7/ztoken-portal'
+    IMAGE_REPOSITORY = 'wenyou7/portal'
     DOCKERHUB_CREDENTIALS = 'dockerhub-token'
   }
 
@@ -14,6 +14,7 @@ pipeline {
     stage('Checkout') {
       steps {
         checkout scm
+
         script {
           env.GIT_SHA = sh(
             script: 'git rev-parse --short=12 HEAD',
@@ -33,7 +34,22 @@ pipeline {
       }
     }
 
-    stage('Build') {
+    stage('Package Backend') {
+      steps {
+        sh '''
+          mvn -f backend/pom.xml -B clean package -DskipTests
+
+          echo 'Generated backend JAR files:'
+          find backend/target -maxdepth 1 -type f \
+            -name 'ztoken-portal-*.jar' -print
+
+          test -n "$(find backend/target -maxdepth 1 -type f \
+            -name 'ztoken-portal-*.jar' -print -quit)"
+        '''
+      }
+    }
+
+    stage('Build Image') {
       steps {
         sh '''
           docker build --pull \
@@ -44,7 +60,7 @@ pipeline {
       }
     }
 
-    stage('Push') {
+    stage('Push Image') {
       steps {
         script {
           docker.withRegistry(
