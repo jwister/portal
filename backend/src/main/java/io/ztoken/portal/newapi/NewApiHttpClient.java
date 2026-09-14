@@ -285,7 +285,7 @@ public class NewApiHttpClient implements NewApiClient, NewApiSessionRefresher {
                     .add(quota, requestCount, tokenUsage);
             modelQuotas.merge(modelName, quota, Long::sum);
         }
-        return DashboardAnalytics.from(dailyTotals, modelQuotas, endDate);
+        return DashboardAnalytics.from(dailyTotals, modelQuotas, endDate, rangeDays);
     }
 
     private static final long MAX_DATA_RANGE_SECONDS = 2_592_000L;

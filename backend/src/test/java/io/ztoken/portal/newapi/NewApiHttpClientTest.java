@@ -107,6 +107,32 @@ class NewApiHttpClientTest {
     }
 
     @Test
+    void analyticsBuildsThirtyDayTokenSeriesForThirtyDayRange() throws Exception {
+        Instant now = Instant.parse("2024-03-30T04:00:00Z");
+        Instant olderUsage = now.minus(20, ChronoUnit.DAYS);
+        NEW_API.enqueue(new MockResponse()
+                .setHeader(HttpHeaders.CONTENT_TYPE, "application/json")
+                .setBody("""
+                        {"success":true,"data":[
+                          {"created_at":%d,"model_name":"gpt-4o","quota":40,"count":2,"token_used":200},
+                          {"created_at":%d,"model_name":"gpt-4o","quota":10,"count":1,"token_used":100}
+                        ]}
+                        """.formatted(olderUsage.getEpochSecond(), now.getEpochSecond())));
+
+        DashboardAnalytics result = clientAt(now)
+                .getDashboardAnalytics(new PortalPrincipal(7L, "alice", "access-token"), 30);
+
+        assertThat(result.tokenUsage()).hasSize(30);
+        assertThat(result.tokenUsage()).contains(
+                new DashboardAnalytics.TokenUsage("2024-03-10", 200L),
+                new DashboardAnalytics.TokenUsage("2024-03-30", 100L));
+        assertThat(result.tokenUsage().stream()
+                .mapToLong(DashboardAnalytics.TokenUsage::tokenUsage)
+                .sum()).isEqualTo(300L);
+        NEW_API.takeRequest();
+    }
+
+    @Test
     void analyticsAggregatesDailyUsageTopModelsAndSevenDayTokenSeries() throws Exception {
         long today = Instant.now().truncatedTo(ChronoUnit.DAYS).getEpochSecond();
         NEW_API.enqueue(new MockResponse()

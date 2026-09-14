@@ -30,12 +30,13 @@ public record DashboardAnalytics(
     }
 
     /**
-     * 将上游的小时明细聚合结果转换为图表序列。每日额度和请求量只返回实际存在的日期；Token 序列固定补齐最近七天，
+     * 将上游的小时明细聚合结果转换为图表序列。每日额度和请求量只返回实际存在的日期；Token 序列按所选范围补齐，
      * 使折线图在某些日期没有调用时仍能正确表现为零，而不是中断或伪造调用数据。
      */
     public static DashboardAnalytics from(Map<LocalDate, DailyAggregate> dailyTotals,
                                           Map<String, Long> modelQuotas,
-                                          LocalDate endDate) {
+                                          LocalDate endDate,
+                                          int rangeDays) {
         List<DailyUsage> dailyUsage = dailyTotals.entrySet().stream()
                 .sorted(Map.Entry.comparingByKey())
                 .map(entry -> new DailyUsage(entry.getKey().toString(), entry.getValue().quota(), entry.getValue().requestCount()))
@@ -60,12 +61,12 @@ public record DashboardAnalytics(
             topModels.add(new ModelUsage(OTHER_MODEL_KEY, otherQuota));
         }
 
-        // 上游没有任何真实明细时保持空数组，前端据此展示空状态，不能为了图表结构虚构七天零值数据。
+        // 上游没有任何真实明细时保持空数组，前端据此展示空状态，不能为了图表结构虚构零值数据。
         if (dailyTotals.isEmpty()) {
             return new DashboardAnalytics(dailyUsage, topModels, List.of());
         }
         List<TokenUsage> tokenUsage = new ArrayList<>();
-        for (int offset = 6; offset >= 0; offset--) {
+        for (int offset = rangeDays - 1; offset >= 0; offset--) {
             LocalDate date = endDate.minusDays(offset);
             DailyAggregate total = dailyTotals.get(date);
             tokenUsage.add(new TokenUsage(date.toString(), total == null ? 0L : total.tokenUsage()));
