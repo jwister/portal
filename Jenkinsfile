@@ -11,6 +11,12 @@ pipeline {
     stage('Checkout') {
       steps {
         checkout scm
+        sh '''
+          git submodule sync --recursive
+          git submodule update --init --recursive
+          test -f frontend/package.json
+          echo "Frontend commit: $(git -C frontend rev-parse HEAD)"
+        '''
         script {
           env.GIT_SHA = sh(
             script: 'git rev-parse --short=12 HEAD',
