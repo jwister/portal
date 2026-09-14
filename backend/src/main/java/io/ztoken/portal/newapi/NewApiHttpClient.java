@@ -45,7 +45,7 @@ import java.util.function.Function;
 import java.util.stream.StreamSupport;
 
 @Component
-public class NewApiHttpClient implements NewApiClient {
+public class NewApiHttpClient implements NewApiClient, NewApiSessionRefresher {
 
     private static final Logger log = LoggerFactory.getLogger(NewApiHttpClient.class);
     /** 控制台按中国业务日展示统计，不能依赖服务器的默认时区。 */
@@ -77,20 +77,16 @@ public class NewApiHttpClient implements NewApiClient {
 
     @Override
     public NewApiLogin login(String username, String password) {
-        JsonNode root = post("/api/user/login", Map.of("username", username, "password", password), null);
+        LoginResponse response = loginResponse(client.post(), "/api/user/login", Map.of("username", username, "password", password));
+        requireSuccessfulLoginResponse(response);
+        JsonNode root = response.body();
         if (root == null || !root.path("success").asBoolean(false)) {
             log.warn("NewAPI 登录被拒绝: upstream={}, httpStatus=200, success={}, message={}", upstreamTarget,
                     root != null && root.path("success").asBoolean(false), safeUpstreamMessage(root));
             throw new NewApiAuthenticationException();
         }
         JsonNode data = requireData(root);
-        String accessToken = data.path("access_token").asText();
-        JsonNode user = data.has("user") ? data.path("user") : data;
-        NewApiIdentity identity = identityFrom(user);
-        if (accessToken.isBlank()) {
-            throw new NewApiException("NewAPI login response did not include an access token");
-        }
-        return new NewApiLogin(identity, accessToken);
+        return loginFrom(data, response.refreshToken());
     }
 
     /**
@@ -131,13 +127,45 @@ public class NewApiHttpClient implements NewApiClient {
         if (callback == null || callback.state() == null || callback.state().isBlank()) {
             throw new IllegalArgumentException("OAuth state is required");
         }
-        JsonNode data = requireData(getPublic(oauthCallbackUri(provider, callback)));
-        String accessToken = data.path("access_token").asText();
-        if (accessToken.isBlank()) {
-            throw new NewApiException("NewAPI OAuth response did not include an access token");
+        LoginResponse response = loginResponse(client.get(), oauthCallbackUri(provider, callback));
+        requireSuccessfulLoginResponse(response);
+        return loginFrom(requireData(response.body()), response.refreshToken());
+    }
+
+    /** refresh token 仅在服务端 Cookie 请求中使用，响应中的新 cookie 也不会转发给浏览器。 */
+    @Override
+    public NewApiCredentials refresh(PortalPrincipal principal) {
+        try {
+            LoginResponse response = client.post().uri("/api/user/auth/refresh")
+                    .headers(headers -> {
+                        headers.set(HttpHeaders.COOKIE, "new_api_refresh=" + principal.refreshToken());
+                        headers.set("X-Auth-Session", principal.newApiSessionId());
+                    })
+                    .exchangeToMono(httpResponse -> httpResponse.bodyToMono(JsonNode.class)
+                            .defaultIfEmpty(objectMapper.createObjectNode())
+                            .map(body -> new LoginResponse(httpResponse.statusCode().value(), body,
+                                    refreshCookie(httpResponse.cookies().getFirst("new_api_refresh")))))
+                    .block(Duration.ofSeconds(10));
+            if (response == null || response.statusCode() == 401) {
+                throw new NewApiAuthenticationException();
+            }
+            if (response.statusCode() < 200 || response.statusCode() >= 300) {
+                throw new NewApiException("NewAPI refresh request failed with status " + response.statusCode());
+            }
+            JsonNode data = requireData(response.body());
+            String accessToken = data.path("access_token").asText();
+            String sessionId = data.path("session").path("sid").asText();
+            long expiresAt = data.path("access_expires_at").asLong(0L);
+            if (accessToken.isBlank() || response.refreshToken() == null || response.refreshToken().isBlank()
+                    || sessionId.isBlank() || expiresAt <= Instant.now().getEpochSecond()) {
+                throw new NewApiAuthenticationException();
+            }
+            return new NewApiCredentials(accessToken, response.refreshToken(), sessionId, Instant.ofEpochSecond(expiresAt));
+        } catch (NewApiException exception) {
+            throw exception;
+        } catch (RuntimeException exception) {
+            throw new NewApiException("NewAPI refresh request failed");
         }
-        JsonNode user = data.has("user") ? data.path("user") : data;
-        return new NewApiLogin(identityFrom(user), accessToken);
     }
 
     @Override
@@ -349,7 +377,7 @@ public class NewApiHttpClient implements NewApiClient {
                     .block(Duration.ofSeconds(10));
             requireSuccess(root);
         } catch (WebClientResponseException exception) {
-            throw new NewApiException("NewAPI request failed with status " + exception.getStatusCode().value());
+            throw userRequestFailure(exception);
         } catch (RuntimeException exception) {
             if (exception instanceof NewApiException) {
                 throw exception;
@@ -374,7 +402,7 @@ public class NewApiHttpClient implements NewApiClient {
             }
             return new TokenKey(key);
         } catch (WebClientResponseException exception) {
-            throw new NewApiException("NewAPI request failed with status " + exception.getStatusCode().value());
+            throw userRequestFailure(exception);
         } catch (RuntimeException exception) {
             if (exception instanceof NewApiException) {
                 throw exception;
@@ -450,7 +478,7 @@ public class NewApiHttpClient implements NewApiClient {
             return client.get().uri(uriFunction).headers(headers -> applyUserHeaders(headers, principal)).retrieve()
                     .bodyToMono(JsonNode.class).block(Duration.ofSeconds(10));
         } catch (WebClientResponseException exception) {
-            throw new NewApiException("NewAPI request failed with status " + exception.getStatusCode().value());
+            throw userRequestFailure(exception);
         } catch (RuntimeException exception) {
             if (exception instanceof NewApiException) throw exception;
             throw new NewApiException("NewAPI request failed");
@@ -462,7 +490,7 @@ public class NewApiHttpClient implements NewApiClient {
             return client.get().uri(uri).headers(headers -> applyUserHeaders(headers, principal)).retrieve()
                     .bodyToMono(JsonNode.class).block(Duration.ofSeconds(10));
         } catch (WebClientResponseException exception) {
-            throw new NewApiException("NewAPI request failed with status " + exception.getStatusCode().value());
+            throw userRequestFailure(exception);
         } catch (RuntimeException exception) {
             if (exception instanceof NewApiException) throw exception;
             throw new NewApiException("NewAPI request failed");
@@ -683,6 +711,9 @@ public class NewApiHttpClient implements NewApiClient {
                 log.warn("NewAPI 登录请求失败: upstream={}, httpStatus={}, category=http-response", upstreamTarget,
                         exception.getStatusCode().value());
             }
+            if (principal != null) {
+                throw userRequestFailure(exception);
+            }
             throw new NewApiException("NewAPI request failed with status " + exception.getStatusCode().value());
         } catch (RuntimeException exception) {
             if (exception instanceof NewApiException) {
@@ -698,6 +729,68 @@ public class NewApiHttpClient implements NewApiClient {
 
     private boolean isLoginPath(String path) {
         return "/api/user/login".equals(path);
+    }
+
+    private NewApiException userRequestFailure(WebClientResponseException exception) {
+        if (exception.getStatusCode().value() == 401) {
+            return new NewApiAuthenticationException();
+        }
+        return new NewApiException("NewAPI request failed with status " + exception.getStatusCode().value());
+    }
+
+    /** 非 2xx 是上游故障而非凭据错误，日志不得携带上游响应体或登录输入。 */
+    private void requireSuccessfulLoginResponse(LoginResponse response) {
+        if (response != null && response.statusCode() >= 200 && response.statusCode() < 300) {
+            return;
+        }
+        int statusCode = response == null ? 0 : response.statusCode();
+        log.warn("NewAPI 登录请求失败: upstream={}, httpStatus={}, category=http-response", upstreamTarget, statusCode);
+        throw new NewApiException("NewAPI request failed with status " + statusCode);
+    }
+
+    /** 密码登录与 OAuth 回调都需要读取 NewAPI 的 HttpOnly refresh cookie。 */
+    private LoginResponse loginResponse(WebClient.RequestBodyUriSpec request, String path, Object body) {
+        request.uri(path).contentType(MediaType.APPLICATION_JSON);
+        try {
+            return request.bodyValue(body).exchangeToMono(response -> response.bodyToMono(JsonNode.class)
+                    .defaultIfEmpty(objectMapper.createObjectNode())
+                    .map(responseBody -> new LoginResponse(response.statusCode().value(), responseBody,
+                            refreshCookie(response.cookies().getFirst("new_api_refresh")))))
+                    .block(Duration.ofSeconds(10));
+        } catch (RuntimeException exception) {
+            throw new NewApiException("NewAPI login request failed");
+        }
+    }
+
+    private LoginResponse loginResponse(WebClient.RequestHeadersUriSpec<?> request, Function<UriBuilder, URI> uri) {
+        try {
+            return request.uri(uri).exchangeToMono(response -> response.bodyToMono(JsonNode.class)
+                    .defaultIfEmpty(objectMapper.createObjectNode())
+                    .map(responseBody -> new LoginResponse(response.statusCode().value(), responseBody,
+                            refreshCookie(response.cookies().getFirst("new_api_refresh")))))
+                    .block(Duration.ofSeconds(10));
+        } catch (RuntimeException exception) {
+            throw new NewApiException("NewAPI OAuth request failed");
+        }
+    }
+
+    private NewApiLogin loginFrom(JsonNode data, String refreshToken) {
+        String accessToken = data.path("access_token").asText();
+        String sessionId = data.path("session").path("sid").asText();
+        long accessExpiresAt = data.path("access_expires_at").asLong(0L);
+        JsonNode user = data.has("user") ? data.path("user") : data;
+        if (accessToken.isBlank() || refreshToken == null || refreshToken.isBlank() || sessionId.isBlank()
+                || accessExpiresAt <= Instant.now().getEpochSecond()) {
+            throw new NewApiException("NewAPI login response did not include a complete session");
+        }
+        return new NewApiLogin(identityFrom(user), accessToken, refreshToken, sessionId, Instant.ofEpochSecond(accessExpiresAt));
+    }
+
+    private String refreshCookie(org.springframework.http.ResponseCookie cookie) {
+        return cookie == null ? null : cookie.getValue();
+    }
+
+    private record LoginResponse(int statusCode, JsonNode body, String refreshToken) {
     }
 
     /** Portal 只支持已明确接入且经过部署配置的两个 OAuth provider。 */

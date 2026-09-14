@@ -2,7 +2,6 @@ package io.ztoken.portal.console;
 
 import io.ztoken.portal.newapi.NewApiClient;
 import io.ztoken.portal.newapi.NewApiUnsupportedException;
-import io.ztoken.portal.session.PortalPrincipal;
 import io.ztoken.portal.session.PortalSessionService;
 import org.springframework.http.CacheControl;
 import org.springframework.http.ResponseEntity;
@@ -33,32 +32,39 @@ public class TokenController {
     public TokenList list(@RequestParam(defaultValue = "1") int page,
                           @RequestParam(defaultValue = "50") int pageSize,
                           @CookieValue(value = "PORTAL_SESSION", required = false) String sessionId) {
-        return newApiClient.getTokens(sessions.require(sessionId), page, pageSize);
+        return sessions.withAuthenticatedPrincipal(sessionId, principal -> newApiClient.getTokens(principal, page, pageSize));
     }
 
     @PostMapping
     public ResponseEntity<Void> create(@RequestBody TokenWriteRequest request,
                                        @CookieValue(value = "PORTAL_SESSION", required = false) String sessionId) {
-        newApiClient.createToken(sessions.require(sessionId), request);
+        sessions.withAuthenticatedPrincipal(sessionId, principal -> {
+            newApiClient.createToken(principal, request);
+            return null;
+        });
         return ResponseEntity.ok().build();
     }
 
     @PutMapping("/{id}")
     public TokenSummary update(@PathVariable long id, @RequestBody TokenWriteRequest request,
                                @CookieValue(value = "PORTAL_SESSION", required = false) String sessionId) {
-        return newApiClient.updateToken(sessions.require(sessionId), id, request);
+        return sessions.withAuthenticatedPrincipal(sessionId, principal -> newApiClient.updateToken(principal, id, request));
     }
 
     @PutMapping("/{id}/status")
     public TokenSummary status(@PathVariable long id, @RequestBody TokenStatusRequest request,
                                @CookieValue(value = "PORTAL_SESSION", required = false) String sessionId) {
-        return newApiClient.updateTokenStatus(sessions.require(sessionId), id, request.enabled());
+        return sessions.withAuthenticatedPrincipal(sessionId,
+                principal -> newApiClient.updateTokenStatus(principal, id, request.enabled()));
     }
 
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> delete(@PathVariable long id,
                                        @CookieValue(value = "PORTAL_SESSION", required = false) String sessionId) {
-        newApiClient.deleteToken(sessions.require(sessionId), id);
+        sessions.withAuthenticatedPrincipal(sessionId, principal -> {
+            newApiClient.deleteToken(principal, id);
+            return null;
+        });
         return ResponseEntity.ok().build();
     }
 
@@ -67,7 +73,7 @@ public class TokenController {
                                         @CookieValue(value = "PORTAL_SESSION", required = false) String sessionId) {
         return ResponseEntity.ok()
                 .cacheControl(CacheControl.noStore())
-                .body(newApiClient.getTokenKey(sessions.require(sessionId), id));
+                .body(sessions.withAuthenticatedPrincipal(sessionId, principal -> newApiClient.getTokenKey(principal, id)));
     }
 
     @GetMapping("/{id}/usage")

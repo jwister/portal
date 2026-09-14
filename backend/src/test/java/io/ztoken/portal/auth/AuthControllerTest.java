@@ -20,6 +20,7 @@ import org.springframework.test.context.DynamicPropertySource;
 
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
+import java.time.Instant;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -60,8 +61,10 @@ class AuthControllerTest {
     void loginStoresNewApiAccessTokenInServerSession() throws Exception {
         NEW_API.enqueue(new MockResponse()
                 .setHeader(HttpHeaders.CONTENT_TYPE, "application/json")
+                .setHeader(HttpHeaders.SET_COOKIE, "new_api_refresh=44444444-4444-4444-4444-444444444444.refresh; Path=/api/user/auth; HttpOnly")
                 .setBody("""
-                        {"success":true,"data":{"access_token":"newapi-access-token","user":{"id":7,"username":"alice"}}}
+                        {"success":true,"data":{"access_token":"newapi-access-token","access_expires_at":2000000000,
+                        "session":{"sid":"44444444-4444-4444-4444-444444444444"},"user":{"id":7,"username":"alice"}}}
                         """));
 
         ResponseEntity<Void> response = http.postForEntity("/api/auth/login", new LoginRequest("alice", "password"), Void.class);
@@ -125,7 +128,8 @@ class AuthControllerTest {
     void oauthCompletionCreatesPortalSessionWithoutReturningNewApiToken() throws Exception {
         NEW_API.enqueue(new MockResponse()
                 .setHeader(HttpHeaders.CONTENT_TYPE, "application/json")
-                .setBody("{\"success\":true,\"data\":{\"access_token\":\"upstream-secret\",\"user\":{\"id\":7,\"username\":\"alice\"}}}"));
+                .setHeader(HttpHeaders.SET_COOKIE, "new_api_refresh=55555555-5555-5555-5555-555555555555.refresh; Path=/api/user/auth; HttpOnly")
+                .setBody("{\"success\":true,\"data\":{\"access_token\":\"upstream-secret\",\"access_expires_at\":2000000000,\"session\":{\"sid\":\"55555555-5555-5555-5555-555555555555\"},\"user\":{\"id\":7,\"username\":\"alice\"}}}"));
 
         HttpHeaders headers = new HttpHeaders();
         headers.add(HttpHeaders.COOKIE, "PORTAL_OAUTH_STATE=flow-token");
@@ -197,6 +201,45 @@ class AuthControllerTest {
         ResponseEntity<String> response = http.getForEntity("/api/auth/me", String.class);
 
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.UNAUTHORIZED);
+    }
+
+    @Test
+    void statusRefreshesRejectedNewApiAccessTokenBeforeReportingTheUserAsSignedIn() throws Exception {
+        String upstreamSessionId = "90a0f8ae-8d01-4a7d-979b-f775a5c24543";
+        String portalSessionId = sessions.create(new io.ztoken.portal.newapi.NewApiLogin(
+                new io.ztoken.portal.session.NewApiIdentity(7L, "alice"),
+                "expired-access-token", upstreamSessionId + ".initial-refresh-token", upstreamSessionId,
+                Instant.now().plusSeconds(60))).getId();
+        NEW_API.enqueue(new MockResponse().setResponseCode(401)
+                .setHeader(HttpHeaders.CONTENT_TYPE, "application/json")
+                .setBody("{\"success\":false,\"code\":\"AUTH_TOKEN_EXPIRED\"}"));
+        NEW_API.enqueue(new MockResponse()
+                .setHeader(HttpHeaders.CONTENT_TYPE, "application/json")
+                .setHeader(HttpHeaders.SET_COOKIE, "new_api_refresh=" + upstreamSessionId + ".rotated-refresh-token; Path=/api/user/auth; HttpOnly")
+                .setBody("""
+                        {"success":true,"data":{"access_token":"renewed-access-token","access_expires_at":2000000000,
+                        "user":{"id":7,"username":"alice"},"session":{"sid":"%s"}}}
+                        """.formatted(upstreamSessionId)));
+        NEW_API.enqueue(new MockResponse().setHeader(HttpHeaders.CONTENT_TYPE, "application/json")
+                .setBody("{\"success\":true,\"data\":{\"id\":7,\"username\":\"alice\"}}"));
+
+        HttpHeaders headers = new HttpHeaders();
+        headers.add(HttpHeaders.COOKIE, "PORTAL_SESSION=" + portalSessionId);
+        ResponseEntity<AuthStatus> response = http.exchange("/api/auth/status", org.springframework.http.HttpMethod.GET,
+                new HttpEntity<>(headers), AuthStatus.class);
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
+        assertThat(response.getBody()).isEqualTo(new AuthStatus(true, new AuthProfile(7L, "alice")));
+        RecordedRequest rejectedRequest = NEW_API.takeRequest();
+        RecordedRequest refreshRequest = NEW_API.takeRequest();
+        RecordedRequest retriedRequest = NEW_API.takeRequest();
+        assertThat(rejectedRequest.getPath()).isEqualTo("/api/user/self");
+        assertThat(rejectedRequest.getHeader(HttpHeaders.AUTHORIZATION)).isEqualTo("Bearer expired-access-token");
+        assertThat(refreshRequest.getPath()).isEqualTo("/api/user/auth/refresh");
+        assertThat(refreshRequest.getHeader(HttpHeaders.COOKIE)).isEqualTo("new_api_refresh=" + upstreamSessionId + ".initial-refresh-token");
+        assertThat(refreshRequest.getHeader("X-Auth-Session")).isEqualTo(upstreamSessionId);
+        assertThat(retriedRequest.getPath()).isEqualTo("/api/user/self");
+        assertThat(retriedRequest.getHeader(HttpHeaders.AUTHORIZATION)).isEqualTo("Bearer renewed-access-token");
     }
 
 }

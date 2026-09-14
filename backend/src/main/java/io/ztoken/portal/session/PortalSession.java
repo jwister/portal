@@ -24,6 +24,15 @@ public class PortalSession {
     @Column(name = "encrypted_access_token", nullable = false, length = 4096)
     private String encryptedAccessToken;
 
+    @Column(name = "encrypted_refresh_token", length = 4096)
+    private String encryptedRefreshToken;
+
+    @Column(name = "newapi_session_id", length = 64)
+    private String newApiSessionId;
+
+    @Column(name = "access_expires_at")
+    private Instant accessExpiresAt;
+
     @Column(name = "expires_at", nullable = false)
     private Instant expiresAt;
 
@@ -36,11 +45,16 @@ public class PortalSession {
     protected PortalSession() {
     }
 
-    public PortalSession(String id, long newApiUserId, String username, String encryptedAccessToken, Instant expiresAt, Instant createdAt) {
+    public PortalSession(String id, long newApiUserId, String username, String encryptedAccessToken,
+                         String encryptedRefreshToken, String newApiSessionId, Instant accessExpiresAt,
+                         Instant expiresAt, Instant createdAt) {
         this.id = id;
         this.newApiUserId = newApiUserId;
         this.username = username;
         this.encryptedAccessToken = encryptedAccessToken;
+        this.encryptedRefreshToken = encryptedRefreshToken;
+        this.newApiSessionId = newApiSessionId;
+        this.accessExpiresAt = accessExpiresAt;
         this.expiresAt = expiresAt;
         this.createdAt = createdAt;
     }
@@ -59,6 +73,21 @@ public class PortalSession {
 
     public String getEncryptedAccessToken() {
         return encryptedAccessToken;
+    }
+
+    public String getEncryptedRefreshToken() { return encryptedRefreshToken; }
+
+    public String getNewApiSessionId() { return newApiSessionId; }
+
+    public Instant getAccessExpiresAt() { return accessExpiresAt; }
+
+    /** refresh token 轮换后，三个上游凭据必须作为同一个原子会话状态更新。 */
+    public void replaceNewApiCredentials(String encryptedAccessToken, String encryptedRefreshToken,
+                                         String newApiSessionId, Instant accessExpiresAt) {
+        this.encryptedAccessToken = encryptedAccessToken;
+        this.encryptedRefreshToken = encryptedRefreshToken;
+        this.newApiSessionId = newApiSessionId;
+        this.accessExpiresAt = accessExpiresAt;
     }
 
     public Instant getExpiresAt() {

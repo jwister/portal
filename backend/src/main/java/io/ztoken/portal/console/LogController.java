@@ -20,13 +20,15 @@ public class LogController {
                         @RequestParam(required=false) Long startTimestamp, @RequestParam(required=false) Long endTimestamp,
                         @RequestParam(required=false) String modelName, @RequestParam(required=false) String tokenName,
                         @RequestParam(required=false) Integer type) {
-        return client.getLogs(sessions.require(sessionId), new LogQuery(page, pageSize, startTimestamp, endTimestamp, modelName, tokenName, type));
+        return sessions.withAuthenticatedPrincipal(sessionId, principal -> client.getLogs(principal,
+                new LogQuery(page, pageSize, startTimestamp, endTimestamp, modelName, tokenName, type)));
     }
     @GetMapping("/stats")
     public LogStats stats(@CookieValue(value="PORTAL_SESSION", required=false) String sessionId,
                           @RequestParam(required=false) Long startTimestamp, @RequestParam(required=false) Long endTimestamp,
                           @RequestParam(required=false) String modelName, @RequestParam(required=false) String tokenName,
                           @RequestParam(required=false) Integer type) {
-        return client.getLogStats(sessions.require(sessionId), new LogQuery(1, LogQuery.MAX_PAGE_SIZE, startTimestamp, endTimestamp, modelName, tokenName, type));
+        return sessions.withAuthenticatedPrincipal(sessionId, principal -> client.getLogStats(principal,
+                new LogQuery(1, LogQuery.MAX_PAGE_SIZE, startTimestamp, endTimestamp, modelName, tokenName, type)));
     }
 }

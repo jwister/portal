@@ -106,7 +106,7 @@ public class AuthController {
 
     /** 密码与 OAuth 登录共用同一套受保护 cookie 属性，避免认证路径产生会话差异。 */
     private ResponseEntity<Void> withPortalSession(NewApiLogin login) {
-        PortalSession session = sessions.create(login.identity(), login.accessToken());
+        PortalSession session = sessions.create(login);
         ResponseCookie cookie = ResponseCookie.from("PORTAL_SESSION", session.getId())
                 .httpOnly(true)
                 .secure(properties.isSessionSecureCookie())
@@ -142,8 +142,10 @@ public class AuthController {
             return new AuthStatus(false, null);
         }
         try {
-            PortalPrincipal principal = sessions.require(sessionId);
-            return new AuthStatus(true, new AuthProfile(principal.userId(), principal.username()));
+            return sessions.withAuthenticatedPrincipal(sessionId, principal -> {
+                io.ztoken.portal.session.NewApiIdentity identity = newApiClient.getSelf(principal);
+                return new AuthStatus(true, new AuthProfile(identity.userId(), identity.username()));
+            });
         } catch (io.ztoken.portal.session.UnauthenticatedException exception) {
             return new AuthStatus(false, null);
         }

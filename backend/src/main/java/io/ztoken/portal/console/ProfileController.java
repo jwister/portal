@@ -17,11 +17,11 @@ public class ProfileController {
     public ProfileController(NewApiClient client, PortalSessionService sessions) { this.client = client; this.sessions = sessions; }
     @GetMapping
     public Profile get(@CookieValue(value="PORTAL_SESSION", required=false) String sessionId) {
-        return client.getProfile(sessions.require(sessionId));
+        return sessions.withAuthenticatedPrincipal(sessionId, client::getProfile);
     }
     @PutMapping
     public Profile update(@RequestBody ProfileUpdateRequest request,
                           @CookieValue(value="PORTAL_SESSION", required=false) String sessionId) {
-        return client.updateProfile(sessions.require(sessionId), request);
+        return sessions.withAuthenticatedPrincipal(sessionId, principal -> client.updateProfile(principal, request));
     }
 }

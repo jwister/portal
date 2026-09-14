@@ -2,7 +2,6 @@ package io.ztoken.portal.console;
 
 import io.ztoken.portal.newapi.NewApiClient;
 import io.ztoken.portal.payment.config.PaymentProperties;
-import io.ztoken.portal.session.PortalPrincipal;
 import io.ztoken.portal.session.PortalSessionService;
 import org.springframework.web.bind.annotation.CookieValue;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -26,8 +25,7 @@ public class DashboardController {
 
     @GetMapping("/dashboard")
     public DashboardSummary dashboard(@CookieValue(value = "PORTAL_SESSION", required = false) String sessionId) {
-        PortalPrincipal principal = sessions.require(sessionId);
-        DashboardSummary summary = newApiClient.getDashboard(principal);
+        DashboardSummary summary = sessions.withAuthenticatedPrincipal(sessionId, newApiClient::getDashboard);
         return new DashboardSummary(summary.availableQuota(), summary.usedQuota(), summary.requestCount(),
                 summary.tokenUsage(), paymentProperties.getQuotaPerUsd());
     }
@@ -43,6 +41,7 @@ public class DashboardController {
             case "30d" -> 30;
             default -> throw new IllegalArgumentException("不支持的统计时间范围");
         };
-        return newApiClient.getDashboardAnalytics(sessions.require(sessionId), rangeDays);
+        return sessions.withAuthenticatedPrincipal(sessionId,
+                principal -> newApiClient.getDashboardAnalytics(principal, rangeDays));
     }
 }

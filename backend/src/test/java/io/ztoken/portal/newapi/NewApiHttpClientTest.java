@@ -346,7 +346,8 @@ class NewApiHttpClientTest {
         NEW_API.enqueue(new MockResponse()
                 .setResponseCode(200)
                 .setHeader(HttpHeaders.CONTENT_TYPE, "application/json")
-                .setBody("{\"success\":true,\"data\":{\"access_token\":\"token-1\",\"id\":7,\"username\":\"alice\"}}"));
+                .setHeader(HttpHeaders.SET_COOKIE, "new_api_refresh=11111111-1111-1111-1111-111111111111.refresh-1; Path=/api/user/auth; HttpOnly")
+                .setBody("{\"success\":true,\"data\":{\"access_token\":\"token-1\",\"access_expires_at\":2000000000,\"session\":{\"sid\":\"11111111-1111-1111-1111-111111111111\"},\"id\":7,\"username\":\"alice\"}}"));
 
         NewApiLogin result = client.login("alice", "secret");
 
@@ -366,7 +367,8 @@ class NewApiHttpClientTest {
         NEW_API.enqueue(new MockResponse()
                 .setResponseCode(200)
                 .setHeader(HttpHeaders.CONTENT_TYPE, "application/json")
-                .setBody("{\"success\":true,\"data\":{\"access_token\":\"token-2\",\"user\":{\"id\":9,\"username\":\"bob\"}}}"));
+                .setHeader(HttpHeaders.SET_COOKIE, "new_api_refresh=22222222-2222-2222-2222-222222222222.refresh-2; Path=/api/user/auth; HttpOnly")
+                .setBody("{\"success\":true,\"data\":{\"access_token\":\"token-2\",\"access_expires_at\":2000000000,\"session\":{\"sid\":\"22222222-2222-2222-2222-222222222222\"},\"user\":{\"id\":9,\"username\":\"bob\"}}}"));
 
         NewApiLogin result = client.login("bob", "secret");
 
@@ -380,12 +382,15 @@ class NewApiHttpClientTest {
     void oauthCompletionParsesNewApiLoginBundleWithoutSendingBrowserCredentials() throws Exception {
         NEW_API.enqueue(new MockResponse()
                 .setHeader(HttpHeaders.CONTENT_TYPE, "application/json")
-                .setBody("{\"success\":true,\"data\":{\"access_token\":\"oauth-access-token\",\"user\":{\"id\":7,\"username\":\"alice\"}}}"));
+                .setHeader(HttpHeaders.SET_COOKIE, "new_api_refresh=33333333-3333-3333-3333-333333333333.refresh-3; Path=/api/user/auth; HttpOnly")
+                .setBody("{\"success\":true,\"data\":{\"access_token\":\"oauth-access-token\",\"access_expires_at\":2000000000,\"session\":{\"sid\":\"33333333-3333-3333-3333-333333333333\"},\"user\":{\"id\":7,\"username\":\"alice\"}}}"));
 
         NewApiLogin result = client.completeOAuth("github", new OAuthCallback("provider-code", "flow-token", null, null));
 
         RecordedRequest request = NEW_API.takeRequest();
-        assertThat(result).isEqualTo(new NewApiLogin(new NewApiIdentity(7L, "alice"), "oauth-access-token"));
+        assertThat(result.identity()).isEqualTo(new NewApiIdentity(7L, "alice"));
+        assertThat(result.accessToken()).isEqualTo("oauth-access-token");
+        assertThat(result.refreshToken()).isEqualTo("33333333-3333-3333-3333-333333333333.refresh-3");
         assertThat(request.getMethod()).isEqualTo("GET");
         assertThat(request.getRequestUrl().encodedPath()).isEqualTo("/api/oauth/github");
         assertThat(request.getRequestUrl().queryParameter("code")).isEqualTo("provider-code");

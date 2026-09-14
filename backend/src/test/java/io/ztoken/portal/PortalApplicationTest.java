@@ -35,4 +35,12 @@ class PortalApplicationTest {
         assertThat(response.getBody()).contains("<div id=\"root\">");
     }
 
+    @Test
+    void modelDetailRouteReturnsSpaEntry() {
+        ResponseEntity<String> response = http.getForEntity("http://localhost:" + port + "/models/deepseek-chat", String.class);
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
+        assertThat(response.getBody()).contains("<div id=\"root\">");
+    }
+
 }
