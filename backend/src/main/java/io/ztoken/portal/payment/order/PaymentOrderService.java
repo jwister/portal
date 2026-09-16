@@ -7,6 +7,8 @@ import io.ztoken.portal.payment.repository.PaymentOrderRepository;
 import io.ztoken.portal.payment.provider.PaymentProviderRegistry;
 import io.ztoken.portal.session.PortalPrincipal;
 import org.springframework.stereotype.Service;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
@@ -17,6 +19,8 @@ import java.util.Optional;
 
 @Service
 public class PaymentOrderService {
+
+    private static final Logger log = LoggerFactory.getLogger(PaymentOrderService.class);
 
     private static final long MIN_USD_MINOR = 100L;
     private static final long MAX_USD_MINOR = 1_000_000L;
@@ -58,6 +62,9 @@ public class PaymentOrderService {
         Instant expiresAt = now.plusSeconds(expiryMinutes * 60L);
         PaymentOrder order = providers.require(method)
                 .createOrder(userId, amountUsdMinor, quotaToCredit, now, expiresAt);
+        log.info("支付订单创建成功：订单号={}，支付方式={}，用户ID={}，金额分={}，计划入账额度={}，过期时间={}",
+                order.getOrderNo(), order.getPaymentMethod(), order.getNewApiUserId(),
+                order.getAmountUsdMinor(), order.getQuotaToCredit(), order.getExpiresAt());
         return PaymentOrderView.from(order);
     }
 

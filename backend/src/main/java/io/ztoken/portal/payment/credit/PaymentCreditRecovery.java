@@ -30,15 +30,19 @@ public class PaymentCreditRecovery implements ApplicationRunner {
 
     @Override
     public void run(ApplicationArguments args) {
-        for (var order : orders.findByStatus(PaymentOrderStatus.CONFIRMED)) {
+        var confirmedOrders = orders.findByStatus(PaymentOrderStatus.CONFIRMED);
+        log.info("支付入账恢复任务启动：待恢复确认订单数={}", confirmedOrders.size());
+        for (var order : confirmedOrders) {
             if (order.getStatus() != PaymentOrderStatus.CONFIRMED) {
                 continue;
             }
             try {
+                log.info("支付入账恢复任务开始领取订单：订单号={}", order.getOrderNo());
                 credits.creditConfirmedOrder(order.getOrderNo());
             } catch (RuntimeException exception) {
                 // Continue with other confirmed orders; each claim remains guarded by the existing row lock.
-                log.warn("Payment credit recovery claim failed for confirmed order {}", order.getOrderNo());
+                log.warn("支付入账恢复任务领取订单失败：订单号={}，异常类型={}",
+                        order.getOrderNo(), exception.getClass().getSimpleName());
             }
         }
     }

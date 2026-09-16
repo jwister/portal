@@ -1,5 +1,8 @@
 package io.ztoken.portal.payment.credit;
 
+import ch.qos.logback.classic.Logger;
+import ch.qos.logback.classic.spi.ILoggingEvent;
+import ch.qos.logback.core.read.ListAppender;
 import io.ztoken.portal.payment.config.PaymentProperties;
 import io.ztoken.portal.payment.domain.CreditAttempt;
 import io.ztoken.portal.payment.domain.PaymentOrder;
@@ -18,6 +21,7 @@ import org.springframework.dao.DataAccessResourceFailureException;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.TransactionDefinition;
 import org.springframework.transaction.support.SimpleTransactionStatus;
+import org.slf4j.LoggerFactory;
 
 import java.time.Instant;
 import java.util.Optional;
@@ -94,6 +98,23 @@ class PaymentCreditServiceTest {
         assertThat(lastSavedAttempt().getPaymentOrder()).isSameAs(order);
         assertThat(lastSavedAttempt().getStatus()).isEqualTo(CreditAttempt.Status.SUCCESS);
         assertThat(lastSavedAttempt().getFinishedAt()).isNotNull();
+    }
+
+    @Test
+    void recordsChineseDetailsWhenNewApiCreditSucceeds() {
+        PaymentOrder order = confirmedOrder();
+        lockReturns(order);
+        when(attempts.save(any(CreditAttempt.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        when(newApiCredit.addQuota(7L, 2_500_000L)).thenReturn(CreditResult.SUCCESS);
+        ListAppender<ILoggingEvent> appender = startAppender();
+
+        service.creditConfirmedOrder(order.getOrderNo());
+
+        assertThat(appender.list).extracting(ILoggingEvent::getFormattedMessage)
+                .anySatisfy(message -> assertThat(message)
+                        .contains("NewAPI 额度入账成功", "订单号=PO_CREDIT", "用户ID=7", "入账额度=2500000")
+                        .doesNotContain("Bearer "));
+        stopAppender(appender);
     }
 
     @Test
@@ -207,5 +228,19 @@ class PaymentCreditServiceTest {
 
     private void lockReturns(PaymentOrder order) {
         when(orders.findByOrderNoForUpdate(eq(order.getOrderNo()))).thenReturn(Optional.of(order));
+    }
+
+    private static ListAppender<ILoggingEvent> startAppender() {
+        Logger logger = (Logger) LoggerFactory.getLogger(PaymentCreditService.class);
+        ListAppender<ILoggingEvent> appender = new ListAppender<>();
+        appender.start();
+        logger.addAppender(appender);
+        return appender;
+    }
+
+    private static void stopAppender(ListAppender<ILoggingEvent> appender) {
+        Logger logger = (Logger) LoggerFactory.getLogger(PaymentCreditService.class);
+        logger.detachAppender(appender);
+        appender.stop();
     }
 }

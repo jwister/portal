@@ -1,5 +1,8 @@
 package io.ztoken.portal.payment.paypal;
 
+import ch.qos.logback.classic.Logger;
+import ch.qos.logback.classic.spi.ILoggingEvent;
+import ch.qos.logback.core.read.ListAppender;
 import io.ztoken.portal.payment.credit.PaymentConfirmedEvent;
 import io.ztoken.portal.payment.domain.PaymentMethod;
 import io.ztoken.portal.payment.domain.PaymentOrder;
@@ -17,6 +20,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.transaction.annotation.Transactional;
+import org.slf4j.LoggerFactory;
 
 import java.lang.reflect.Method;
 import java.time.Instant;
@@ -62,13 +66,20 @@ class PayPalWebhookServiceTest {
 
     @Test
     void rejectsAnUnverifiedWebhookBeforeReadingOrPersistingItsEvent() {
-        when(payPal.verifyWebhook(headers(), completedCaptureEvent("WH-1"))).thenReturn(false);
+        String webhookBody = completedCaptureEvent("WH-1") + "-sensitive-webhook-body";
+        when(payPal.verifyWebhook(headers(), webhookBody)).thenReturn(false);
+        ListAppender<ILoggingEvent> appender = startAppender();
 
-        assertThatThrownBy(() -> service.handle(headers(), completedCaptureEvent("WH-1")))
+        assertThatThrownBy(() -> service.handle(headers(), webhookBody))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("signature");
 
         verifyNoInteractions(events, transactions, orders, eventPublisher);
+        assertThat(appender.list).extracting(ILoggingEvent::getFormattedMessage)
+                .anySatisfy(message -> assertThat(message)
+                        .contains("PayPal Webhook 验签失败")
+                        .doesNotContain("sensitive-webhook-body"));
+        stopAppender(appender);
     }
 
     @Test
@@ -194,5 +205,19 @@ class PayPalWebhookServiceTest {
     }
 
     private record CaptureResource(String captureId, String status, String currency, String amount) {
+    }
+
+    private static ListAppender<ILoggingEvent> startAppender() {
+        Logger logger = (Logger) LoggerFactory.getLogger(PayPalWebhookService.class);
+        ListAppender<ILoggingEvent> appender = new ListAppender<>();
+        appender.start();
+        logger.addAppender(appender);
+        return appender;
+    }
+
+    private static void stopAppender(ListAppender<ILoggingEvent> appender) {
+        Logger logger = (Logger) LoggerFactory.getLogger(PayPalWebhookService.class);
+        logger.detachAppender(appender);
+        appender.stop();
     }
 }

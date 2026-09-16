@@ -6,6 +6,8 @@ import io.ztoken.portal.payment.config.PaymentProperties;
 import org.springframework.http.HttpHeaders;
 import org.springframework.stereotype.Component;
 import org.springframework.web.reactive.function.client.WebClient;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.time.Duration;
 import java.time.Instant;
@@ -15,6 +17,7 @@ import java.util.List;
 /** 只读取 TronGrid 交易事件；支付结论始终由 TransferVerificationService 作二次核验。 */
 @Component
 public class HttpTronGridTransferClient implements TronGridTransferClient {
+    private static final Logger log = LoggerFactory.getLogger(HttpTronGridTransferClient.class);
     private final WebClient client;
     private final ObjectMapper json = new ObjectMapper();
     private final String apiKey;
@@ -30,8 +33,11 @@ public class HttpTronGridTransferClient implements TronGridTransferClient {
             String events = client.get().uri("/v1/transactions/{txid}/events", txid).headers(this::addApiKey)
                     .retrieve().bodyToMono(String.class).block(Duration.ofSeconds(10));
             long currentBlock = currentBlockNumber();
-            return TransferQueryResult.success(mapEvents(events, txid, currentBlock));
+            List<ObservedTransfer> transfers = mapEvents(events, txid, currentBlock);
+            log.info("TronGrid 交易查询完成：交易哈希={}，匹配到转账数={}", txid, transfers.size());
+            return TransferQueryResult.success(transfers);
         } catch (RuntimeException exception) {
+            log.warn("TronGrid 交易查询失败：交易哈希={}，异常类型={}", txid, exception.getClass().getSimpleName());
             return TransferQueryResult.retryableFailure(exception.getClass().getSimpleName());
         }
     }
@@ -54,8 +60,12 @@ public class HttpTronGridTransferClient implements TronGridTransferClient {
                         .retrieve().bodyToMono(String.class).block(Duration.ofSeconds(10));
                 transfers.addAll(mapEvents(events, txid, currentBlockNumber()));
             }
-            return TransferQueryResult.success(transfers, read(candidates).path("meta").path("fingerprint").asText(null));
+            String nextFingerprint = read(candidates).path("meta").path("fingerprint").asText(null);
+            log.atLevel(transfers.isEmpty() ? org.slf4j.event.Level.DEBUG : org.slf4j.event.Level.INFO)
+                    .log("TronGrid 收款地址扫描完成：收款地址={}，匹配到转账数={}", receiveAddress, transfers.size());
+            return TransferQueryResult.success(transfers, nextFingerprint);
         } catch (RuntimeException exception) {
+            log.warn("TronGrid 收款地址扫描失败：收款地址={}，异常类型={}", receiveAddress, exception.getClass().getSimpleName());
             return TransferQueryResult.retryableFailure(exception.getClass().getSimpleName());
         }
     }

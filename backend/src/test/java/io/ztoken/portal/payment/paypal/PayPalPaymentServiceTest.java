@@ -1,5 +1,8 @@
 package io.ztoken.portal.payment.paypal;
 
+import ch.qos.logback.classic.Logger;
+import ch.qos.logback.classic.spi.ILoggingEvent;
+import ch.qos.logback.core.read.ListAppender;
 import io.ztoken.portal.payment.credit.PaymentConfirmedEvent;
 import io.ztoken.portal.payment.domain.PaymentMethod;
 import io.ztoken.portal.payment.domain.PaymentOrder;
@@ -18,6 +21,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.transaction.annotation.Transactional;
+import org.slf4j.LoggerFactory;
 
 import java.lang.reflect.Method;
 import java.time.Instant;
@@ -102,6 +106,25 @@ class PayPalPaymentServiceTest {
         verify(events).publishEvent(new PaymentConfirmedEvent("PO-1"));
     }
 
+    @Test
+    void recordsChineseDetailsWhenPaypalCaptureIsConfirmed() {
+        PaymentOrder order = waitingOrder();
+        PaymentTransaction transaction = PaymentTransaction.paypal(order, "PP-1", "PO-1-paypal", NOW);
+        when(orders.findByOrderNoForUpdate("PO-1")).thenReturn(Optional.of(order));
+        when(transactions.findByPaymentOrderAndProvider(order, PaymentMethod.PAYPAL)).thenReturn(Optional.of(transaction));
+        when(payPal.captureOrder("PP-1", "PO-1-capture"))
+                .thenReturn(new PayPalCaptureDetails("PP-1", "CAPTURE-1", "COMPLETED", "USD", 2_550L));
+        ListAppender<ILoggingEvent> appender = startAppender();
+
+        service.capture("PO-1");
+
+        assertThat(appender.list).extracting(ILoggingEvent::getFormattedMessage)
+                .anySatisfy(message -> assertThat(message)
+                        .contains("PayPal 捕获确认成功", "订单号=PO-1", "PayPal订单号=PP-1", "捕获号=CAPTURE-1")
+                        .doesNotContain("client-secret"));
+        stopAppender(appender);
+    }
+
     @ParameterizedTest
     @MethodSource("invalidCaptures")
     void refusesToConfirmCaptureUnlessOrderCaptureStatusCurrencyAndExactCentsAllMatch(PayPalCaptureDetails details) {
@@ -171,5 +194,19 @@ class PayPalPaymentServiceTest {
 
     private static PaymentOrder waitingOrder() {
         return PaymentOrder.paypal("PO-1", 7L, 2_550L, 12_750_000L, NOW, NOW.plusSeconds(1_800));
+    }
+
+    private static ListAppender<ILoggingEvent> startAppender() {
+        Logger logger = (Logger) LoggerFactory.getLogger(PayPalPaymentService.class);
+        ListAppender<ILoggingEvent> appender = new ListAppender<>();
+        appender.start();
+        logger.addAppender(appender);
+        return appender;
+    }
+
+    private static void stopAppender(ListAppender<ILoggingEvent> appender) {
+        Logger logger = (Logger) LoggerFactory.getLogger(PayPalPaymentService.class);
+        logger.detachAppender(appender);
+        appender.stop();
     }
 }

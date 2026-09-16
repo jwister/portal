@@ -15,6 +15,8 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.math.BigDecimal;
 import java.util.List;
@@ -22,6 +24,8 @@ import java.util.List;
 @RestController
 @RequestMapping("/api/payments/orders")
 public class PaymentOrderController {
+
+    private static final Logger log = LoggerFactory.getLogger(PaymentOrderController.class);
 
     private static final int DEFAULT_PAGE_SIZE = 20;
     private static final int MAX_PAGE_SIZE = 100;
@@ -40,11 +44,16 @@ public class PaymentOrderController {
             @Valid @RequestBody CreatePaymentOrderRequest request) {
         PortalPrincipal principal = sessions.require(sessionId);
         try {
+            log.info("收到创建支付订单请求：用户ID={}，支付方式={}，请求金额={}", principal.userId(), request.method(), request.amount());
             PaymentOrderView order = orders.createForUser(principal, new BigDecimal(request.amount()), request.method());
             return noStore(ResponseEntity.status(201).body(PaymentOrderResponse.from(order)));
         } catch (IllegalArgumentException exception) {
+            log.warn("创建支付订单请求被拒绝：用户ID={}，支付方式={}，异常类型={}",
+                    principal.userId(), request.method(), exception.getClass().getSimpleName());
             throw PaymentApiException.invalidRequest(exception);
         } catch (IllegalStateException exception) {
+            log.error("创建支付订单服务不可用：用户ID={}，支付方式={}，异常类型={}",
+                    principal.userId(), request.method(), exception.getClass().getSimpleName());
             throw PaymentApiException.serviceUnavailable(exception);
         }
     }

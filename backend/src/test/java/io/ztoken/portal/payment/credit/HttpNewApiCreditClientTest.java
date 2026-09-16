@@ -1,5 +1,8 @@
 package io.ztoken.portal.payment.credit;
 
+import ch.qos.logback.classic.Logger;
+import ch.qos.logback.classic.spi.ILoggingEvent;
+import ch.qos.logback.core.read.ListAppender;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.ztoken.portal.config.PortalProperties;
@@ -12,6 +15,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
+import org.slf4j.LoggerFactory;
 
 import java.time.Duration;
 import java.util.concurrent.TimeUnit;
@@ -114,8 +118,14 @@ class HttpNewApiCreditClientTest {
     void classifiesConnectionFailuresAsUnknown() throws Exception {
         newApi.shutdown();
         newApi = null;
+        ListAppender<ILoggingEvent> appender = startAppender();
 
         assertThat(client.addQuota(7L, 500_000L)).isEqualTo(CreditResult.UNKNOWN);
+        assertThat(appender.list).extracting(ILoggingEvent::getFormattedMessage)
+                .anySatisfy(message -> assertThat(message)
+                        .contains("NewAPI 额度 HTTP 调用异常", "异常类型=WebClientRequestException")
+                        .doesNotContain("service-credit-token", "Bearer "));
+        stopAppender(appender);
     }
 
     private MockResponse jsonResponse(int status, String body) {
@@ -123,5 +133,19 @@ class HttpNewApiCreditClientTest {
                 .setResponseCode(status)
                 .setHeader(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE)
                 .setBody(body);
+    }
+
+    private static ListAppender<ILoggingEvent> startAppender() {
+        Logger logger = (Logger) LoggerFactory.getLogger(HttpNewApiCreditClient.class);
+        ListAppender<ILoggingEvent> appender = new ListAppender<>();
+        appender.start();
+        logger.addAppender(appender);
+        return appender;
+    }
+
+    private static void stopAppender(ListAppender<ILoggingEvent> appender) {
+        Logger logger = (Logger) LoggerFactory.getLogger(HttpNewApiCreditClient.class);
+        logger.detachAppender(appender);
+        appender.stop();
     }
 }

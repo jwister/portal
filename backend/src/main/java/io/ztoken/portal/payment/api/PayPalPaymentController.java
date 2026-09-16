@@ -15,10 +15,14 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 @RestController
 @RequestMapping("/api/payments/orders/{orderNo}/paypal")
 public class PayPalPaymentController {
+
+    private static final Logger log = LoggerFactory.getLogger(PayPalPaymentController.class);
 
     private final PaymentOrderService orders;
     private final PayPalPaymentService payments;
@@ -43,6 +47,7 @@ public class PayPalPaymentController {
             throw PaymentApiException.serviceUnavailable(null);
         }
         String mode = "live".equalsIgnoreCase(paypal.getMode()) ? "live" : "sandbox";
+        log.info("返回 PayPal 前端配置：订单号={}，运行模式={}", orderNo, mode);
         return noStore(ResponseEntity.ok(new PayPalConfigResponse(paypal.getClientId(), mode)));
     }
 
@@ -52,10 +57,13 @@ public class PayPalPaymentController {
             @PathVariable String orderNo) {
         requireOwnedOrder(sessionId, orderNo);
         try {
+            log.info("收到创建 PayPal 第三方订单请求：订单号={}", orderNo);
             return noStore(ResponseEntity.ok(new PayPalProviderOrderResponse(payments.createProviderOrder(orderNo))));
         } catch (PayPalOrderConflictException exception) {
+            log.warn("创建 PayPal 第三方订单发生冲突：订单号={}，异常类型={}", orderNo, exception.getClass().getSimpleName());
             throw PaymentApiException.conflict(exception);
         } catch (RuntimeException exception) {
+            log.error("创建 PayPal 第三方订单失败：订单号={}，异常类型={}", orderNo, exception.getClass().getSimpleName());
             throw PaymentApiException.serviceUnavailable(exception);
         }
     }
@@ -66,10 +74,13 @@ public class PayPalPaymentController {
             @PathVariable String orderNo) {
         requireOwnedOrder(sessionId, orderNo);
         try {
+            log.info("收到 PayPal 捕获请求：订单号={}", orderNo);
             return noStore(ResponseEntity.ok(PaymentOrderResponse.from(payments.capture(orderNo))));
         } catch (PayPalOrderConflictException exception) {
+            log.warn("PayPal 捕获请求发生冲突：订单号={}，异常类型={}", orderNo, exception.getClass().getSimpleName());
             throw PaymentApiException.conflict(exception);
         } catch (RuntimeException exception) {
+            log.error("PayPal 捕获请求处理失败：订单号={}，异常类型={}", orderNo, exception.getClass().getSimpleName());
             throw PaymentApiException.serviceUnavailable(exception);
         }
     }

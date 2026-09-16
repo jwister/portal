@@ -9,6 +9,8 @@ import org.springframework.http.MediaType;
 import org.springframework.stereotype.Component;
 import org.springframework.web.reactive.function.BodyInserters;
 import org.springframework.web.reactive.function.client.WebClient;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
@@ -26,6 +28,7 @@ import java.util.Objects;
 @Component
 public class HttpPayPalClient implements PayPalClient {
 
+    private static final Logger log = LoggerFactory.getLogger(HttpPayPalClient.class);
     private static final Duration REQUEST_TIMEOUT = Duration.ofSeconds(15);
     private static final long TOKEN_EXPIRY_SAFETY_SECONDS = 30L;
 
@@ -67,8 +70,11 @@ public class HttpPayPalClient implements PayPalClient {
                         ))
                 )));
         JsonNode amount = response.path("purchase_units").path(0).path("amount");
-        return new PayPalOrderDetails(response.path("id").asText(), response.path("status").asText(),
+        PayPalOrderDetails details = new PayPalOrderDetails(response.path("id").asText(), response.path("status").asText(),
                 amount.path("currency_code").asText(), parseUsd(amount.path("value").asText()));
+        log.info("PayPal HTTP 创建订单响应已收到：本地订单号={}，PayPal订单号={}，金额分={}，第三方状态={}",
+                localOrderNo, details.orderId(), amountUsdMinor, details.status());
+        return details;
     }
 
     @Override
@@ -84,9 +90,12 @@ public class HttpPayPalClient implements PayPalClient {
                 }));
         JsonNode capture = response.path("purchase_units").path(0).path("payments").path("captures").path(0);
         JsonNode amount = capture.path("amount");
-        return new PayPalCaptureDetails(response.path("id").asText(), capture.path("id").asText(),
+        PayPalCaptureDetails details = new PayPalCaptureDetails(response.path("id").asText(), capture.path("id").asText(),
                 capture.path("status").asText(), amount.path("currency_code").asText(),
                 parseUsd(amount.path("value").asText()));
+        log.info("PayPal HTTP 捕获订单响应已收到：PayPal订单号={}，捕获号={}，金额分={}，第三方状态={}",
+                providerOrderId, details.captureId(), details.amountMinor(), details.status());
+        return details;
     }
 
     @Override
@@ -96,9 +105,11 @@ public class HttpPayPalClient implements PayPalClient {
         try {
             webhookEvent = objectMapper.readTree(rawBody);
         } catch (Exception ignored) {
+            log.warn("PayPal Webhook 原始报文无法解析，验签失败");
             return false;
         }
         if (webhookEvent == null || !webhookEvent.isObject()) {
+            log.warn("PayPal Webhook 原始报文不是 JSON 对象，验签失败");
             return false;
         }
 
@@ -116,7 +127,9 @@ public class HttpPayPalClient implements PayPalClient {
                 .contentType(MediaType.APPLICATION_JSON)
                 .headers(httpHeaders -> httpHeaders.setBearerAuth(accessToken()))
                 .bodyValue(request));
-        return "SUCCESS".equals(response.path("verification_status").asText());
+        boolean verified = "SUCCESS".equals(response.path("verification_status").asText());
+        log.info("PayPal Webhook 官方验签完成：验签结果={}", verified ? "成功" : "失败");
+        return verified;
     }
 
     static String apiBaseUrl(PaymentProperties.Paypal properties) {
@@ -130,6 +143,7 @@ public class HttpPayPalClient implements PayPalClient {
         requireConfigured();
         Instant now = Instant.now();
         if (accessToken != null && now.isBefore(accessTokenExpiresAt)) {
+            log.debug("复用已缓存的 PayPal OAuth 访问令牌");
             return accessToken;
         }
 
@@ -145,6 +159,7 @@ public class HttpPayPalClient implements PayPalClient {
         long expiresIn = Math.max(0L, response.path("expires_in").asLong(0L));
         accessToken = token;
         accessTokenExpiresAt = now.plusSeconds(Math.max(0L, expiresIn - TOKEN_EXPIRY_SAFETY_SECONDS));
+        log.info("PayPal OAuth 访问令牌获取成功：有效期秒数={}", expiresIn);
         return token;
     }
 
@@ -153,6 +168,7 @@ public class HttpPayPalClient implements PayPalClient {
             JsonNode body = request.retrieve().bodyToMono(JsonNode.class).block(REQUEST_TIMEOUT);
             return body == null ? objectMapper.createObjectNode() : body;
         } catch (RuntimeException exception) {
+            log.error("PayPal HTTP 请求失败：异常类型={}", exception.getClass().getSimpleName());
             throw new IllegalStateException("PayPal service request failed", exception);
         }
     }

@@ -13,6 +13,8 @@ import io.ztoken.portal.payment.repository.PaymentTransactionRepository;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
@@ -26,6 +28,8 @@ import java.util.Objects;
  */
 @Service
 public class PayPalWebhookService {
+
+    private static final Logger log = LoggerFactory.getLogger(PayPalWebhookService.class);
 
     private static final String COMPLETED_CAPTURE_EVENT = "PAYMENT.CAPTURE.COMPLETED";
     private static final String PAYPAL_PROVIDER = PaymentMethod.PAYPAL.name();
@@ -50,6 +54,7 @@ public class PayPalWebhookService {
     @Transactional
     public void handle(Map<String, String> headers, String rawBody) {
         if (!payPal.verifyWebhook(headers, rawBody)) {
+            log.warn("PayPal Webhook 验签失败，已拒绝处理");
             throw new IllegalArgumentException("PayPal webhook signature verification failed");
         }
 
@@ -67,14 +72,22 @@ public class PayPalWebhookService {
 
         if (events.insertIfAbsent(PAYPAL_PROVIDER, eventId, eventType, order == null ? null : order.getId(),
                 Instant.now(), "Verified PayPal webhook") == 0) {
+            log.info("PayPal Webhook 重复事件已幂等跳过：事件号={}，事件类型={}，PayPal订单号={}",
+                    eventId, eventType, providerOrderId.isEmpty() ? "未知" : providerOrderId);
             return;
         }
+        log.info("PayPal Webhook 验签成功并已记录：事件号={}，事件类型={}，PayPal订单号={}，本地订单号={}",
+                eventId, eventType, providerOrderId.isEmpty() ? "未知" : providerOrderId,
+                order == null ? "未知" : order.getOrderNo());
         if (!COMPLETED_CAPTURE_EVENT.equals(eventType) || transaction == null || order == null) {
+            log.info("PayPal Webhook 非支付完成事件或无法关联本地订单，已安全忽略：事件号={}，事件类型={}", eventId, eventType);
             return;
         }
 
         validateCompletedCapture(order, transaction, resource);
         if (order.getStatus() != PaymentOrderStatus.WAITING_PAYMENT) {
+            log.info("PayPal Webhook 对已处理订单不再重复确认：事件号={}，订单号={}，当前状态={}",
+                    eventId, order.getOrderNo(), order.getStatus());
             return;
         }
 
@@ -82,6 +95,7 @@ public class PayPalWebhookService {
         if (!order.getExpiresAt().isAfter(now)) {
             order.expireIfPast(now);
             orders.save(order);
+            log.warn("PayPal Webhook 到达时订单已过期：事件号={}，订单号={}，过期时间={}", eventId, order.getOrderNo(), order.getExpiresAt());
             return;
         }
 
@@ -95,6 +109,8 @@ public class PayPalWebhookService {
         transactions.save(transaction);
         orders.save(order);
         eventPublisher.publishEvent(new PaymentConfirmedEvent(order.getOrderNo()));
+        log.info("PayPal Webhook 确认支付成功：事件号={}，订单号={}，PayPal订单号={}，捕获号={}，金额分={}，订单状态=CONFIRMED",
+                eventId, order.getOrderNo(), providerOrderId, captureId, order.getAmountUsdMinor());
     }
 
     private void validateCompletedCapture(PaymentOrder order, PaymentTransaction transaction, JsonNode resource) {

@@ -10,6 +10,8 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Component;
 import org.springframework.web.reactive.function.client.WebClient;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.time.Duration;
 import java.util.Map;
@@ -18,6 +20,7 @@ import java.util.Objects;
 @Component
 public class HttpNewApiCreditClient implements NewApiCreditClient {
 
+    private static final Logger log = LoggerFactory.getLogger(HttpNewApiCreditClient.class);
     private static final Duration REQUEST_TIMEOUT = Duration.ofSeconds(10);
 
     private final WebClient client;
@@ -45,6 +48,8 @@ public class HttpNewApiCreditClient implements NewApiCreditClient {
     @Override
     public CreditResult addQuota(long userId, long quota) {
         if (userId <= 0 || quota <= 0 || !paymentProperties.getNewApiCredit().isConfigured()) {
+            log.warn("NewAPI 额度请求参数无效或支付配置不完整，结果按未知处理：用户ID={}，入账额度={}，已配置={}",
+                    userId, quota, paymentProperties.getNewApiCredit().isConfigured());
             return CreditResult.UNKNOWN;
         }
 
@@ -58,26 +63,34 @@ public class HttpNewApiCreditClient implements NewApiCreditClient {
                             .defaultIfEmpty("")
                             .map(body -> classify(response.statusCode().value(), body)))
                     .block(requestTimeout);
-            return result == null ? CreditResult.UNKNOWN : result;
+            CreditResult finalResult = result == null ? CreditResult.UNKNOWN : result;
+            log.info("NewAPI 额度 HTTP 调用完成：用户ID={}，入账额度={}，处理结果={}", userId, quota, finalResult);
+            return finalResult;
         } catch (RuntimeException exception) {
+            log.error("NewAPI 额度 HTTP 调用异常，结果按未知处理：用户ID={}，入账额度={}，异常类型={}",
+                    userId, quota, exception.getClass().getSimpleName());
             return CreditResult.UNKNOWN;
         }
     }
 
     private CreditResult classify(int status, String body) {
         if (status >= 400 && status < 500) {
+            log.warn("NewAPI 额度 HTTP 返回客户端错误：HTTP状态={}", status);
             return CreditResult.FAILED;
         }
         if (status < 200 || status >= 300) {
+            log.warn("NewAPI 额度 HTTP 返回不可判定状态：HTTP状态={}", status);
             return CreditResult.UNKNOWN;
         }
         try {
             JsonNode root = objectMapper.readTree(body);
             if (root == null || !root.has("success") || !root.path("success").isBoolean()) {
+                log.warn("NewAPI 额度 HTTP 响应缺少可判定业务结果");
                 return CreditResult.UNKNOWN;
             }
             return root.path("success").asBoolean() ? CreditResult.SUCCESS : CreditResult.FAILED;
         } catch (JsonProcessingException exception) {
+            log.warn("NewAPI 额度 HTTP 响应无法解析为 JSON，结果按未知处理");
             return CreditResult.UNKNOWN;
         }
     }

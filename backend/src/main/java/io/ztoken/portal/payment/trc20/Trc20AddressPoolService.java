@@ -9,6 +9,8 @@ import io.ztoken.portal.payment.repository.PaymentOrderRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.security.SecureRandom;
 import java.time.Instant;
@@ -18,6 +20,8 @@ import java.util.Objects;
 /** 负责从多地址池中分配负载最低地址及不重复的 USDT 金额识别码。 */
 @Service
 public class Trc20AddressPoolService {
+
+    private static final Logger log = LoggerFactory.getLogger(Trc20AddressPoolService.class);
 
     private static final SecureRandom RANDOM = new SecureRandom();
     private static final long MIN_SUFFIX = 1L;
@@ -60,6 +64,8 @@ public class Trc20AddressPoolService {
                 orders.save(order);
                 amounts.save(new PaymentAmountRegistry(address, payableMinor, order, now));
                 address.incrementActiveOrderCount();
+                log.info("TRC20 收款地址与识别金额分配成功：订单号={}，用户ID={}，收款地址={}，应付最小单位={}，金额分={}，计划入账额度={}，过期时间={}",
+                        order.getOrderNo(), userId, address.getAddress(), payableMinor, amountUsdMinor, quotaToCredit, expiresAt);
                 return order;
             }
         }

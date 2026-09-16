@@ -10,6 +10,8 @@ import io.ztoken.portal.payment.repository.PaymentTransactionRepository;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.time.Instant;
 import java.util.Objects;
@@ -21,6 +23,8 @@ import java.util.Objects;
  */
 @Service
 public class PayPalPaymentService {
+
+    private static final Logger log = LoggerFactory.getLogger(PayPalPaymentService.class);
 
     private final PaymentOrderRepository orders;
     private final PaymentTransactionRepository transactions;
@@ -41,6 +45,8 @@ public class PayPalPaymentService {
         PaymentTransaction existing = transactions.findByPaymentOrderAndProvider(order, PaymentMethod.PAYPAL)
                 .orElse(null);
         if (existing != null) {
+            log.info("PayPal 订单已存在，复用第三方订单：订单号={}，PayPal订单号={}，订单状态={}",
+                    order.getOrderNo(), existing.getProviderOrderId(), order.getStatus());
             return existing.getProviderOrderId();
         }
 
@@ -51,6 +57,8 @@ public class PayPalPaymentService {
         PaymentTransaction transaction = PaymentTransaction.paypal(order, details.orderId(), idempotencyKey, Instant.now());
         transaction.updateProviderStatus(details.status(), Instant.now());
         transactions.save(transaction);
+        log.info("PayPal 第三方订单创建成功：订单号={}，PayPal订单号={}，金额分={}，第三方状态={}",
+                order.getOrderNo(), transaction.getProviderOrderId(), order.getAmountUsdMinor(), details.status());
         return transaction.getProviderOrderId();
     }
 
@@ -58,6 +66,7 @@ public class PayPalPaymentService {
     public PaymentOrder capture(String orderNo) {
         PaymentOrder order = requirePayPalOrder(orderNo);
         if (isAlreadyConfirmed(order.getStatus())) {
+            log.info("PayPal 捕获请求幂等跳过：订单号={}，当前订单状态={}", order.getOrderNo(), order.getStatus());
             return order;
         }
         ensureWaitingAndNotExpired(order);
@@ -75,6 +84,9 @@ public class PayPalPaymentService {
             throw new IllegalStateException("PayPal capture ID does not match the existing transaction");
         }
         confirm(order, transaction, details.captureId());
+        log.info("PayPal 捕获确认成功：订单号={}，PayPal订单号={}，捕获号={}，金额分={}，订单状态={}",
+                order.getOrderNo(), transaction.getProviderOrderId(), details.captureId(),
+                order.getAmountUsdMinor(), order.getStatus());
         return order;
     }
 
@@ -104,6 +116,8 @@ public class PayPalPaymentService {
         if (!order.getExpiresAt().isAfter(now)) {
             order.expireIfPast(now);
             orders.save(order);
+            log.warn("PayPal 订单已过期：订单号={}，原订单状态={}，过期时间={}",
+                    order.getOrderNo(), PaymentOrderStatus.WAITING_PAYMENT, order.getExpiresAt());
             throw new PayPalOrderConflictException("Payment order has expired");
         }
     }
@@ -138,6 +152,7 @@ public class PayPalPaymentService {
         transactions.save(transaction);
         orders.save(order);
         eventPublisher.publishEvent(new PaymentConfirmedEvent(order.getOrderNo()));
+        log.info("PayPal 订单状态已确认：订单号={}，捕获号={}，状态=CONFIRMED", order.getOrderNo(), captureId);
     }
 
     private static boolean isAlreadyConfirmed(PaymentOrderStatus status) {
