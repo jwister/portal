@@ -83,19 +83,20 @@ public class PaymentOrderService {
                 .toList();
     }
 
-    /** 当前用户取消仍处于待支付状态的订单；订单会在锁内再次确认归属与可取消状态。 */
+    /** 当前用户尝试取消订单；订单会在锁内再次确认归属，并返回持久化后的最新状态。 */
     @Transactional
     public PaymentOrderView cancelForUser(PortalPrincipal principal, String orderNo) {
         long userId = requireUserId(principal);
         PaymentOrder order = orders.findByOrderNoForUpdate(orderNo)
                 .filter(item -> item.getNewApiUserId() == userId)
                 .orElseThrow(java.util.NoSuchElementException::new);
-        if (!order.cancel(Instant.now())) {
-            log.warn("取消支付订单被拒绝：订单号={}，用户ID={}，当前状态={}",
-                    orderNo, userId, order.getStatus());
-            throw new IllegalStateException("Payment order cannot be cancelled");
-        }
+        boolean cancelled = order.cancel(Instant.now());
         PaymentOrder saved = orders.save(order);
+        if (!cancelled) {
+            log.warn("取消支付订单被拒绝：订单号={}，用户ID={}，当前状态={}",
+                    orderNo, userId, saved.getStatus());
+            return PaymentOrderView.from(saved);
+        }
         log.info("支付订单已由用户取消：订单号={}，用户ID={}", saved.getOrderNo(), userId);
         return PaymentOrderView.from(saved);
     }

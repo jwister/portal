@@ -164,6 +164,22 @@ class PaymentOrderControllerTest {
     }
 
     @Test
+    void expiresAnOrderThatBecomesPastDueWhileTheCustomerCancelsIt() {
+        long userId = nextUserId();
+        String sessionId = sessionFor(userId);
+        Instant now = Instant.now();
+        var persisted = paymentOrders.saveAndFlush(io.ztoken.portal.payment.domain.PaymentOrder.paypal(
+                "PO_EXPIRED_" + userId, userId, 2_550L, 12_750_000L, now.minusSeconds(600), now.minusSeconds(1)));
+
+        ResponseEntity<Map> response = http.exchange("/api/payments/orders/" + persisted.getOrderNo() + "/cancel",
+                HttpMethod.POST, authed(null, sessionId), Map.class);
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.CONFLICT);
+        assertThat(paymentOrders.findByOrderNo(persisted.getOrderNo()).orElseThrow().getStatus())
+                .isEqualTo(io.ztoken.portal.payment.domain.PaymentOrderStatus.EXPIRED);
+    }
+
+    @Test
     void rejectsMissingSessionWithoutCachingThePaymentError() {
         ResponseEntity<Map> response = http.getForEntity("/api/payments/orders", Map.class);
 

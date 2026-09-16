@@ -2,6 +2,7 @@ package io.ztoken.portal.payment.api;
 
 import io.ztoken.portal.payment.order.PaymentOrderService;
 import io.ztoken.portal.payment.order.PaymentOrderView;
+import io.ztoken.portal.payment.domain.PaymentOrderStatus;
 import io.ztoken.portal.session.PortalPrincipal;
 import io.ztoken.portal.session.PortalSessionService;
 import jakarta.validation.Valid;
@@ -96,14 +97,16 @@ public class PaymentOrderController {
         PortalPrincipal principal = sessions.require(sessionId);
         try {
             log.info("收到取消支付订单请求：订单号={}，用户ID={}", orderNo, principal.userId());
-            return noStore(ResponseEntity.ok(PaymentOrderResponse.from(orders.cancelForUser(principal, orderNo))));
+            PaymentOrderView order = orders.cancelForUser(principal, orderNo);
+            if (order.status() != PaymentOrderStatus.CANCELLED) {
+                log.warn("取消支付订单状态冲突：订单号={}，用户ID={}，当前状态={}",
+                        orderNo, principal.userId(), order.status());
+                throw PaymentApiException.conflict(null);
+            }
+            return noStore(ResponseEntity.ok(PaymentOrderResponse.from(order)));
         } catch (java.util.NoSuchElementException exception) {
             log.warn("取消支付订单时未找到订单或无权访问：订单号={}，用户ID={}", orderNo, principal.userId());
             throw PaymentApiException.orderNotFound();
-        } catch (IllegalStateException exception) {
-            log.warn("取消支付订单状态冲突：订单号={}，用户ID={}，异常类型={}",
-                    orderNo, principal.userId(), exception.getClass().getSimpleName());
-            throw PaymentApiException.conflict(exception);
         }
     }
 
