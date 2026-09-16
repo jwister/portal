@@ -3,6 +3,7 @@ package io.ztoken.portal.auth;
 import io.ztoken.portal.config.PortalProperties;
 import io.ztoken.portal.newapi.NewApiClient;
 import io.ztoken.portal.newapi.NewApiLogin;
+import io.ztoken.portal.newapi.NewApiException;
 import io.ztoken.portal.newapi.OAuthProviderStatus;
 import io.ztoken.portal.session.PortalSession;
 import io.ztoken.portal.session.PortalSessionService;
@@ -154,7 +155,13 @@ public class AuthController {
     @PostMapping("/sign-out")
     public ResponseEntity<Void> signOut(
             @CookieValue(value = "PORTAL_SESSION", required = false) String sessionId) {
-        sessions.revoke(sessionId);
+        try {
+            newApiClient.logout(sessions.require(sessionId));
+        } catch (io.ztoken.portal.session.UnauthenticatedException | NewApiException ignored) {
+            // 无论上游会话是否已失效或暂不可达，都必须清除本地会话与浏览器 cookie。
+        } finally {
+            sessions.revoke(sessionId);
+        }
         ResponseCookie cookie = ResponseCookie.from("PORTAL_SESSION", "")
                 .httpOnly(true)
                 .secure(properties.isSessionSecureCookie())

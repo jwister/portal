@@ -23,6 +23,7 @@ import java.util.concurrent.TimeUnit;
 import java.time.Instant;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 @Execution(ExecutionMode.SAME_THREAD)
@@ -91,6 +92,45 @@ class AuthControllerTest {
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.UNAUTHORIZED);
         assertThat(response.getBody()).contains("NEWAPI_AUTH_FAILED");
         assertThat(response.getBody()).doesNotContain("Username or password is incorrect");
+    }
+
+    @Test
+    void activeNewApiSessionLimitReturnsActionableConflictWithoutUpstreamMessage() throws Exception {
+        NEW_API.enqueue(new MockResponse().setResponseCode(409)
+                .setHeader(HttpHeaders.CONTENT_TYPE, "application/json")
+                .setBody("{\"success\":false,\"code\":\"AUTH_SESSION_LIMIT\",\"message\":\"internal upstream detail\"}"));
+
+        ResponseEntity<String> response = http.postForEntity("/api/auth/login", new LoginRequest("admin", "password"), String.class);
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.CONFLICT);
+        assertThat(response.getBody()).contains("NEWAPI_SESSION_LIMIT")
+                .doesNotContain("internal upstream detail");
+        assertThat(NEW_API.takeRequest().getPath()).isEqualTo("/api/user/login");
+    }
+
+    @Test
+    void signOutRevokesTheMatchingNewApiSessionBeforeClearingThePortalSession() throws Exception {
+        String upstreamSessionId = "7f8c7d84-a7ea-460b-b34c-269b4d6f7072";
+        String portalSessionId = sessions.create(new io.ztoken.portal.newapi.NewApiLogin(
+                new io.ztoken.portal.session.NewApiIdentity(7L, "admin"), "access-token",
+                upstreamSessionId + ".refresh-token", upstreamSessionId, Instant.now().plusSeconds(900))).getId();
+        NEW_API.enqueue(new MockResponse().setHeader(HttpHeaders.CONTENT_TYPE, "application/json")
+                .setBody("{\"success\":true,\"message\":\"\"}"));
+
+        HttpHeaders headers = new HttpHeaders();
+        headers.add(HttpHeaders.COOKIE, "PORTAL_SESSION=" + portalSessionId);
+        ResponseEntity<Void> response = http.exchange("/api/auth/sign-out", org.springframework.http.HttpMethod.POST,
+                new HttpEntity<>(headers), Void.class);
+
+        RecordedRequest request = NEW_API.takeRequest();
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.NO_CONTENT);
+        assertThat(response.getHeaders().getFirst(HttpHeaders.SET_COOKIE)).contains("PORTAL_SESSION=", "Max-Age=0");
+        assertThat(request.getPath()).isEqualTo("/api/user/auth/logout");
+        assertThat(request.getHeader(HttpHeaders.AUTHORIZATION)).isEqualTo("Bearer access-token");
+        assertThat(request.getHeader(HttpHeaders.COOKIE)).isEqualTo("new_api_refresh=" + upstreamSessionId + ".refresh-token");
+        assertThat(request.getHeader("X-Auth-Session")).isEqualTo(upstreamSessionId);
+        assertThatThrownBy(() -> sessions.require(portalSessionId))
+                .isInstanceOf(io.ztoken.portal.session.UnauthenticatedException.class);
     }
 
     @Test

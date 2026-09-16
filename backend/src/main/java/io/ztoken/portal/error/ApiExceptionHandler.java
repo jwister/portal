@@ -2,6 +2,7 @@ package io.ztoken.portal.error;
 
 import io.ztoken.portal.newapi.NewApiAuthenticationException;
 import io.ztoken.portal.newapi.NewApiException;
+import io.ztoken.portal.newapi.NewApiSessionLimitException;
 import io.ztoken.portal.newapi.NewApiEmailVerificationException;
 import io.ztoken.portal.newapi.NewApiUnsupportedException;
 import io.ztoken.portal.payment.api.PaymentApiException;
@@ -52,6 +53,12 @@ public class ApiExceptionHandler {
     public ResponseEntity<Map<String, String>> newApiUnsupported() {
         return ResponseEntity.status(HttpStatus.NOT_IMPLEMENTED)
                 .body(Map.of("code", "NOT_SUPPORTED", "message", "This operation is not supported"));
+    }
+
+    @ExceptionHandler(NewApiSessionLimitException.class)
+    public ResponseEntity<Map<String, String>> newApiSessionLimit() {
+        return ResponseEntity.status(HttpStatus.CONFLICT).cacheControl(CacheControl.noStore())
+                .body(Map.of("code", "NEWAPI_SESSION_LIMIT", "message", "登录会话数量已达上限，请在已登录的 NewAPI 设备中退出其他会话后重试"));
     }
 
     @ExceptionHandler(NewApiEmailVerificationException.class)

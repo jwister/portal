@@ -19,6 +19,8 @@ public interface NewApiClient {
 
     NewApiLogin login(String username, String password);
 
+    void logout(PortalPrincipal principal);
+
     OAuthProviderStatus getOAuthProviderStatus();
 
     String createOAuthState(String provider);

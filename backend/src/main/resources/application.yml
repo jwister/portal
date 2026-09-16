@@ -18,7 +18,7 @@ portal:
   session-ttl: ${PORTAL_SESSION_TTL:7d}
   session-secure-cookie: ${PORTAL_SESSION_SECURE_COOKIE:false}
   new-api:
-    base-url: https://ztoken.cc
+    base-url: https://api.ztoken.cc
     pricing-token: Lgh3Nj3cprP15x9AsfwLF75qaT/yPA==
 payment:
   order-expiry-minutes: ${PAYMENT_ORDER_EXPIRY_MINUTES:30}

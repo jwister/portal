@@ -89,6 +89,27 @@ public class NewApiHttpClient implements NewApiClient, NewApiSessionRefresher {
         return loginFrom(data, response.refreshToken());
     }
 
+    @Override
+    public void logout(PortalPrincipal principal) {
+        try {
+            int status = client.post().uri("/api/user/auth/logout")
+                    .headers(headers -> {
+                        headers.setBearerAuth(principal.accessToken());
+                        headers.set(HttpHeaders.COOKIE, "new_api_refresh=" + principal.refreshToken());
+                        headers.set("X-Auth-Session", principal.newApiSessionId());
+                    })
+                    .exchangeToMono(response -> response.bodyToMono(Void.class).thenReturn(response.statusCode().value()))
+                    .block(Duration.ofSeconds(10));
+            if (status < 200 || status >= 300) {
+                throw new NewApiException("NewAPI logout request failed with status " + status);
+            }
+        } catch (NewApiException exception) {
+            throw exception;
+        } catch (RuntimeException exception) {
+            throw new NewApiException("NewAPI logout request failed");
+        }
+    }
+
     /**
      * 读取登录页启动 OAuth 所需的公开配置，避免 Portal 复制或持有第三方密钥。
      */
@@ -745,6 +766,9 @@ public class NewApiHttpClient implements NewApiClient, NewApiSessionRefresher {
         }
         int statusCode = response == null ? 0 : response.statusCode();
         log.warn("NewAPI 登录请求失败: upstream={}, httpStatus={}, category=http-response", upstreamTarget, statusCode);
+        if (statusCode == 409 && response != null && "AUTH_SESSION_LIMIT".equals(response.body().path("code").asText())) {
+            throw new NewApiSessionLimitException();
+        }
         throw new NewApiException("NewAPI request failed with status " + statusCode);
     }
 

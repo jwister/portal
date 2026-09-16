@@ -11,11 +11,11 @@ import static org.assertj.core.api.Assertions.assertThat;
 class NewApiConfigurationContractTest {
 
     @Test
-    void developmentConfigUsesItsFixedNewApiAddressInsteadOfLegacyEnvironmentAlias() throws IOException {
+    void developmentConfigUsesTheNewApiServiceAddressInsteadOfThePortalSite() throws IOException {
         String configuration = Files.readString(Path.of("src/main/resources/application.yml"));
 
         assertThat(configuration)
-                .contains("base-url: https://ztoken.cc")
+                .contains("base-url: https://api.ztoken.cc")
                 .contains("pricing-token: Lgh3Nj3cprP15x9AsfwLF75qaT/yPA==")
                 .doesNotContain("NEWAPI_BASE_URL")
                 .doesNotContain("NEWAPI_PRICING_TOKEN");
