@@ -51,22 +51,27 @@ public class HttpTronGridTransferClient implements TronGridTransferClient {
                         return builder.build(receiveAddress);
                     })
                     .headers(this::addApiKey).retrieve().bodyToMono(String.class).block(Duration.ofSeconds(10));
-            List<ObservedTransfer> transfers = new ArrayList<>();
+            List<CandidateEvents> candidateEvents = new ArrayList<>();
             for (JsonNode candidate : read(candidates).path("data")) {
                 if (!"Transfer".equals(candidate.path("type").asText())) continue;
                 String txid = candidate.path("transaction_id").asText();
                 if (txid.isBlank()) continue;
                 String events = client.get().uri("/v1/transactions/{txid}/events", txid).headers(this::addApiKey)
                         .retrieve().bodyToMono(String.class).block(Duration.ofSeconds(10));
-                transfers.addAll(mapEvents(events, txid, currentBlockNumber()));
+                candidateEvents.add(new CandidateEvents(txid, events));
             }
+            // 同一轮地址扫描共用一次最新区块高度，避免历史交易较多时反复调用区块接口而触发上游限流。
+            long currentBlock = currentBlockNumber();
+            List<ObservedTransfer> transfers = new ArrayList<>();
+            for (CandidateEvents events : candidateEvents) transfers.addAll(mapEvents(events.body(), events.txid(), currentBlock));
             String nextFingerprint = read(candidates).path("meta").path("fingerprint").asText(null);
             log.atLevel(transfers.isEmpty() ? org.slf4j.event.Level.DEBUG : org.slf4j.event.Level.INFO)
                     .log("TronGrid 收款地址扫描完成：收款地址={}，匹配到转账数={}", receiveAddress, transfers.size());
             return TransferQueryResult.success(transfers, nextFingerprint);
         } catch (RuntimeException exception) {
-            log.warn("TronGrid 收款地址扫描失败：收款地址={}，异常类型={}", receiveAddress, exception.getClass().getSimpleName());
-            return TransferQueryResult.retryableFailure(exception.getClass().getSimpleName());
+            String reason = failureReason(exception);
+            log.warn("TronGrid 收款地址扫描失败：收款地址={}，失败原因={}", receiveAddress, reason);
+            return TransferQueryResult.retryableFailure(reason);
         }
     }
 
@@ -95,6 +100,16 @@ public class HttpTronGridTransferClient implements TronGridTransferClient {
         if (block < 0) throw new IllegalStateException("TronGrid 未返回最新区块高度");
         return block;
     }
+
+    /** 将上游异常转换为可排查且不含密钥、响应正文等敏感信息的失败原因。 */
+    private String failureReason(RuntimeException exception) {
+        String message = exception.getMessage();
+        if (message == null || message.isBlank()) return exception.getClass().getSimpleName();
+        return exception.getClass().getSimpleName() + "：" + message;
+    }
+
+    /** 保存已读取但尚未计算确认数的交易事件，待本轮统一取得最新区块高度后处理。 */
+    private record CandidateEvents(String txid, String body) { }
 
     private JsonNode read(String body) { try { return json.readTree(body); } catch (Exception e) { throw new IllegalArgumentException("TronGrid 响应无法解析", e); } }
     private void addApiKey(HttpHeaders headers) { if (apiKey != null && !apiKey.isBlank()) headers.set("TRON-PRO-API-KEY", apiKey); }
