@@ -19,6 +19,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 
 import java.math.BigDecimal;
+import java.time.Instant;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicLong;
@@ -111,6 +112,55 @@ class PaymentOrderControllerTest {
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
         assertThat(response.getBody()).containsEntry("code", "INVALID_PAYMENT_REQUEST");
         assertThat(response.getBody().get("message").toString()).doesNotContain("Payment amount");
+    }
+
+    @Test
+    void cancelsAWaitingOrderOwnedByTheSessionUser() {
+        long userId = nextUserId();
+        String sessionId = sessionFor(userId);
+        PaymentOrderView order = orders.createForUser(
+                new io.ztoken.portal.session.PortalPrincipal(userId, "user" + userId, "access-token"),
+                new BigDecimal("25.50"));
+
+        ResponseEntity<Map> response = http.exchange("/api/payments/orders/" + order.orderNo() + "/cancel",
+                HttpMethod.POST, authed(null, sessionId), Map.class);
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
+        assertThat(response.getHeaders().getFirst(HttpHeaders.CACHE_CONTROL)).isEqualTo("no-store");
+        assertThat(response.getBody()).containsEntry("orderNo", order.orderNo())
+                .containsEntry("status", "CANCELLED");
+    }
+
+    @Test
+    void doesNotAllowCustomerToCancelAnotherUsersOrder() {
+        long ownerUserId = nextUserId();
+        PaymentOrderView order = orders.createForUser(
+                new io.ztoken.portal.session.PortalPrincipal(ownerUserId, "owner", "access-token"),
+                new BigDecimal("25.50"));
+
+        ResponseEntity<Map> response = http.exchange("/api/payments/orders/" + order.orderNo() + "/cancel",
+                HttpMethod.POST, authed(null, sessionFor(nextUserId())), Map.class);
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.NOT_FOUND);
+        assertThat(response.getBody()).containsEntry("code", "PAYMENT_ORDER_NOT_FOUND");
+    }
+
+    @Test
+    void doesNotCancelAnOrderThatIsNoLongerWaitingForPayment() {
+        long userId = nextUserId();
+        String sessionId = sessionFor(userId);
+        PaymentOrderView order = orders.createForUser(
+                new io.ztoken.portal.session.PortalPrincipal(userId, "user" + userId, "access-token"),
+                new BigDecimal("25.50"));
+        var persisted = paymentOrders.findByOrderNo(order.orderNo()).orElseThrow();
+        assertThat(persisted.confirm(Instant.now())).isTrue();
+        paymentOrders.saveAndFlush(persisted);
+
+        ResponseEntity<Map> response = http.exchange("/api/payments/orders/" + order.orderNo() + "/cancel",
+                HttpMethod.POST, authed(null, sessionId), Map.class);
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.CONFLICT);
+        assertThat(response.getBody()).containsEntry("code", "PAYMENT_ACTION_CONFLICT");
     }
 
     @Test

@@ -7,6 +7,7 @@ import io.ztoken.portal.payment.repository.PaymentOrderRepository;
 import io.ztoken.portal.payment.provider.PaymentProviderRegistry;
 import io.ztoken.portal.session.PortalPrincipal;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -80,6 +81,23 @@ public class PaymentOrderService {
         return orders.findByNewApiUserIdOrderByCreatedAtDesc(userId).stream()
                 .map(PaymentOrderView::from)
                 .toList();
+    }
+
+    /** 当前用户取消仍处于待支付状态的订单；订单会在锁内再次确认归属与可取消状态。 */
+    @Transactional
+    public PaymentOrderView cancelForUser(PortalPrincipal principal, String orderNo) {
+        long userId = requireUserId(principal);
+        PaymentOrder order = orders.findByOrderNoForUpdate(orderNo)
+                .filter(item -> item.getNewApiUserId() == userId)
+                .orElseThrow(java.util.NoSuchElementException::new);
+        if (!order.cancel(Instant.now())) {
+            log.warn("取消支付订单被拒绝：订单号={}，用户ID={}，当前状态={}",
+                    orderNo, userId, order.getStatus());
+            throw new IllegalStateException("Payment order cannot be cancelled");
+        }
+        PaymentOrder saved = orders.save(order);
+        log.info("支付订单已由用户取消：订单号={}，用户ID={}", saved.getOrderNo(), userId);
+        return PaymentOrderView.from(saved);
     }
 
     private long amountInUsdMinor(BigDecimal amount) {

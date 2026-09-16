@@ -88,6 +88,25 @@ public class PaymentOrderController {
         return noStore(ResponseEntity.ok(PaymentOrderResponse.from(requireOwnedOrder(principal, orderNo))));
     }
 
+    /** 仅允许当前会话所属用户取消仍处于待支付状态的订单。 */
+    @PostMapping("/{orderNo}/cancel")
+    public ResponseEntity<PaymentOrderResponse> cancel(
+            @CookieValue(value = "PORTAL_SESSION", required = false) String sessionId,
+            @PathVariable String orderNo) {
+        PortalPrincipal principal = sessions.require(sessionId);
+        try {
+            log.info("收到取消支付订单请求：订单号={}，用户ID={}", orderNo, principal.userId());
+            return noStore(ResponseEntity.ok(PaymentOrderResponse.from(orders.cancelForUser(principal, orderNo))));
+        } catch (java.util.NoSuchElementException exception) {
+            log.warn("取消支付订单时未找到订单或无权访问：订单号={}，用户ID={}", orderNo, principal.userId());
+            throw PaymentApiException.orderNotFound();
+        } catch (IllegalStateException exception) {
+            log.warn("取消支付订单状态冲突：订单号={}，用户ID={}，异常类型={}",
+                    orderNo, principal.userId(), exception.getClass().getSimpleName());
+            throw PaymentApiException.conflict(exception);
+        }
+    }
+
     private PaymentOrderView requireOwnedOrder(PortalPrincipal principal, String orderNo) {
         return orders.findForUser(principal, orderNo).orElseThrow(PaymentApiException::orderNotFound);
     }
