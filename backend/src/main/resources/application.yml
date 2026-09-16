@@ -35,10 +35,13 @@ payment:
     usdt-contract: TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t
     confirmation-count: 20
     amount-suffix-enabled: true
-    scan-fixed-delay-ms: 5000
     txid-retry-fixed-delay-ms: 5000
     order-expiry-fixed-delay-ms: 5000
     trongrid:
       base-url: https://api.trongrid.io
-      api-key: ""
-    addresses: []
+      api-key: "05d937b4-2d23-4e8c-925c-a7ba13d8c61c"
+    addresses:
+      - TEBezS9oE8FrELqXXWkmEQG1QKPo6vxm7y
+      - TBBNC1XuDWtFaSQyvuRFjPongGocBmtq8A
+      - TNVmhPUXCjUfevbrThHgGdRZrsW81uxoZ8
+      - TPGQYAAW47jYtuqQ7DqWEMUXCduCpqNJ22

@@ -6,6 +6,7 @@ import io.ztoken.portal.payment.config.PaymentProperties;
 import org.springframework.http.HttpHeaders;
 import org.springframework.stereotype.Component;
 import org.springframework.web.reactive.function.client.WebClient;
+import org.springframework.web.reactive.function.client.WebClientResponseException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -36,6 +37,11 @@ public class HttpTronGridTransferClient implements TronGridTransferClient {
             List<ObservedTransfer> transfers = mapEvents(events, txid, currentBlock);
             log.info("TronGrid 交易查询完成：交易哈希={}，匹配到转账数={}", txid, transfers.size());
             return TransferQueryResult.success(transfers);
+        } catch (WebClientResponseException exception) {
+            int status = exception.getStatusCode().value();
+            String category = httpFailureCategory(status);
+            log.warn("TronGrid 交易查询失败：交易哈希={}，HTTP状态={}，失败类别={}", txid, status, category);
+            return TransferQueryResult.retryableFailure("HTTP_" + status + "_" + category);
         } catch (RuntimeException exception) {
             log.warn("TronGrid 交易查询失败：交易哈希={}，异常类型={}", txid, exception.getClass().getSimpleName());
             return TransferQueryResult.retryableFailure(exception.getClass().getSimpleName());
@@ -70,4 +76,13 @@ public class HttpTronGridTransferClient implements TronGridTransferClient {
 
     private JsonNode read(String body) { try { return json.readTree(body); } catch (Exception e) { throw new IllegalArgumentException("TronGrid 响应无法解析", e); } }
     private void addApiKey(HttpHeaders headers) { if (apiKey != null && !apiKey.isBlank()) headers.set("TRON-PRO-API-KEY", apiKey); }
+
+    private String httpFailureCategory(int status) {
+        return switch (status) {
+            case 401, 403 -> "API Key 无效或无权限";
+            case 404 -> "交易事件暂不可用或交易不存在";
+            case 429 -> "请求频率受限";
+            default -> status >= 500 && status < 600 ? "TronGrid 服务异常" : "上游 HTTP 异常";
+        };
+    }
 }
