@@ -4,7 +4,6 @@ import io.ztoken.portal.payment.domain.PaymentAddress;
 import io.ztoken.portal.payment.domain.PaymentOrder;
 import io.ztoken.portal.payment.repository.PaymentAddressRepository;
 import io.ztoken.portal.payment.repository.PaymentOrderRepository;
-import io.ztoken.portal.payment.repository.PaymentScanCursorRepository;
 import io.ztoken.portal.session.NewApiIdentity;
 import io.ztoken.portal.session.PortalSessionService;
 import org.junit.jupiter.api.AfterEach;
@@ -31,10 +30,9 @@ class Trc20PaymentControllerTest {
     @Autowired private PortalSessionService sessions;
     @Autowired private PaymentOrderRepository orders;
     @Autowired private PaymentAddressRepository addresses;
-    @Autowired private PaymentScanCursorRepository scanCursors;
 
     @AfterEach
-    void cleanup() { orders.deleteAll(); scanCursors.deleteAll(); addresses.deleteAll(); }
+    void cleanup() { orders.deleteAll(); addresses.deleteAll(); }
 
     @Test
     void returnsTrc20InstructionOnlyForTheOrderOwner() {

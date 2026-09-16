@@ -14,9 +14,13 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.slf4j.LoggerFactory;
 
 import java.time.Instant;
+import java.util.List;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
@@ -24,6 +28,16 @@ class TxidVerificationServiceTest {
     @Mock private PaymentOrderRepository orders;
     @Mock private TronGridTransferClient client;
     @Mock private TransferVerificationService verifier;
+
+    @Test
+    void doesNotQueryTronGridWhenNoOrderHasSubmittedATxid() {
+        when(orders.findDueTxidChecks(any(Instant.class))).thenReturn(List.of());
+
+        new TxidVerificationService(orders, client, verifier).retryDueTxids();
+
+        verify(orders).findDueTxidChecks(any(Instant.class));
+        verifyNoInteractions(client);
+    }
 
     @Test
     void schedulesRetryWhenSubmittedTransactionIsNotYetIndexed() {

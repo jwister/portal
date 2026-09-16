@@ -127,7 +127,6 @@ public class PaymentProperties {
         private String usdtContract = "TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t";
         private int confirmationCount = 20;
         private boolean amountSuffixEnabled = true;
-        private long scanFixedDelayMs = 5_000L;
         private long txidRetryFixedDelayMs = 5_000L;
         private long orderExpiryFixedDelayMs = 5_000L;
         @Valid
@@ -140,8 +139,6 @@ public class PaymentProperties {
         public void setConfirmationCount(int confirmationCount) { this.confirmationCount = confirmationCount; }
         public boolean isAmountSuffixEnabled() { return amountSuffixEnabled; }
         public void setAmountSuffixEnabled(boolean amountSuffixEnabled) { this.amountSuffixEnabled = amountSuffixEnabled; }
-        public long getScanFixedDelayMs() { return scanFixedDelayMs; }
-        public void setScanFixedDelayMs(long scanFixedDelayMs) { this.scanFixedDelayMs = scanFixedDelayMs; }
         public long getTxidRetryFixedDelayMs() { return txidRetryFixedDelayMs; }
         public void setTxidRetryFixedDelayMs(long txidRetryFixedDelayMs) { this.txidRetryFixedDelayMs = txidRetryFixedDelayMs; }
         public long getOrderExpiryFixedDelayMs() { return orderExpiryFixedDelayMs; }
