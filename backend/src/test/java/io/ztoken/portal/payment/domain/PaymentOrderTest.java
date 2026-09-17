@@ -59,13 +59,13 @@ class PaymentOrderTest {
         PaymentAddress address = new PaymentAddress("TQn9Y2khEsLJW1ChVWFMSMeRDow5KcbLSE", now);
 
         PaymentOrder order = PaymentOrder.usdtTrc20(
-                "PO-TRON-1", 7L, 2_500L, 12_500_000L, address, 2_500_017L, now, now.plusSeconds(30 * 60));
+                "PO-TRON-1", 7L, 2_500L, 12_500_000L, address, 2_500_000L, now, now.plusSeconds(30 * 60));
 
         assertThat(order.getPaymentMethod()).isEqualTo(PaymentMethod.USDT_TRC20);
         assertThat(order.getReceiveAddress()).isEqualTo(address.getAddress());
-        assertThat(order.getPayableMinor()).isEqualTo(2_500_017L);
+        assertThat(order.getPayableMinor()).isEqualTo(2_500_000L);
         assertThat(order.getPayableCurrency()).isEqualTo("USDT");
-        assertThat(order.getPayableScale()).isEqualTo(6);
+        assertThat(order.getPayableScale()).isEqualTo(2);
     }
 
     @Test

@@ -47,7 +47,7 @@ public class PaymentOrder {
     @Column(name = "receive_address", length = 64)
     private String receiveAddress;
 
-    /** TRC20 使用 USDT 六位最小单位；PayPal 订单为 null。 */
+    /** TRC20 按 USDT 六位最小单位保存；新订单收款金额固定展示为两位小数。 */
     @Column(name = "payable_minor")
     private Long payableMinor;
 
@@ -122,7 +122,7 @@ public class PaymentOrder {
         order.receiveAddress = paymentAddress.getAddress();
         order.payableMinor = payableMinor;
         order.payableCurrency = "USDT";
-        order.payableScale = 6;
+        order.payableScale = 2;
         return order;
     }
 

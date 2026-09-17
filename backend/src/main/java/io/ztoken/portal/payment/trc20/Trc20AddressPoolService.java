@@ -24,8 +24,10 @@ public class Trc20AddressPoolService {
     private static final Logger log = LoggerFactory.getLogger(Trc20AddressPoolService.class);
 
     private static final SecureRandom RANDOM = new SecureRandom();
-    private static final long MIN_SUFFIX = 1L;
-    private static final long MAX_SUFFIX = 9_999L;
+    /** USDT 链上最小单位为 10^-6；识别尾数仅使用 0.01 至 0.99。 */
+    private static final long MIN_SUFFIX = 10_000L;
+    private static final long MAX_SUFFIX = 990_000L;
+    private static final long SUFFIX_STEP = 10_000L;
 
     private final PaymentAddressRepository addresses;
     private final PaymentAmountRegistryRepository amounts;
@@ -56,7 +58,7 @@ public class Trc20AddressPoolService {
         }
         long basePayableMinor = Math.multiplyExact(amountUsdMinor, 10_000L);
         for (PaymentAddress address : pool) {
-            for (long suffix = amountSuffixEnabled ? MIN_SUFFIX : 0L; suffix <= (amountSuffixEnabled ? MAX_SUFFIX : 0L); suffix++) {
+            for (long suffix = amountSuffixEnabled ? MIN_SUFFIX : 0L; suffix <= (amountSuffixEnabled ? MAX_SUFFIX : 0L); suffix += amountSuffixEnabled ? SUFFIX_STEP : 1L) {
                 long payableMinor = Math.addExact(basePayableMinor, suffix);
                 if (amounts.existsByPaymentAddressAndPayableMinor(address, payableMinor)) continue;
                 PaymentOrder order = PaymentOrder.usdtTrc20(nextOrderNo(), userId, amountUsdMinor, quotaToCredit,

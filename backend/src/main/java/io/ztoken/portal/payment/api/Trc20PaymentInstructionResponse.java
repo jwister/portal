@@ -10,8 +10,9 @@ import java.time.Instant;
 public record Trc20PaymentInstructionResponse(String receiveAddress, String payableAmount, String payableCurrency,
                                               PaymentOrderStatus status, Instant expiresAt, String txidCheckResult) {
     static Trc20PaymentInstructionResponse from(PaymentOrder order) {
+        int displayScale = order.getPayableScale() == null ? 6 : order.getPayableScale();
         return new Trc20PaymentInstructionResponse(order.getReceiveAddress(),
-                BigDecimal.valueOf(order.getPayableMinor(), 6).toPlainString(), order.getPayableCurrency(),
+                BigDecimal.valueOf(order.getPayableMinor(), 6).setScale(displayScale).toPlainString(), order.getPayableCurrency(),
                 order.getStatus(), order.getExpiresAt(), order.getLastTxidCheckResult());
     }
 }

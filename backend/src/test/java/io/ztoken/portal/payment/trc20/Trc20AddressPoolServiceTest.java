@@ -29,13 +29,13 @@ class Trc20AddressPoolServiceTest {
     @Captor private ArgumentCaptor<PaymentOrder> orderCaptor;
 
     @Test
-    void assignsTheLeastLoadedAddressAndFirstAvailableSuffix() {
+    void assignsTheLeastLoadedAddressAndFirstAvailableTwoDecimalSuffix() {
         Instant now = Instant.parse("2026-09-08T00:00:00Z");
         PaymentAddress leastLoaded = new PaymentAddress("TQn9Y2khEsLJW1ChVWFMSMeRDow5KcbLSE", now);
         PaymentAddress busy = new PaymentAddress("TLa2f6VPqDgRE67v1736s7bJ8Ray5wYjU7", now);
         busy.incrementActiveOrderCount();
         when(addresses.lockEnabledOrderedByLoad()).thenReturn(List.of(leastLoaded, busy));
-        when(amounts.existsByPaymentAddressAndPayableMinor(leastLoaded, 25_000_001L)).thenReturn(false);
+        when(amounts.existsByPaymentAddressAndPayableMinor(leastLoaded, 25_010_000L)).thenReturn(false);
         when(orders.save(any(PaymentOrder.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
         PaymentOrder order = new Trc20AddressPoolService(addresses, amounts, orders, true)
@@ -44,7 +44,8 @@ class Trc20AddressPoolServiceTest {
         verify(orders).save(orderCaptor.capture());
         assertThat(orderCaptor.getValue()).isSameAs(order);
         assertThat(order.getReceiveAddress()).isEqualTo(leastLoaded.getAddress());
-        assertThat(order.getPayableMinor()).isEqualTo(25_000_001L);
+        assertThat(order.getPayableMinor()).isEqualTo(25_010_000L);
+        assertThat(order.getPayableScale()).isEqualTo(2);
         assertThat(leastLoaded.getActiveOrderCount()).isEqualTo(1);
     }
 }

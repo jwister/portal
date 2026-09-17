@@ -16,6 +16,7 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.test.util.ReflectionTestUtils;
 
 import java.time.Instant;
 import java.util.Map;
@@ -44,7 +45,7 @@ class Trc20PaymentControllerTest {
 
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
         assertThat(response.getBody()).containsEntry("receiveAddress", "TQn9Y2khEsLJW1ChVWFMSMeRDow5KcbLSE")
-                .containsEntry("payableAmount", "1.000001").containsEntry("payableCurrency", "USDT");
+                .containsEntry("payableAmount", "1.01").containsEntry("payableCurrency", "USDT");
     }
 
     @Test
@@ -57,11 +58,26 @@ class Trc20PaymentControllerTest {
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.NOT_FOUND);
     }
 
+    @Test
+    void retainsSixDecimalDisplayForLegacyOrderWithoutAPayableScaleSnapshot() {
+        long userId = USERS.incrementAndGet();
+        PaymentOrder order = savedOrder(userId);
+        ReflectionTestUtils.setField(order, "payableMinor", 1_000_001L);
+        ReflectionTestUtils.setField(order, "payableScale", null);
+        orders.save(order);
+
+        ResponseEntity<Map> response = http.exchange("/api/payments/orders/" + order.getOrderNo() + "/trc20/status", HttpMethod.GET,
+                authed(null, sessionFor(userId)), Map.class);
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
+        assertThat(response.getBody()).containsEntry("payableAmount", "1.000001");
+    }
+
     private PaymentOrder savedOrder(long userId) {
         Instant now = Instant.now();
         PaymentAddress address = addresses.findByAddress("TQn9Y2khEsLJW1ChVWFMSMeRDow5KcbLSE")
                 .orElseGet(() -> addresses.save(new PaymentAddress("TQn9Y2khEsLJW1ChVWFMSMeRDow5KcbLSE", now)));
-        return orders.save(PaymentOrder.usdtTrc20("PO_TRON_" + userId, userId, 100L, 500_000L, address, 1_000_001L, now, now.plusSeconds(1_800)));
+        return orders.save(PaymentOrder.usdtTrc20("PO_TRON_" + userId, userId, 100L, 500_000L, address, 1_010_000L, now, now.plusSeconds(1_800)));
     }
     private String sessionFor(long userId) { return sessions.create(new NewApiIdentity(userId, "user" + userId), "access").getId(); }
     private HttpEntity<?> authed(Object body, String session) { HttpHeaders headers = new HttpHeaders(); headers.add(HttpHeaders.COOKIE, "PORTAL_SESSION=" + session); return new HttpEntity<>(body, headers); }
