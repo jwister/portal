@@ -38,6 +38,7 @@ public class AuthController {
     private final PortalProperties properties;
     private final CaptchaService captcha;
 
+
     public AuthController(NewApiClient newApiClient, PortalSessionService sessions, PortalProperties properties, CaptchaService captcha) {
         this.newApiClient = newApiClient;
         this.sessions = sessions;
