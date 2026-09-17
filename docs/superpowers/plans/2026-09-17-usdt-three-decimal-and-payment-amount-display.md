@@ -154,4 +154,3 @@ Expected: 构建成功，无 TypeScript 或 Vite 错误。
 Run: `git diff HEAD~3 --check`
 
 Expected: 无空白错误；改动只覆盖设计范围。
-
