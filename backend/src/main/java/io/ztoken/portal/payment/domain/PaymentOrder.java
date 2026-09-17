@@ -122,7 +122,7 @@ public class PaymentOrder {
         order.receiveAddress = paymentAddress.getAddress();
         order.payableMinor = payableMinor;
         order.payableCurrency = "USDT";
-        order.payableScale = 2;
+        order.payableScale = 3;
         return order;
     }
 

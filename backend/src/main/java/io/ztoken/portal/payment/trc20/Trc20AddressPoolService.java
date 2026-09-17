@@ -24,10 +24,10 @@ public class Trc20AddressPoolService {
     private static final Logger log = LoggerFactory.getLogger(Trc20AddressPoolService.class);
 
     private static final SecureRandom RANDOM = new SecureRandom();
-    /** USDT 链上最小单位为 10^-6；识别尾数仅使用 0.01 至 0.99。 */
-    private static final long MIN_SUFFIX = 10_000L;
-    private static final long MAX_SUFFIX = 990_000L;
-    private static final long SUFFIX_STEP = 10_000L;
+    /** USDT 链上最小单位为 10^-6；新订单的识别尾数使用 0.001 至 0.999。 */
+    private static final long MIN_SUFFIX = 1_000L;
+    private static final long MAX_SUFFIX = 999_000L;
+    private static final long SUFFIX_STEP = 1_000L;
 
     private final PaymentAddressRepository addresses;
     private final PaymentAmountRegistryRepository amounts;

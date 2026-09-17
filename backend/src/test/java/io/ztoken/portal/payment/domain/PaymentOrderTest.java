@@ -65,7 +65,7 @@ class PaymentOrderTest {
         assertThat(order.getReceiveAddress()).isEqualTo(address.getAddress());
         assertThat(order.getPayableMinor()).isEqualTo(2_500_000L);
         assertThat(order.getPayableCurrency()).isEqualTo("USDT");
-        assertThat(order.getPayableScale()).isEqualTo(2);
+        assertThat(order.getPayableScale()).isEqualTo(3);
     }
 
     @Test

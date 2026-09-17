@@ -45,7 +45,7 @@ class Trc20PaymentControllerTest {
 
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
         assertThat(response.getBody()).containsEntry("receiveAddress", "TQn9Y2khEsLJW1ChVWFMSMeRDow5KcbLSE")
-                .containsEntry("payableAmount", "1.01").containsEntry("payableCurrency", "USDT");
+                .containsEntry("payableAmount", "1.010").containsEntry("payableCurrency", "USDT");
     }
 
     @Test

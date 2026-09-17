@@ -17,6 +17,7 @@ import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -29,13 +30,13 @@ class Trc20AddressPoolServiceTest {
     @Captor private ArgumentCaptor<PaymentOrder> orderCaptor;
 
     @Test
-    void assignsTheLeastLoadedAddressAndFirstAvailableTwoDecimalSuffix() {
+    void assignsTheLeastLoadedAddressAndFirstAvailableThreeDecimalSuffix() {
         Instant now = Instant.parse("2026-09-08T00:00:00Z");
         PaymentAddress leastLoaded = new PaymentAddress("TQn9Y2khEsLJW1ChVWFMSMeRDow5KcbLSE", now);
         PaymentAddress busy = new PaymentAddress("TLa2f6VPqDgRE67v1736s7bJ8Ray5wYjU7", now);
         busy.incrementActiveOrderCount();
         when(addresses.lockEnabledOrderedByLoad()).thenReturn(List.of(leastLoaded, busy));
-        when(amounts.existsByPaymentAddressAndPayableMinor(leastLoaded, 25_010_000L)).thenReturn(false);
+        when(amounts.existsByPaymentAddressAndPayableMinor(leastLoaded, 25_001_000L)).thenReturn(false);
         when(orders.save(any(PaymentOrder.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
         PaymentOrder order = new Trc20AddressPoolService(addresses, amounts, orders, true)
@@ -44,8 +45,39 @@ class Trc20AddressPoolServiceTest {
         verify(orders).save(orderCaptor.capture());
         assertThat(orderCaptor.getValue()).isSameAs(order);
         assertThat(order.getReceiveAddress()).isEqualTo(leastLoaded.getAddress());
-        assertThat(order.getPayableMinor()).isEqualTo(25_010_000L);
-        assertThat(order.getPayableScale()).isEqualTo(2);
+        assertThat(order.getPayableMinor()).isEqualTo(25_001_000L);
+        assertThat(order.getPayableScale()).isEqualTo(3);
         assertThat(leastLoaded.getActiveOrderCount()).isEqualTo(1);
+    }
+
+    @Test
+    void advancesThreeDecimalSuffixByOneThousandMinorUnitsAfterCollision() {
+        Instant now = Instant.parse("2026-09-08T00:00:00Z");
+        PaymentAddress address = new PaymentAddress("TQn9Y2khEsLJW1ChVWFMSMeRDow5KcbLSE", now);
+        when(addresses.lockEnabledOrderedByLoad()).thenReturn(List.of(address));
+        when(amounts.existsByPaymentAddressAndPayableMinor(address, 25_001_000L)).thenReturn(true);
+        when(amounts.existsByPaymentAddressAndPayableMinor(address, 25_002_000L)).thenReturn(false);
+        when(orders.save(any(PaymentOrder.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        PaymentOrder order = new Trc20AddressPoolService(addresses, amounts, orders, true)
+                .createOrder(7L, 2_500L, 12_500_000L, now, now.plusSeconds(1_800));
+
+        assertThat(order.getPayableMinor()).isEqualTo(25_002_000L);
+        assertThat(order.getPayableScale()).isEqualTo(3);
+    }
+
+    @Test
+    void keepsTheBaseAmountWhenAmountSuffixIsDisabled() {
+        Instant now = Instant.parse("2026-09-08T00:00:00Z");
+        PaymentAddress address = new PaymentAddress("TQn9Y2khEsLJW1ChVWFMSMeRDow5KcbLSE", now);
+        when(addresses.lockEnabledOrderedByLoad()).thenReturn(List.of(address));
+        when(amounts.existsByPaymentAddressAndPayableMinor(address, 25_000_000L)).thenReturn(false);
+        when(orders.save(any(PaymentOrder.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        PaymentOrder order = new Trc20AddressPoolService(addresses, amounts, orders, false)
+                .createOrder(7L, 2_500L, 12_500_000L, now, now.plusSeconds(1_800));
+
+        assertThat(order.getPayableMinor()).isEqualTo(25_000_000L);
+        verify(amounts, never()).existsByPaymentAddressAndPayableMinor(address, 25_001_000L);
     }
 }
