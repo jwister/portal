@@ -22,6 +22,8 @@ public interface PaymentOrderRepository extends JpaRepository<PaymentOrder, Long
 
     List<PaymentOrder> findByNewApiUserIdOrderByCreatedAtDesc(long newApiUserId);
 
+    long countByNewApiUserIdAndStatus(long newApiUserId, PaymentOrderStatus status);
+
     List<PaymentOrder> findByStatus(PaymentOrderStatus status);
 
     @Query("select paymentOrder from PaymentOrder paymentOrder where paymentOrder.status = io.ztoken.portal.payment.domain.PaymentOrderStatus.WAITING_PAYMENT and paymentOrder.submittedTxid is not null and paymentOrder.nextTxidCheckAt <= :now")

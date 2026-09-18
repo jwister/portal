@@ -144,6 +144,26 @@ public class PaymentOrder {
         return true;
     }
 
+    /**
+     * 当支付已被第三方或链上证实扣款/转账成功时确认订单。
+     * 即使当前核验或回调时间已超过订单计划过期时间，也强制予以确认并推进到入账阶段，避免发生吃单。
+     */
+    public boolean confirmVerified(Instant now) {
+        Instant transitionTime = Objects.requireNonNull(now, "now");
+        if (status == PaymentOrderStatus.CONFIRMED || status == PaymentOrderStatus.CREDITING
+                || status == PaymentOrderStatus.PAID || status == PaymentOrderStatus.CREDIT_FAILED
+                || status == PaymentOrderStatus.CREDIT_UNKNOWN) {
+            return false;
+        }
+        if (status == PaymentOrderStatus.WAITING_PAYMENT) {
+            releaseTrc20AddressLoad();
+        }
+        status = PaymentOrderStatus.CONFIRMED;
+        confirmedAt = transitionTime;
+        updatedAt = transitionTime;
+        return true;
+    }
+
     public boolean expireIfPast(Instant now) {
         Instant transitionTime = Objects.requireNonNull(now, "now");
         if (status != PaymentOrderStatus.WAITING_PAYMENT || expiresAt.isAfter(transitionTime)) {

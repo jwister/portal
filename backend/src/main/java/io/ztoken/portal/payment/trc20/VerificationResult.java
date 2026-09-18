@@ -4,6 +4,7 @@ package io.ztoken.portal.payment.trc20;
 public enum VerificationResult {
     CONFIRMED,
     PENDING_CONFIRMATION,
+    AMOUNT_MISMATCH,
     UNMATCHED,
     DUPLICATE
 }

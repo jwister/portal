@@ -15,6 +15,10 @@ public class PaymentProperties {
 
     private int orderExpiryMinutes = 30;
     private long quotaPerUsd = 500_000L;
+    /** 单用户待支付订单最大数量限制，防止恶意刷单或耗尽 TRC20 动态金额/地址池 */
+    private int maxWaitingOrdersPerUser = 3;
+    /** 单用户连续创建订单的冷却时间（秒），防止高频刷单 */
+    private int orderCreationCooldownSeconds = 3;
     private final Paypal paypal = new Paypal();
     @Valid
     private final Trc20 trc20 = new Trc20();
@@ -35,6 +39,22 @@ public class PaymentProperties {
 
     public void setQuotaPerUsd(long quotaPerUsd) {
         this.quotaPerUsd = quotaPerUsd;
+    }
+
+    public int getMaxWaitingOrdersPerUser() {
+        return maxWaitingOrdersPerUser;
+    }
+
+    public void setMaxWaitingOrdersPerUser(int maxWaitingOrdersPerUser) {
+        this.maxWaitingOrdersPerUser = maxWaitingOrdersPerUser;
+    }
+
+    public int getOrderCreationCooldownSeconds() {
+        return orderCreationCooldownSeconds;
+    }
+
+    public void setOrderCreationCooldownSeconds(int orderCreationCooldownSeconds) {
+        this.orderCreationCooldownSeconds = orderCreationCooldownSeconds;
     }
 
     public Paypal getPaypal() {

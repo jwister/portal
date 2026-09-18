@@ -2,7 +2,9 @@ package io.ztoken.portal.payment.order;
 
 import io.ztoken.portal.payment.config.PaymentProperties;
 import io.ztoken.portal.payment.domain.PaymentOrder;
+import io.ztoken.portal.payment.domain.PaymentOrderStatus;
 import io.ztoken.portal.payment.domain.PaymentMethod;
+import io.ztoken.portal.payment.domain.PaymentAddress;
 import io.ztoken.portal.payment.repository.PaymentOrderRepository;
 import io.ztoken.portal.payment.provider.PaymentProvider;
 import io.ztoken.portal.payment.provider.PaymentProviderRegistry;
@@ -17,7 +19,9 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.math.BigDecimal;
+import java.time.Clock;
 import java.time.Instant;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 
@@ -25,6 +29,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatIllegalArgumentException;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
@@ -49,6 +54,7 @@ class PaymentOrderServiceTest {
     @BeforeEach
     void setUp() {
         PaymentProperties properties = new PaymentProperties();
+        properties.setOrderCreationCooldownSeconds(0);
         service = service(properties);
     }
 
@@ -152,6 +158,7 @@ class PaymentOrderServiceTest {
     @Test
     void acceptsTheInclusiveMinimumAndMaximumAmounts() {
         PaymentProperties properties = new PaymentProperties();
+        properties.setOrderCreationCooldownSeconds(0);
         properties.setQuotaPerUsd(200_000L);
         PaymentOrderService lowerRateService = service(properties);
         returnSavedOrder();
@@ -197,11 +204,13 @@ class PaymentOrderServiceTest {
     @Test
     void delegatesTrc20OrderCreationToTheAddressPoolWithoutTrustingClientPaymentInstructions() {
         PaymentOrder trc20Order = PaymentOrder.usdtTrc20("PO_TRON", 7L, 100L, 500_000L,
-                new io.ztoken.portal.payment.domain.PaymentAddress("TQn9Y2khEsLJW1ChVWFMSMeRDow5KcbLSE", Instant.now()),
+                new PaymentAddress("TQn9Y2khEsLJW1ChVWFMSMeRDow5KcbLSE", Instant.now()),
                 1_000_001L, Instant.now(), Instant.now().plusSeconds(60));
         when(trc20Provider.method()).thenReturn(PaymentMethod.USDT_TRC20);
         when(trc20Provider.createOrder(anyLong(), anyLong(), anyLong(), any(), any())).thenReturn(trc20Order);
-        PaymentOrderService trc20Service = service(new PaymentProperties(), trc20Provider);
+        PaymentProperties properties = new PaymentProperties();
+        properties.setOrderCreationCooldownSeconds(0);
+        PaymentOrderService trc20Service = service(properties, trc20Provider);
 
         PaymentOrderView created = trc20Service.createForUser(USER_SEVEN, new BigDecimal("1.00"), PaymentMethod.USDT_TRC20);
 
@@ -222,12 +231,77 @@ class PaymentOrderServiceTest {
         verify(orders).findByNewApiUserIdOrderByCreatedAtDesc(USER_SEVEN.userId());
     }
 
+    @Test
+    void rejectsOrderCreationWhenCooldownNotMet() {
+        PaymentProperties properties = new PaymentProperties();
+        properties.setOrderCreationCooldownSeconds(3);
+        Clock mutableClock = mock(Clock.class);
+        Instant t0 = Instant.parse("2026-09-02T10:00:00Z");
+        Instant t1 = Instant.parse("2026-09-02T10:00:02Z");
+        when(mutableClock.instant()).thenReturn(t0, t1);
+        PaymentOrderService cooldownService = new PaymentOrderService(
+                orders, properties, new PaymentProviderRegistry(List.of(new PayPalPaymentProvider(orders))), mutableClock);
+        returnSavedOrder();
+
+        cooldownService.createForUser(USER_SEVEN, new BigDecimal("1.00"));
+
+        assertThatIllegalArgumentException()
+                .isThrownBy(() -> cooldownService.createForUser(USER_SEVEN, new BigDecimal("1.00")))
+                .withMessage("创建订单过于频繁，请稍后再试");
+    }
+
+    @Test
+    void allowsOrderCreationAfterCooldownExpires() {
+        PaymentProperties properties = new PaymentProperties();
+        properties.setOrderCreationCooldownSeconds(3);
+        Clock mutableClock = mock(Clock.class);
+        Instant t0 = Instant.parse("2026-09-02T10:00:00Z");
+        Instant t1 = Instant.parse("2026-09-02T10:00:04Z");
+        when(mutableClock.instant()).thenReturn(t0, t1);
+        PaymentOrderService cooldownService = new PaymentOrderService(
+                orders, properties, new PaymentProviderRegistry(List.of(new PayPalPaymentProvider(orders))), mutableClock);
+        returnSavedOrder();
+
+        cooldownService.createForUser(USER_SEVEN, new BigDecimal("1.00"));
+        PaymentOrderView second = cooldownService.createForUser(USER_SEVEN, new BigDecimal("1.00"));
+
+        assertThat(second).isNotNull();
+    }
+
+    @Test
+    void rejectsOrderCreationWhenMaxWaitingOrdersExceeded() {
+        PaymentProperties properties = new PaymentProperties();
+        properties.setOrderCreationCooldownSeconds(0);
+        properties.setMaxWaitingOrdersPerUser(3);
+        when(orders.countByNewApiUserIdAndStatus(USER_SEVEN.userId(), PaymentOrderStatus.WAITING_PAYMENT))
+                .thenReturn(3L);
+        PaymentOrderService limitedService = service(properties);
+
+        assertThatIllegalArgumentException()
+                .isThrownBy(() -> limitedService.createForUser(USER_SEVEN, new BigDecimal("1.00")))
+                .withMessage("您当前已有待支付订单，请先完成或取消未支付订单后再创建新订单");
+    }
+
+    @Test
+    void allowsOrderCreationWhenUnderMaxWaitingOrders() {
+        PaymentProperties properties = new PaymentProperties();
+        properties.setOrderCreationCooldownSeconds(0);
+        properties.setMaxWaitingOrdersPerUser(3);
+        when(orders.countByNewApiUserIdAndStatus(USER_SEVEN.userId(), PaymentOrderStatus.WAITING_PAYMENT))
+                .thenReturn(2L);
+        PaymentOrderService limitedService = service(properties);
+        returnSavedOrder();
+
+        PaymentOrderView created = limitedService.createForUser(USER_SEVEN, new BigDecimal("1.00"));
+        assertThat(created).isNotNull();
+    }
+
     private void returnSavedOrder() {
         when(orders.save(any(PaymentOrder.class))).thenAnswer(invocation -> invocation.getArgument(0));
     }
 
     private PaymentOrderService service(PaymentProperties properties, PaymentProvider... providers) {
-        List<PaymentProvider> allProviders = new java.util.ArrayList<>();
+        List<PaymentProvider> allProviders = new ArrayList<>();
         allProviders.add(new PayPalPaymentProvider(orders));
         allProviders.addAll(List.of(providers));
         return new PaymentOrderService(orders, properties, new PaymentProviderRegistry(allProviders));

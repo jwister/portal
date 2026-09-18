@@ -14,6 +14,8 @@ class PaymentPropertiesTest {
         assertThat(properties.getOrderExpiryMinutes()).isEqualTo(30);
         assertThat(properties.getQuotaPerUsd()).isEqualTo(500_000L);
         assertThat(properties.getNewApiCredit().getMaxWalletQuota()).isEqualTo(2_147_483_647L);
+        assertThat(properties.getMaxWaitingOrdersPerUser()).isEqualTo(3);
+        assertThat(properties.getOrderCreationCooldownSeconds()).isEqualTo(3);
     }
 
     @Test

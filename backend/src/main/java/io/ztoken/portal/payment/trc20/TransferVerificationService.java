@@ -3,7 +3,9 @@ package io.ztoken.portal.payment.trc20;
 import io.ztoken.portal.payment.config.PaymentProperties;
 import io.ztoken.portal.payment.credit.PaymentConfirmedEvent;
 import io.ztoken.portal.payment.domain.ChainTransfer;
+import io.ztoken.portal.payment.domain.PaymentMethod;
 import io.ztoken.portal.payment.domain.PaymentOrder;
+import io.ztoken.portal.payment.domain.PaymentOrderStatus;
 import io.ztoken.portal.payment.repository.ChainTransferRepository;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
@@ -50,19 +52,41 @@ public class TransferVerificationService {
                     order.getOrderNo(), transfer.txid(), transfer.executionSuccess());
             return VerificationResult.UNMATCHED;
         }
-        if (!order.isWaitingForTrc20Payment() || !order.getReceiveAddress().equals(transfer.toAddress())
-                || order.getPayableMinor() != transfer.amountMinor()
-                || transfer.blockTime().isBefore(order.getCreatedAt()) || transfer.blockTime().isAfter(order.getExpiresAt())) {
-            log.warn("TRC20 转账与订单快照不匹配：订单号={}，交易哈希={}，订单应付最小单位={}，转账最小单位={}",
-                    order.getOrderNo(), transfer.txid(), order.getPayableMinor(), transfer.amountMinor());
+
+        // 校验渠道与基础状态：支持 WAITING_PAYMENT 态以及因确认延迟跨过有效期的 EXPIRED 态订单进行真实入账
+        boolean isTrc20Order = order.getPaymentMethod() == PaymentMethod.USDT_TRC20;
+        boolean statusEligible = order.getStatus() == PaymentOrderStatus.WAITING_PAYMENT
+                || order.getStatus() == PaymentOrderStatus.EXPIRED;
+        if (!isTrc20Order || !statusEligible) {
+            log.warn("TRC20 订单状态不满足核验条件：订单号={}，支付渠道={}，当前状态={}",
+                    order.getOrderNo(), order.getPaymentMethod(), order.getStatus());
             return VerificationResult.UNMATCHED;
         }
+
+        // 校验收款地址及交易发生时间窗口（以链上实际出块时间为准，必须在订单创建至过期时间之内）
+        if (!order.getReceiveAddress().equals(transfer.toAddress())
+                || transfer.blockTime().isBefore(order.getCreatedAt())
+                || transfer.blockTime().isAfter(order.getExpiresAt())) {
+            log.warn("TRC20 转账收款地址或链上出块时间窗口不匹配：订单号={}，交易哈希={}，出块时间={}，订单过期时间={}",
+                    order.getOrderNo(), transfer.txid(), transfer.blockTime(), order.getExpiresAt());
+            return VerificationResult.UNMATCHED;
+        }
+
+        // 校验转账金额：若转账地址与时间窗口合法，但金额不一致，细化返回 AMOUNT_MISMATCH
+        if (order.getPayableMinor() != transfer.amountMinor()) {
+            log.warn("TRC20 转账金额不匹配：订单号={}，交易哈希={}，订单应付最小单位={}，实际转账最小单位={}",
+                    order.getOrderNo(), transfer.txid(), order.getPayableMinor(), transfer.amountMinor());
+            return VerificationResult.AMOUNT_MISMATCH;
+        }
+
         if (transfer.confirmations() < properties.getTrc20().getConfirmationCount()) {
             log.debug("TRC20 转账确认数不足：订单号={}，交易哈希={}，当前确认数={}，要求确认数={}",
                     order.getOrderNo(), transfer.txid(), transfer.confirmations(), properties.getTrc20().getConfirmationCount());
             return VerificationResult.PENDING_CONFIRMATION;
         }
-        if (!order.confirm(now)) {
+
+        // 使用 confirmVerified 确认入账，即便订单核验时已超过过期时间也能安全恢复并确认入账，彻底杜绝吃单
+        if (!order.confirmVerified(now)) {
             log.info("TRC20 订单状态已变化，确认操作幂等跳过：订单号={}，交易哈希={}，当前状态={}",
                     order.getOrderNo(), transfer.txid(), order.getStatus());
             return VerificationResult.DUPLICATE;

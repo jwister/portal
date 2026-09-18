@@ -32,6 +32,29 @@ class PaymentOrderTest {
     }
 
     @Test
+    void confirmVerifiedAllowsConfirmationEvenAfterExpiry() {
+        // 临界过期：核验或回调时间已超过过期时间，但已获证实扣款
+        PaymentOrder order = PaymentOrder.paypal(
+                "PO-VERIFIED-1", 7L, 500L, 2_500_000L, now.minusSeconds(31 * 60), now.minusSeconds(1));
+
+        assertThat(order.confirmVerified(now)).isTrue();
+        assertThat(order.getStatus()).isEqualTo(PaymentOrderStatus.CONFIRMED);
+        assertThat(order.getConfirmedAt()).isEqualTo(now);
+    }
+
+    @Test
+    void confirmVerifiedCanRecoverExpiredOrderIfPaymentVerified() {
+        // 订单已被定时扫描置为 EXPIRED，但后续收到有效支付凭据
+        PaymentOrder order = PaymentOrder.paypal(
+                "PO-VERIFIED-2", 7L, 500L, 2_500_000L, now.minusSeconds(31 * 60), now.minusSeconds(1));
+        order.expireIfPast(now);
+        assertThat(order.getStatus()).isEqualTo(PaymentOrderStatus.EXPIRED);
+
+        assertThat(order.confirmVerified(now)).isTrue();
+        assertThat(order.getStatus()).isEqualTo(PaymentOrderStatus.CONFIRMED);
+    }
+
+    @Test
     void onlyWaitingPaymentOrderCanBeCancelled() {
         PaymentOrder order = PaymentOrder.paypal(
                 "PO-3", 7L, 500L, 2_500_000L, now, now.plusSeconds(30 * 60));

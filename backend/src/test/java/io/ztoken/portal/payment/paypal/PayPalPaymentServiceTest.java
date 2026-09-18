@@ -180,6 +180,23 @@ class PayPalPaymentServiceTest {
     }
 
     @Test
+    void capturesAndConfirmsEvenIfOrderExpiresDuringCaptureProcessing() {
+        Instant expiredAt = Instant.now().plusMillis(50);
+        PaymentOrder order = PaymentOrder.paypal("PO-EXP-1", 7L, 2_550L, 12_750_000L,
+                expiredAt.minusSeconds(1_800), expiredAt);
+        PaymentTransaction transaction = PaymentTransaction.paypal(order, "PP-1", "PO-EXP-1-paypal", NOW);
+        when(orders.findByOrderNoForUpdate("PO-EXP-1")).thenReturn(Optional.of(order));
+        when(transactions.findByPaymentOrderAndProvider(order, PaymentMethod.PAYPAL)).thenReturn(Optional.of(transaction));
+        when(payPal.captureOrder("PP-1", "PO-EXP-1-capture"))
+                .thenReturn(new PayPalCaptureDetails("PP-1", "CAPTURE-1", "COMPLETED", "USD", 2_550L));
+
+        PaymentOrder captured = service.capture("PO-EXP-1");
+
+        assertThat(captured.getStatus()).isEqualTo(PaymentOrderStatus.CONFIRMED);
+        verify(events).publishEvent(any(PaymentConfirmedEvent.class));
+    }
+
+    @Test
     void createsAndCapturesWithinTransactionsSoTheCreditEventIsDeliveredAfterCommit() throws Exception {
         Method create = PayPalPaymentService.class.getMethod("createProviderOrder", String.class);
         Method capture = PayPalPaymentService.class.getMethod("capture", String.class);

@@ -142,11 +142,7 @@ public class PayPalPaymentService {
             throw new IllegalStateException("PayPal capture ID must not be blank");
         }
         Instant now = Instant.now();
-        if (!order.confirm(now)) {
-            if (order.getStatus() == PaymentOrderStatus.EXPIRED) {
-                orders.save(order);
-                throw new PayPalOrderConflictException("Payment order has expired");
-            }
+        if (!order.confirmVerified(now)) {
             return;
         }
         transactions.save(transaction);

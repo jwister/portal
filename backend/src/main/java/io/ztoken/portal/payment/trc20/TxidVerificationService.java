@@ -11,7 +11,6 @@ import org.slf4j.LoggerFactory;
 
 import java.time.Instant;
 import java.time.Duration;
-import java.util.List;
 import java.util.Objects;
 
 /** 客户提交 TxID 后立即查询链上；不足确认数保持待支付，绝不提前入账。 */
@@ -27,7 +26,9 @@ public class TxidVerificationService {
     private final TransferVerificationService verifier;
 
     public TxidVerificationService(PaymentOrderRepository orders, TronGridTransferClient client, TransferVerificationService verifier) {
-        this.orders = Objects.requireNonNull(orders, "orders"); this.client = Objects.requireNonNull(client, "client"); this.verifier = Objects.requireNonNull(verifier, "verifier");
+        this.orders = Objects.requireNonNull(orders, "orders");
+        this.client = Objects.requireNonNull(client, "client");
+        this.verifier = Objects.requireNonNull(verifier, "verifier");
     }
 
     @Transactional
@@ -44,23 +45,29 @@ public class TxidVerificationService {
     public void retryDueTxids() {
         Instant now = Instant.now();
         for (PaymentOrder order : orders.findDueTxidChecks(now)) {
-            if (order.expireIfPast(now)) {
-                log.warn("TRC20 已提交交易哈希的订单复查时过期：订单号={}，交易哈希={}，过期时间={}",
-                        order.getOrderNo(), order.getSubmittedTxid(), order.getExpiresAt());
-                continue;
-            }
             log.info("开始复查 TRC20 交易哈希：订单号={}，交易哈希={}，已复查次数={}",
                     order.getOrderNo(), order.getSubmittedTxid(), order.getTxidCheckCount());
-            check(order, now);
+            VerificationResult result = check(order, now);
+            // 若核验未确认且已超期，且未处于继续重试流程中，则置为过期
+            if (result != VerificationResult.CONFIRMED && result != VerificationResult.PENDING_CONFIRMATION) {
+                if (order.expireIfPast(now)) {
+                    log.warn("TRC20 订单核验不通过且已过有效期，已置为过期：订单号={}，交易哈希={}，核验结果={}",
+                            order.getOrderNo(), order.getSubmittedTxid(), result);
+                }
+            }
         }
     }
 
-    /** 未提交 TxID 的超时订单也必须关闭，以回收地址池负载。 */
+    /** 未提交 TxID 或已结束核验的超时订单必须关闭，以回收地址池负载。 */
     @Scheduled(fixedDelayString = "${payment.trc20.order-expiry-fixed-delay-ms:5000}")
     @Transactional
     public void expireDueOrders() {
         Instant now = Instant.now();
         for (PaymentOrder order : orders.findWaitingOrdersExpiredAt(now)) {
+            // 如果订单已提交 TxID 且正在退避复查等待确认中，先不急于关闭，交给 retryDueTxids 检查链上状态
+            if (order.getSubmittedTxid() != null && order.getNextTxidCheckAt() != null) {
+                continue;
+            }
             if (order.expireIfPast(now)) {
                 log.warn("TRC20 待付款订单已过期关闭：订单号={}，收款地址={}，过期时间={}",
                         order.getOrderNo(), order.getReceiveAddress(), order.getExpiresAt());
@@ -74,6 +81,7 @@ public class TxidVerificationService {
         if (query.transfers().isEmpty()) return scheduleRetry(order, now, "NOT_INDEXED");
         boolean pending = false;
         boolean duplicate = false;
+        boolean amountMismatch = false;
         for (ObservedTransfer transfer : query.transfers()) {
             VerificationResult result = verifier.verify(order, transfer, now);
             if (result == VerificationResult.CONFIRMED) {
@@ -84,12 +92,18 @@ public class TxidVerificationService {
             }
             if (result == VerificationResult.PENDING_CONFIRMATION) pending = true;
             if (result == VerificationResult.DUPLICATE) duplicate = true;
+            if (result == VerificationResult.AMOUNT_MISMATCH) amountMismatch = true;
         }
         if (pending) return scheduleRetry(order, now, "PENDING_CONFIRMATION");
         if (duplicate) {
             order.finishTxidCheck("DUPLICATE", now);
             log.warn("TRC20 交易哈希对应链上事件已被占用：订单号={}，交易哈希={}", order.getOrderNo(), order.getSubmittedTxid());
             return VerificationResult.DUPLICATE;
+        }
+        if (amountMismatch) {
+            order.finishTxidCheck("AMOUNT_MISMATCH", now);
+            log.warn("TRC20 交易哈希金额与订单应付金额不匹配：订单号={}，交易哈希={}", order.getOrderNo(), order.getSubmittedTxid());
+            return VerificationResult.AMOUNT_MISMATCH;
         }
         order.finishTxidCheck("UNMATCHED", now);
         log.warn("TRC20 交易哈希与订单不匹配：订单号={}，交易哈希={}", order.getOrderNo(), order.getSubmittedTxid());

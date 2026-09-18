@@ -85,25 +85,18 @@ public class PayPalWebhookService {
         }
 
         validateCompletedCapture(order, transaction, resource);
-        if (order.getStatus() != PaymentOrderStatus.WAITING_PAYMENT) {
+        if (order.getStatus() != PaymentOrderStatus.WAITING_PAYMENT && order.getStatus() != PaymentOrderStatus.EXPIRED) {
             log.info("PayPal Webhook 对已处理订单不再重复确认：事件号={}，订单号={}，当前状态={}",
                     eventId, order.getOrderNo(), order.getStatus());
             return;
         }
 
         Instant now = Instant.now();
-        if (!order.getExpiresAt().isAfter(now)) {
-            order.expireIfPast(now);
-            orders.save(order);
-            log.warn("PayPal Webhook 到达时订单已过期：事件号={}，订单号={}，过期时间={}", eventId, order.getOrderNo(), order.getExpiresAt());
-            return;
-        }
-
         String captureId = resource.path("id").asText().trim();
         if (!transaction.recordCapture(captureId, "COMPLETED", now)) {
             throw new IllegalArgumentException("PayPal capture ID does not match the local transaction");
         }
-        if (!order.confirm(now)) {
+        if (!order.confirmVerified(now)) {
             return;
         }
         transactions.save(transaction);

@@ -26,7 +26,7 @@ import java.util.concurrent.atomic.AtomicLong;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
+@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT, properties = "payment.order-creation-cooldown-seconds=0")
 @Execution(ExecutionMode.SAME_THREAD)
 class PaymentOrderControllerTest {
 

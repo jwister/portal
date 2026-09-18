@@ -3,9 +3,11 @@ package io.ztoken.portal.payment.order;
 import io.ztoken.portal.payment.config.PaymentProperties;
 import io.ztoken.portal.payment.domain.PaymentMethod;
 import io.ztoken.portal.payment.domain.PaymentOrder;
+import io.ztoken.portal.payment.domain.PaymentOrderStatus;
 import io.ztoken.portal.payment.repository.PaymentOrderRepository;
 import io.ztoken.portal.payment.provider.PaymentProviderRegistry;
 import io.ztoken.portal.session.PortalPrincipal;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.slf4j.Logger;
@@ -13,10 +15,12 @@ import org.slf4j.LoggerFactory;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.time.Clock;
 import java.time.Instant;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.concurrent.ConcurrentHashMap;
 
 @Service
 public class PaymentOrderService {
@@ -30,12 +34,21 @@ public class PaymentOrderService {
     private final PaymentOrderRepository orders;
     private final PaymentProperties properties;
     private final PaymentProviderRegistry providers;
+    private final Clock clock;
+    private final ConcurrentHashMap<Long, Instant> lastOrderCreationTimes = new ConcurrentHashMap<>();
 
+    @Autowired
     public PaymentOrderService(PaymentOrderRepository orders, PaymentProperties properties,
                                PaymentProviderRegistry providers) {
+        this(orders, properties, providers, Clock.systemUTC());
+    }
+
+    public PaymentOrderService(PaymentOrderRepository orders, PaymentProperties properties,
+                               PaymentProviderRegistry providers, Clock clock) {
         this.orders = Objects.requireNonNull(orders, "orders");
         this.properties = Objects.requireNonNull(properties, "properties");
         this.providers = Objects.requireNonNull(providers, "providers");
+        this.clock = Objects.requireNonNull(clock, "clock");
     }
 
     public PaymentOrderView createForUser(PortalPrincipal principal, BigDecimal amount) {
@@ -48,13 +61,36 @@ public class PaymentOrderService {
         if (method == null) {
             throw new IllegalArgumentException("Payment method is required");
         }
+
+        Instant now = clock.instant();
+
+        // 校验单用户连续创建订单的冷却时间，防止恶意高频并发刷单
+        int cooldownSeconds = properties.getOrderCreationCooldownSeconds();
+        if (cooldownSeconds > 0) {
+            Instant lastCreated = lastOrderCreationTimes.get(userId);
+            if (lastCreated != null && now.isBefore(lastCreated.plusSeconds(cooldownSeconds))) {
+                log.warn("用户创建订单过于频繁，已被冷却拦截：用户ID={}，冷却时间={}秒", userId, cooldownSeconds);
+                throw new IllegalArgumentException("创建订单过于频繁，请稍后再试");
+            }
+        }
+
+        // 校验用户待支付订单数上限，防止恶意占用 TRC20 收款地址与动态金额池
+        int maxWaitingOrders = properties.getMaxWaitingOrdersPerUser();
+        if (maxWaitingOrders > 0) {
+            long waitingCount = orders.countByNewApiUserIdAndStatus(userId, PaymentOrderStatus.WAITING_PAYMENT);
+            if (waitingCount >= maxWaitingOrders) {
+                log.warn("用户待支付订单数已达上限，拒绝创建：用户ID={}，当前待支付数={}，上限={}",
+                        userId, waitingCount, maxWaitingOrders);
+                throw new IllegalArgumentException("您当前已有待支付订单，请先完成或取消未支付订单后再创建新订单");
+            }
+        }
+
         long amountUsdMinor = amountInUsdMinor(amount);
         long quotaPerUsdMinor = quotaPerUsdMinor();
         if (amountUsdMinor > effectiveMaximumUsdMinor(quotaPerUsdMinor)) {
             throw new IllegalArgumentException("Payment amount exceeds the NewAPI wallet limit");
         }
         long quotaToCredit = quotaFor(amountUsdMinor, quotaPerUsdMinor);
-        Instant now = Instant.now();
         int expiryMinutes = properties.getOrderExpiryMinutes();
         if (expiryMinutes <= 0) {
             throw new IllegalStateException("Payment order expiry must be positive");
@@ -63,6 +99,7 @@ public class PaymentOrderService {
         Instant expiresAt = now.plusSeconds(expiryMinutes * 60L);
         PaymentOrder order = providers.require(method)
                 .createOrder(userId, amountUsdMinor, quotaToCredit, now, expiresAt);
+        lastOrderCreationTimes.put(userId, now);
         log.info("支付订单创建成功：订单号={}，支付方式={}，用户ID={}，金额分={}，计划入账额度={}，过期时间={}",
                 order.getOrderNo(), order.getPaymentMethod(), order.getNewApiUserId(),
                 order.getAmountUsdMinor(), order.getQuotaToCredit(), order.getExpiresAt());
@@ -90,7 +127,7 @@ public class PaymentOrderService {
         PaymentOrder order = orders.findByOrderNoForUpdate(orderNo)
                 .filter(item -> item.getNewApiUserId() == userId)
                 .orElseThrow(java.util.NoSuchElementException::new);
-        boolean cancelled = order.cancel(Instant.now());
+        boolean cancelled = order.cancel(clock.instant());
         PaymentOrder saved = orders.save(order);
         if (!cancelled) {
             log.warn("取消支付订单被拒绝：订单号={}，用户ID={}，当前状态={}",

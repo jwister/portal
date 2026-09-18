@@ -1,6 +1,7 @@
 package io.ztoken.portal.payment.repository;
 
 import io.ztoken.portal.payment.domain.PaymentOrder;
+import io.ztoken.portal.payment.domain.PaymentOrderStatus;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.LockModeType;
 import org.junit.jupiter.api.BeforeEach;
@@ -69,5 +70,21 @@ class PaymentOrderRepositoryTest {
 
         assertThat(locked.getId()).isEqualTo(saved.getId());
         assertThat(lockingMethod.getAnnotation(Lock.class).value()).isEqualTo(LockModeType.PESSIMISTIC_WRITE);
+    }
+
+    @Test
+    void countsOrdersByNewApiUserIdAndStatus() {
+        orders.saveAndFlush(PaymentOrder.paypal("PO-1", 7L, 500L, 2_500_000L, NOW, NOW.plusSeconds(30)));
+        orders.saveAndFlush(PaymentOrder.paypal("PO-2", 7L, 500L, 2_500_000L, NOW, NOW.plusSeconds(30)));
+        PaymentOrder confirmed = PaymentOrder.paypal("PO-3", 7L, 500L, 2_500_000L, NOW, NOW.plusSeconds(30));
+        confirmed.confirm(NOW);
+        orders.saveAndFlush(confirmed);
+        orders.saveAndFlush(PaymentOrder.paypal("PO-4", 8L, 500L, 2_500_000L, NOW, NOW.plusSeconds(30)));
+        entityManager.clear();
+
+        assertThat(orders.countByNewApiUserIdAndStatus(7L, PaymentOrderStatus.WAITING_PAYMENT)).isEqualTo(2);
+        assertThat(orders.countByNewApiUserIdAndStatus(7L, PaymentOrderStatus.CONFIRMED)).isEqualTo(1);
+        assertThat(orders.countByNewApiUserIdAndStatus(8L, PaymentOrderStatus.WAITING_PAYMENT)).isEqualTo(1);
+        assertThat(orders.countByNewApiUserIdAndStatus(99L, PaymentOrderStatus.WAITING_PAYMENT)).isEqualTo(0);
     }
 }

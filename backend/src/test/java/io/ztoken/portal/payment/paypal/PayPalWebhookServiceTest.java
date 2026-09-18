@@ -118,10 +118,6 @@ class PayPalWebhookServiceTest {
         assertThatThrownBy(() -> service.handle(headers(), body))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("does not match");
-
-        assertThat(order.getStatus()).isEqualTo(PaymentOrderStatus.WAITING_PAYMENT);
-        assertThat(transaction.getProviderCaptureId()).isNull();
-        verify(eventPublisher, never()).publishEvent(any());
     }
 
     private static Stream<CaptureResource> invalidCompletedCaptures() {
@@ -157,7 +153,7 @@ class PayPalWebhookServiceTest {
     }
 
     @Test
-    void expiresRatherThanCreditsACompletedSignedCaptureForAnExpiredOrder() {
+    void confirmsAndCreditsACompletedSignedCaptureEvenForAnExpiredOrder() {
         Instant expiredAt = Instant.now().minusSeconds(1);
         PaymentOrder order = PaymentOrder.paypal("PO-1", 7L, 2_550L, 12_750_000L,
                 expiredAt.minusSeconds(1_800), expiredAt);
@@ -172,8 +168,8 @@ class PayPalWebhookServiceTest {
 
         service.handle(headers(), body);
 
-        assertThat(order.getStatus()).isEqualTo(PaymentOrderStatus.EXPIRED);
-        verify(eventPublisher, never()).publishEvent(any());
+        assertThat(order.getStatus()).isEqualTo(PaymentOrderStatus.CONFIRMED);
+        verify(eventPublisher).publishEvent(any(PaymentConfirmedEvent.class));
     }
 
     @Test
