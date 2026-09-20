@@ -13,6 +13,7 @@ portal:
   session-key: AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8=
   new-api:
     base-url: http://newapi.test
+    access-token: test-access-token
 payment:
   trc20:
     trongrid:

@@ -24,6 +24,7 @@ public class HttpNewApiCreditClient implements NewApiCreditClient {
     private static final Duration REQUEST_TIMEOUT = Duration.ofSeconds(10);
 
     private final WebClient client;
+    private final PortalProperties portalProperties;
     private final PaymentProperties paymentProperties;
     private final ObjectMapper objectMapper;
     private final Duration requestTimeout;
@@ -36,7 +37,7 @@ public class HttpNewApiCreditClient implements NewApiCreditClient {
 
     HttpNewApiCreditClient(PortalProperties portalProperties, PaymentProperties paymentProperties,
                            ObjectMapper objectMapper, Duration requestTimeout) {
-        Objects.requireNonNull(portalProperties, "portalProperties");
+        this.portalProperties = Objects.requireNonNull(portalProperties, "portalProperties");
         this.paymentProperties = Objects.requireNonNull(paymentProperties, "paymentProperties");
         this.objectMapper = Objects.requireNonNull(objectMapper, "objectMapper");
         this.requestTimeout = Objects.requireNonNull(requestTimeout, "requestTimeout");
@@ -45,18 +46,30 @@ public class HttpNewApiCreditClient implements NewApiCreditClient {
                 .build();
     }
 
+    private String resolveCreditToken() {
+        if (paymentProperties.getNewApiCredit() != null && paymentProperties.getNewApiCredit().isConfigured()) {
+            return paymentProperties.getNewApiCredit().getAccessToken();
+        }
+        if (portalProperties.getNewApi() != null && portalProperties.getNewApi().getAccessToken() != null
+                && !portalProperties.getNewApi().getAccessToken().isBlank()) {
+            return portalProperties.getNewApi().getAccessToken();
+        }
+        return "";
+    }
+
     @Override
     public CreditResult addQuota(long userId, long quota) {
-        if (userId <= 0 || quota <= 0 || !paymentProperties.getNewApiCredit().isConfigured()) {
+        String token = resolveCreditToken();
+        if (userId <= 0 || quota <= 0 || token.isBlank()) {
             log.warn("NewAPI 额度请求参数无效或支付配置不完整，结果按未知处理：用户ID={}，入账额度={}，已配置={}",
-                    userId, quota, paymentProperties.getNewApiCredit().isConfigured());
+                    userId, quota, !token.isBlank());
             return CreditResult.UNKNOWN;
         }
 
         try {
             CreditResult result = client.post()
                     .uri("/api/user/manage")
-                    .headers(headers -> headers.setBearerAuth(paymentProperties.getNewApiCredit().getAccessToken()))
+                    .headers(headers -> headers.setBearerAuth(token))
                     .contentType(MediaType.APPLICATION_JSON)
                     .bodyValue(Map.of("id", userId, "action", "add_quota", "mode", "add", "value", quota))
                     .exchangeToMono(response -> response.bodyToMono(String.class)

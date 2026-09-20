@@ -53,7 +53,7 @@ public class NewApiHttpClient implements NewApiClient, NewApiSessionRefresher {
 
     private final WebClient client;
     private final ObjectMapper objectMapper;
-    private final String pricingToken;
+    private final String accessToken;
     /** 仅保留协议、主机和端口，用于诊断上游故障时避免泄露配置中的敏感信息。 */
     private final String upstreamTarget;
     private final Clock clock;
@@ -70,7 +70,7 @@ public class NewApiHttpClient implements NewApiClient, NewApiSessionRefresher {
         String baseUrl = properties.getNewApi().getBaseUrl();
         this.client = WebClient.builder().baseUrl(baseUrl).build();
         this.objectMapper = objectMapper;
-        this.pricingToken = properties.getNewApi().getPricingToken();
+        this.accessToken = properties.getNewApi().getAccessToken();
         this.upstreamTarget = upstreamTarget(baseUrl);
         this.clock = clock;
     }
@@ -191,9 +191,30 @@ public class NewApiHttpClient implements NewApiClient, NewApiSessionRefresher {
 
     @Override
     public void register(String username, String email, String password, String verificationCode) {
-        JsonNode root = post("/api/user/register", Map.of("username", username, "email", email, "password", password,
-                "verification_code", verificationCode), null);
-        requireSuccess(root);
+        Map<String, Object> body = Map.of(
+                "username", username,
+                "email", email,
+                "password", password,
+                "display_name", username,
+                "role", 1
+        );
+        WebClient.RequestBodySpec request = client.post().uri("/api/user/");
+        if (hasText(accessToken)) {
+            request.headers(headers -> headers.setBearerAuth(accessToken));
+        }
+        request.contentType(MediaType.APPLICATION_JSON);
+        try {
+            JsonNode root = request.bodyValue(body).retrieve().bodyToMono(JsonNode.class).block(Duration.ofSeconds(10));
+            requireSuccess(root);
+        } catch (WebClientResponseException exception) {
+            log.warn("NewAPI 用户创建失败: upstream={}, httpStatus={}", upstreamTarget, exception.getStatusCode().value());
+            throw new NewApiException("NewAPI request failed with status " + exception.getStatusCode().value());
+        } catch (RuntimeException exception) {
+            if (exception instanceof NewApiException) {
+                throw exception;
+            }
+            throw new NewApiException("NewAPI request failed");
+        }
     }
 
     @Override
@@ -703,8 +724,8 @@ public class NewApiHttpClient implements NewApiClient, NewApiSessionRefresher {
 
     /** 模型广场令牌只在服务器到上游的请求中加入，不能泄露给浏览器。 */
     private void applyPricingHeaders(HttpHeaders headers) {
-        if (hasText(pricingToken)) {
-            headers.setBearerAuth(pricingToken);
+        if (hasText(accessToken)) {
+            headers.setBearerAuth(accessToken);
         }
     }
 

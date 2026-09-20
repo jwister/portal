@@ -449,12 +449,13 @@ class NewApiHttpClientTest {
 
         RecordedRequest request = NEW_API.takeRequest();
         assertThat(request.getMethod()).isEqualTo("POST");
-        assertThat(request.getPath()).isEqualTo("/api/user/register");
+        assertThat(request.getPath()).isEqualTo("/api/user/");
+        assertThat(request.getHeader(HttpHeaders.AUTHORIZATION)).isEqualTo("Bearer test-access-token");
         assertThat(request.getBody().readUtf8())
                 .contains("\"username\":\"alice\"")
                 .contains("\"email\":\"alice@example.com\"")
                 .contains("\"password\":\"secret\"")
-                .contains("\"verification_code\":\"123456\"");
+                .contains("\"role\":1");
     }
 
     @Test

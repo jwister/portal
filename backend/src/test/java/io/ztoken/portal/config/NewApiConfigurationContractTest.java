@@ -16,7 +16,9 @@ class NewApiConfigurationContractTest {
 
         assertThat(configuration)
                 .contains("base-url: https://api.ztoken.cc")
-                .contains("pricing-token: Lgh3Nj3cprP15x9AsfwLF75qaT/yPA==")
+                .contains("access-token: ${PORTAL_NEWAPI_ACCESS_TOKEN:${PAYMENT_NEWAPI_CREDIT_ACCESS_TOKEN:Lgh3Nj3cprP15x9AsfwLF75qaT/yPA==}}")
+                .doesNotContain("pricing-token:")
+                .doesNotContain("admin-token:")
                 .doesNotContain("NEWAPI_BASE_URL")
                 .doesNotContain("NEWAPI_PRICING_TOKEN");
     }

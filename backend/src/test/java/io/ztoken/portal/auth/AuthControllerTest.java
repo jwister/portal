@@ -218,9 +218,11 @@ class AuthControllerTest {
 
         RecordedRequest request = NEW_API.takeRequest();
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.NO_CONTENT);
-        assertThat(request.getPath()).isEqualTo("/api/user/register");
+        assertThat(request.getPath()).isEqualTo("/api/user/");
+        assertThat(request.getHeader(HttpHeaders.AUTHORIZATION)).isEqualTo("Bearer test-access-token");
         assertThat(request.getBody().readUtf8()).contains("\"email\":\"alice@example.com\"")
-                .contains("\"verification_code\":\"123456\"");
+                .contains("\"username\":\"alice\"")
+                .contains("\"role\":1");
     }
 
     @Test

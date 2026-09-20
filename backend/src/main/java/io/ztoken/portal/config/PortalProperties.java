@@ -46,7 +46,7 @@ public class PortalProperties {
 
     public static class NewApi {
         private String baseUrl;
-        private String pricingToken;
+        private String accessToken;
 
         public String getBaseUrl() {
             return baseUrl;
@@ -56,12 +56,32 @@ public class PortalProperties {
             this.baseUrl = baseUrl;
         }
 
+        public String getAccessToken() {
+            return accessToken;
+        }
+
+        public void setAccessToken(String accessToken) {
+            this.accessToken = accessToken;
+        }
+
         public String getPricingToken() {
-            return pricingToken;
+            return accessToken;
         }
 
         public void setPricingToken(String pricingToken) {
-            this.pricingToken = pricingToken;
+            if (this.accessToken == null || this.accessToken.isBlank()) {
+                this.accessToken = pricingToken;
+            }
+        }
+
+        public String getAdminToken() {
+            return accessToken;
+        }
+
+        public void setAdminToken(String adminToken) {
+            if (this.accessToken == null || this.accessToken.isBlank()) {
+                this.accessToken = adminToken;
+            }
         }
     }
 }

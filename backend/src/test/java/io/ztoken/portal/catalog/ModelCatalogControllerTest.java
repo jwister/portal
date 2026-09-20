@@ -37,7 +37,7 @@ class ModelCatalogControllerTest {
     @DynamicPropertySource
     static void newApiProperties(DynamicPropertyRegistry registry) {
         registry.add("portal.new-api.base-url", () -> NEW_API.url("/").toString());
-        registry.add("portal.new-api.pricing-token", () -> "test-pricing-token");
+        registry.add("portal.new-api.access-token", () -> "test-access-token");
     }
 
     @Test
@@ -55,7 +55,7 @@ class ModelCatalogControllerTest {
         assertThat(response.getBody()).isEqualTo(body);
         RecordedRequest upstream = NEW_API.takeRequest();
         assertThat(upstream.getPath()).isEqualTo("/api/pricing");
-        assertThat(upstream.getHeader(HttpHeaders.AUTHORIZATION)).isEqualTo("Bearer test-pricing-token");
+        assertThat(upstream.getHeader(HttpHeaders.AUTHORIZATION)).isEqualTo("Bearer test-access-token");
     }
 
     @Test
