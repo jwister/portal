@@ -98,6 +98,7 @@ pipeline {
           'http://192.168.100.153:9997/n/t' \
           || echo 'Image notification failed; image publishing remains successful.'
       '''
+
       // ================== 自动化部署与CDN刷新 ==================
       // 1. 在 Jenkins 凭证中配置好 aliyun-ak-id 和 aliyun-ak-secret
       // 2. 将 WATCHTOWER_TOKEN 替换为您在服务器端配置的真实 Token (或者配在 Jenkins 凭证里)
