@@ -48,7 +48,7 @@ pipeline {
           sh '''
             docker build --pull \
               --tag "$IMAGE_REPOSITORY:$IMAGE_VERSION" \
-              --tag "$IMAGE_REPOSITORY:$GIT_SHA" \
+              --tag "$IMAGE_REPOSITORY:latest" \
               .
           '''
         }
@@ -80,7 +80,7 @@ pipeline {
                 done
               }
               push_with_retry "$IMAGE_REPOSITORY:$IMAGE_VERSION"
-              push_with_retry "$IMAGE_REPOSITORY:$GIT_SHA"
+              push_with_retry "$IMAGE_REPOSITORY:latest"
             '''
           }
         }
