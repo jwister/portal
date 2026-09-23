@@ -11,6 +11,10 @@ public class PortalProperties {
     private Duration sessionTtl = Duration.ofDays(7);
     private boolean sessionSecureCookie;
     private NewApi newApi = new NewApi();
+    private String publicApiUrl;
+
+    public String getPublicApiUrl() { return publicApiUrl; }
+    public void setPublicApiUrl(String publicApiUrl) { this.publicApiUrl = publicApiUrl; }
 
     public String getSessionKey() {
         return sessionKey;
@@ -85,3 +89,4 @@ public class PortalProperties {
         }
     }
 }
+
