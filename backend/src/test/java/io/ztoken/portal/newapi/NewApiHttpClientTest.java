@@ -97,7 +97,7 @@ class NewApiHttpClientTest {
 
         RecordedRequest userRequest = NEW_API.takeRequest();
         RecordedRequest dataRequest = NEW_API.takeRequest();
-        assertThat(result).isEqualTo(new DashboardSummary(1000L, 100L, 8L, 20L, 0L));
+        assertThat(result).isEqualTo(new DashboardSummary(1000L, 100L, 8L, 20L, 0L, false));
         assertThat(userRequest.getPath()).isEqualTo("/api/user/self");
         assertThat(dataRequest.getPath()).startsWith("/api/data/self?")
                 .contains("start_timestamp=")

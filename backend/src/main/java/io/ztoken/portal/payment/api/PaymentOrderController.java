@@ -33,8 +33,10 @@ public class PaymentOrderController {
 
     private final PaymentOrderService orders;
     private final PortalSessionService sessions;
+    private final io.ztoken.portal.payment.config.PaymentProperties properties;
 
-    public PaymentOrderController(PaymentOrderService orders, PortalSessionService sessions) {
+    public PaymentOrderController(PaymentOrderService orders, PortalSessionService sessions, io.ztoken.portal.payment.config.PaymentProperties properties) {
+        this.properties = properties;
         this.orders = orders;
         this.sessions = sessions;
     }
@@ -44,6 +46,9 @@ public class PaymentOrderController {
             @CookieValue(value = "PORTAL_SESSION", required = false) String sessionId,
             @Valid @RequestBody CreatePaymentOrderRequest request) {
         PortalPrincipal principal = sessions.require(sessionId);
+        if (!properties.isEnabled()) {
+            throw PaymentApiException.invalidRequest(new IllegalArgumentException("在线充值未开启"));
+        }
         try {
             log.info("收到创建支付订单请求：用户ID={}，支付方式={}，请求金额={}", principal.userId(), request.method(), request.amount());
             PaymentOrderView order = orders.createForUser(principal, new BigDecimal(request.amount()), request.method());

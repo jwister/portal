@@ -13,6 +13,7 @@ import java.util.List;
 @Validated
 public class PaymentProperties {
 
+    private boolean enabled = true;
     private int orderExpiryMinutes = 30;
     private long quotaPerUsd = 500_000L;
     /** 单用户待支付订单最大数量限制，防止恶意刷单或耗尽 TRC20 动态金额/地址池 */
@@ -24,6 +25,14 @@ public class PaymentProperties {
     private final Trc20 trc20 = new Trc20();
     @Valid
     private final NewApiCredit newApiCredit = new NewApiCredit();
+
+    public boolean isEnabled() {
+        return enabled;
+    }
+
+    public void setEnabled(boolean enabled) {
+        this.enabled = enabled;
+    }
 
     public int getOrderExpiryMinutes() {
         return orderExpiryMinutes;

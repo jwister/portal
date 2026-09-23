@@ -5,6 +5,7 @@ public record DashboardSummary(
         long usedQuota,
         long requestCount,
         Long tokenUsage,
-        long quotaPerUsd
+        long quotaPerUsd,
+        boolean enableRecharge
 ) {
 }

@@ -277,7 +277,8 @@ public class NewApiHttpClient implements NewApiClient, NewApiSessionRefresher {
                 user.path("used_quota").asLong(),
                 user.path("request_count").asLong(),
                 tokenUsageFrom(data),
-                0L
+                0L,
+                false
         );
     }
 

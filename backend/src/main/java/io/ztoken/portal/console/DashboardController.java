@@ -27,7 +27,7 @@ public class DashboardController {
     public DashboardSummary dashboard(@CookieValue(value = "PORTAL_SESSION", required = false) String sessionId) {
         DashboardSummary summary = sessions.withAuthenticatedPrincipal(sessionId, newApiClient::getDashboard);
         return new DashboardSummary(summary.availableQuota(), summary.usedQuota(), summary.requestCount(),
-                summary.tokenUsage(), paymentProperties.getQuotaPerUsd());
+                summary.tokenUsage(), paymentProperties.getQuotaPerUsd(), paymentProperties.isEnabled());
     }
 
     /**

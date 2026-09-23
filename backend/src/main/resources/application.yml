@@ -21,6 +21,7 @@ portal:
     base-url: https://api.ztoken.cc
     access-token: ${PORTAL_NEWAPI_ACCESS_TOKEN:${PAYMENT_NEWAPI_CREDIT_ACCESS_TOKEN:Lgh3Nj3cprP15x9AsfwLF75qaT/yPA==}}
 payment:
+  enabled: ${PAYMENT_ENABLED:true}
   order-expiry-minutes: ${PAYMENT_ORDER_EXPIRY_MINUTES:30}
   quota-per-usd: ${PAYMENT_QUOTA_PER_USD:500000}
   paypal:
