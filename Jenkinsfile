@@ -57,7 +57,8 @@ pipeline {
     stage('Push') {
       steps {
         script {
-          docker.withRegistry('https://index.docker.io/v1/', DOCKERHUB_CREDENTIALS) {
+          retry(3) {
+            docker.withRegistry('https://index.docker.io/v1/', DOCKERHUB_CREDENTIALS) {
             sh '''
               push_with_retry() {
                 image="$1"
@@ -82,6 +83,7 @@ pipeline {
               push_with_retry "$IMAGE_REPOSITORY:$IMAGE_VERSION"
               push_with_retry "$IMAGE_REPOSITORY:latest"
             '''
+            }
           }
         }
       }
