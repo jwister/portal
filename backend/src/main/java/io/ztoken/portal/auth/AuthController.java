@@ -26,9 +26,14 @@ import java.security.MessageDigest;
 import java.time.Duration;
 import java.util.Map;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 @RestController
 @RequestMapping("/api/auth")
 public class AuthController {
+
+    private static final Logger log = LoggerFactory.getLogger(AuthController.class);
 
     private static final String OAUTH_STATE_COOKIE = "PORTAL_OAUTH_STATE";
     private static final Duration OAUTH_STATE_TTL = Duration.ofMinutes(10);
@@ -60,8 +65,15 @@ public class AuthController {
 
     @PostMapping({"/login", "/sign-in"})
     public ResponseEntity<Void> login(@Valid @RequestBody LoginRequest request) {
-        NewApiLogin login = newApiClient.login(request.username(), request.password());
-        return withPortalSession(login);
+        log.info("Attempting to login user: {}", request.username());
+        try {
+            NewApiLogin login = newApiClient.login(request.username(), request.password());
+            log.info("Login successful for user: {}", request.username());
+            return withPortalSession(login);
+        } catch (Exception e) {
+            log.error("Login failed for user: {}. Reason: {}", request.username(), e.getMessage(), e);
+            throw e;
+        }
     }
 
     /** 仅向浏览器公开启动 GitHub 或 Google OIDC 所需的非敏感配置。 */

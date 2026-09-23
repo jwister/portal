@@ -804,7 +804,7 @@ public class NewApiHttpClient implements NewApiClient, NewApiSessionRefresher {
                             refreshCookie(response.cookies().getFirst("new_api_refresh")))))
                     .block(Duration.ofSeconds(10));
         } catch (RuntimeException exception) {
-            throw new NewApiException("NewAPI login request failed");
+            throw new NewApiException("NewAPI login request failed", exception);
         }
     }
 
@@ -816,7 +816,7 @@ public class NewApiHttpClient implements NewApiClient, NewApiSessionRefresher {
                             refreshCookie(response.cookies().getFirst("new_api_refresh")))))
                     .block(Duration.ofSeconds(10));
         } catch (RuntimeException exception) {
-            throw new NewApiException("NewAPI OAuth request failed");
+            throw new NewApiException("NewAPI OAuth request failed", exception);
         }
     }
 

@@ -68,7 +68,8 @@ public class ApiExceptionHandler {
     }
 
     @ExceptionHandler(NewApiException.class)
-    public ResponseEntity<Map<String, String>> newApiFailure() {
+    public ResponseEntity<Map<String, String>> newApiFailure(NewApiException ex) {
+        org.slf4j.LoggerFactory.getLogger(ApiExceptionHandler.class).error("Upstream request failed", ex);
         return ResponseEntity.status(HttpStatus.BAD_GATEWAY)
                 .body(Map.of("code", "NEWAPI_ERROR", "message", "Upstream request failed"));
     }
