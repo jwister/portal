@@ -61,6 +61,8 @@ public interface NewApiClient {
 
     NewApiRawResponse getPricing();
 
+    com.fasterxml.jackson.databind.JsonNode getSystemStatus();
+
     NewApiRawResponse getPerformanceSummary(MultiValueMap<String, String> query);
 
     NewApiRawResponse getPerformanceMetrics(MultiValueMap<String, String> query);

@@ -684,6 +684,26 @@ public class NewApiHttpClient implements NewApiClient, NewApiSessionRefresher {
         return proxyModelSquare("/api/status", new LinkedMultiValueMap<>(), false);
     }
 
+        @Override
+    public JsonNode getSystemStatus() {
+        JsonNode root;
+        try {
+            root = client.get().uri("/api/status")
+                    .retrieve()
+                    .bodyToMono(JsonNode.class)
+                    .block(Duration.ofSeconds(10));
+        } catch (WebClientResponseException exception) {
+            throw new NewApiException("NewAPI get system status failed", exception);
+        } catch (RuntimeException exception) {
+            throw new NewApiException("NewAPI get system status failed", exception);
+        }
+        if (root == null || !root.path("success").asBoolean(true)) {
+            // some new-api versions might not wrap /api/status in success:true, 
+            // but return the object directly. We should just return data or root.
+        }
+        return root.has("data") ? root.path("data") : root;
+    }
+
     @Override
     public NewApiRawResponse getPricing() {
         return proxyModelSquare("/api/pricing", new LinkedMultiValueMap<>(), true);
