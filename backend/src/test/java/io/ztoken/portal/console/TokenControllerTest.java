@@ -66,7 +66,7 @@ class TokenControllerTest {
         assertThat(response.getBody().pageSize()).isEqualTo(50);
         assertThat(response.getBody().total()).isEqualTo(101L);
         assertThat(response.getBody().items()).containsExactly(
-                new TokenSummary(3L, "server", true, 500L, 20L, false, -1L, "sk-abcd********wxyz"));
+                new TokenSummary(3L, "server", true, 500L, 20L, false, -1L, "sk-abcd********wxyz", "default"));
         assertThat(upstream.getPath()).isEqualTo("/api/token/?p=2&page_size=50");
         assertThat(upstream.getHeader(HttpHeaders.AUTHORIZATION)).isEqualTo("Bearer access-token");
         assertThat(upstream.getHeader("New-Api-User")).isEqualTo("7");
@@ -112,7 +112,7 @@ class TokenControllerTest {
         RecordedRequest upstream = NEW_API.takeRequest();
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
         assertThat(response.getBody()).isEqualTo(
-                new TokenSummary(3L, "renamed", true, 100L, 0L, false, -1L, "sk-abcd********wxyz"));
+                new TokenSummary(3L, "renamed", true, 100L, 0L, false, -1L, "sk-abcd********wxyz", "default"));
         assertThat(upstream.getMethod()).isEqualTo("PUT");
         assertThat(upstream.getPath()).isEqualTo("/api/token/");
         assertThat(upstream.getBody().readUtf8()).contains("\"id\":3").contains("\"name\":\"renamed\"");

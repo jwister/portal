@@ -459,6 +459,7 @@ public class NewApiHttpClient implements NewApiClient, NewApiSessionRefresher {
         body.put("unlimited_quota", request.unlimited());
         body.put("remain_quota", request.remainingQuota());
         body.put("expired_time", request.expiredTime());
+        body.put("group", request.group() != null && !request.group().isBlank() ? request.group() : "default");
         return body;
     }
 
@@ -471,7 +472,8 @@ public class NewApiHttpClient implements NewApiClient, NewApiSessionRefresher {
                 item.path("used_quota").asLong(),
                 item.path("unlimited_quota").asBoolean(false),
                 item.path("expired_time").asLong(),
-                item.path("key").asText()
+                item.path("key").asText(),
+                item.path("group").asText()
         );
     }
 

@@ -8,6 +8,7 @@ public record TokenSummary(
         long usedQuota,
         boolean unlimited,
         long expiredTime,
-        String maskedKey
+        String maskedKey,
+        String group
 ) {
 }

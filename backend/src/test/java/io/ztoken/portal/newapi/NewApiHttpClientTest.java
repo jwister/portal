@@ -611,7 +611,7 @@ class NewApiHttpClientTest {
 
         RecordedRequest request = NEW_API.takeRequest();
         assertThat(result).isEqualTo(new TokenList(2, 50, 101L, List.of(
-                new TokenSummary(3L, "server", true, 500L, 25L, false, -1L, "sk-abcd********wxyz"))));
+                new TokenSummary(3L, "server", true, 500L, 25L, false, -1L, "sk-abcd********wxyz", "default"))));
         assertThat(request.getPath()).isEqualTo("/api/token/?p=2&page_size=50");
         assertThat(request.getMethod()).isEqualTo("GET");
         assertThat(request.getHeader(HttpHeaders.AUTHORIZATION)).isEqualTo("Bearer access-token");
@@ -625,7 +625,7 @@ class NewApiHttpClientTest {
                 .setBody("{\"success\":true,\"message\":\"\"}"));
 
         client.createToken(new PortalPrincipal(7L, "alice", "access-token"),
-                new TokenWriteRequest("app-key", true, 0L, -1L));
+                new TokenWriteRequest("app-key", true, 0L, -1L, "default"));
 
         RecordedRequest request = NEW_API.takeRequest();
         assertThat(request.getMethod()).isEqualTo("POST");
@@ -646,13 +646,13 @@ class NewApiHttpClientTest {
                         + "\"status\":1,\"remain_quota\":100,\"key\":\"sk-abcd********wxyz\"}}"));
 
         TokenSummary result = client.updateToken(new PortalPrincipal(7L, "alice", "access-token"),
-                3L, new TokenWriteRequest("renamed", false, 100L, -1L));
+                3L, new TokenWriteRequest("renamed", false, 100L, -1L, "default"));
 
         RecordedRequest request = NEW_API.takeRequest();
         assertThat(request.getMethod()).isEqualTo("PUT");
         assertThat(request.getPath()).isEqualTo("/api/token/");
         assertThat(request.getBody().readUtf8()).contains("\"id\":3").contains("\"name\":\"renamed\"");
-        assertThat(result).isEqualTo(new TokenSummary(3L, "renamed", true, 100L, 0L, false, 0L, "sk-abcd********wxyz"));
+        assertThat(result).isEqualTo(new TokenSummary(3L, "renamed", true, 100L, 0L, false, 0L, "sk-abcd********wxyz", "default"));
     }
 
     @Test
@@ -722,7 +722,7 @@ class NewApiHttpClientTest {
 
         Throwable thrown = catchThrowable(() -> client.createToken(
                 new PortalPrincipal(7L, "alice", "access-token"),
-                new TokenWriteRequest("app-key", false, 100L, -1L)));
+                new TokenWriteRequest("app-key", false, 100L, -1L, "default")));
         NEW_API.takeRequest();
 
         assertThat(thrown).isInstanceOf(NewApiException.class);

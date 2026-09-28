@@ -122,7 +122,7 @@ class DashboardControllerTest {
 
         RecordedRequest upstream = NEW_API.takeRequest();
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
-        assertThat(response.getBody().items()).containsExactly(new TokenSummary(3L, "server", true, 500L, 0L, false, 0L, ""));
+        assertThat(response.getBody().items()).containsExactly(new TokenSummary(3L, "server", true, 500L, 0L, false, 0L, "", "default"));
         assertThat(upstream.getPath()).startsWith("/api/token/");
         assertThat(upstream.getHeader("New-Api-User")).isEqualTo("7");
     }

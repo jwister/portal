@@ -4,6 +4,7 @@ public record TokenWriteRequest(
         String name,
         boolean unlimited,
         long remainingQuota,
-        long expiredTime
+        long expiredTime,
+        String group
 ) {
 }
