@@ -15,6 +15,7 @@ server:
   port: ${PORTAL_PORT:8084}
 portal:
   public-api-url: ${PORTAL_PUBLIC_API_URL:https://api.ztoken.cc}
+  icp-record: ${PORTAL_ICP_RECORD:}
   session-key: ${PORTAL_SESSION_KEY:AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8=}
   session-ttl: ${PORTAL_SESSION_TTL:7d}
   session-secure-cookie: ${PORTAL_SESSION_SECURE_COOKIE:false}

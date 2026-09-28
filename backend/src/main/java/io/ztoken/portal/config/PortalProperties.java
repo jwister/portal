@@ -12,6 +12,10 @@ public class PortalProperties {
     private boolean sessionSecureCookie;
     private NewApi newApi = new NewApi();
     private String publicApiUrl;
+    private String icpRecord;
+
+    public String getIcpRecord() { return icpRecord; }
+    public void setIcpRecord(String icpRecord) { this.icpRecord = icpRecord; }
 
     public String getPublicApiUrl() { return publicApiUrl; }
     public void setPublicApiUrl(String publicApiUrl) { this.publicApiUrl = publicApiUrl; }

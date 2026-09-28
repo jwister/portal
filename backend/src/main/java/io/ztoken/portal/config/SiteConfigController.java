@@ -37,6 +37,7 @@ public class SiteConfigController {
         StringBuilder js = new StringBuilder();
         js.append("window.PORTAL_PUBLIC_API_URL = '").append(url).append("';\n");
         js.append("window.PORTAL_ENABLE_RECHARGE = ").append(paymentProperties.isEnabled()).append(";\n");
+        js.append("window.PORTAL_ICP_RECORD = '").append(properties.getIcpRecord() != null ? properties.getIcpRecord() : "").append("';\n");
 
         try {
             JsonNode status = newApiClient.getSystemStatus();
