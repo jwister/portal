@@ -50,6 +50,7 @@ public class SiteConfigController {
                 String customCurrencySymbol = data.path("custom_currency_symbol").asText("");
                 double quotaPerUnit = data.path("quota_per_unit").asDouble(500000.0);
                 double quotaForNewUser = data.path("quota_for_new_user").asDouble(0.0);
+                double usdExchangeRate = data.path("usd_exchange_rate").asDouble(7.0);
 
                 if (!data.has("quota_per_unit")) {
                     quotaPerUnit = data.path("custom_currency_exchange_rate").asDouble(1.0);
@@ -60,6 +61,7 @@ public class SiteConfigController {
                 js.append("window.PORTAL_CURRENCY_SYMBOL = '").append(customCurrencySymbol).append("';\n");
                 js.append("window.PORTAL_QUOTA_PER_USD = ").append(quotaPerUnit).append(";\n");
                 js.append("window.PORTAL_QUOTA_FOR_NEW_USER = ").append(quotaForNewUser).append(";\n");
+                js.append("window.PORTAL_USD_EXCHANGE_RATE = ").append(usdExchangeRate).append(";\n");
             }
         } catch (Exception e) {
             log.error("Failed to load new-api status for config.js", e);
