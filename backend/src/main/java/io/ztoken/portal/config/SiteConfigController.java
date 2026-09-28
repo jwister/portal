@@ -38,6 +38,7 @@ public class SiteConfigController {
         js.append("window.PORTAL_PUBLIC_API_URL = '").append(url).append("';\n");
         js.append("window.PORTAL_ENABLE_RECHARGE = ").append(paymentProperties.isEnabled()).append(";\n");
         js.append("window.PORTAL_ICP_RECORD = '").append(properties.getIcpRecord() != null ? properties.getIcpRecord() : "").append("';\n");
+        js.append("window.PORTAL_DOMESTIC_REGION = ").append(properties.isDomesticRegion()).append(";\n");
 
         try {
             JsonNode status = newApiClient.getSystemStatus();
@@ -45,6 +46,7 @@ public class SiteConfigController {
                 JsonNode data = status.has("data") ? status.path("data") : status;
                 
                 boolean displayInCurrency = data.path("display_in_currency").asBoolean(false);
+                String quotaDisplayType = data.path("quota_display_type").asText("USD");
                 String customCurrencySymbol = data.path("custom_currency_symbol").asText("");
                 double quotaPerUnit = data.path("quota_per_unit").asDouble(500000.0);
                 double quotaForNewUser = data.path("quota_for_new_user").asDouble(0.0);
@@ -54,6 +56,7 @@ public class SiteConfigController {
                 }
 
                 js.append("window.PORTAL_DISPLAY_IN_CURRENCY = ").append(displayInCurrency).append(";\n");
+                js.append("window.PORTAL_QUOTA_DISPLAY_TYPE = '").append(quotaDisplayType).append("';\n");
                 js.append("window.PORTAL_CURRENCY_SYMBOL = '").append(customCurrencySymbol).append("';\n");
                 js.append("window.PORTAL_QUOTA_PER_USD = ").append(quotaPerUnit).append(";\n");
                 js.append("window.PORTAL_QUOTA_FOR_NEW_USER = ").append(quotaForNewUser).append(";\n");

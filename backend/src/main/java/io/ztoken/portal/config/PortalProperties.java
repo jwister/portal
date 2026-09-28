@@ -13,6 +13,10 @@ public class PortalProperties {
     private NewApi newApi = new NewApi();
     private String publicApiUrl;
     private String icpRecord;
+    private boolean domesticRegion;
+
+    public boolean isDomesticRegion() { return domesticRegion; }
+    public void setDomesticRegion(boolean domesticRegion) { this.domesticRegion = domesticRegion; }
 
     public String getIcpRecord() { return icpRecord; }
     public void setIcpRecord(String icpRecord) { this.icpRecord = icpRecord; }
