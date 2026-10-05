@@ -50,3 +50,10 @@ payment:
       - TNVmhPUXCjUfevbrThHgGdRZrsW81uxoZ8
       - TPGQYAAW47jYtuqQ7DqWEMUXCduCpqNJ22
 
+
+aj:
+  captcha:
+    cache-type: local
+    water-mark: "Portal"
+    type: default
+
