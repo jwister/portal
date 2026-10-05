@@ -473,7 +473,7 @@ public class NewApiHttpClient implements NewApiClient, NewApiSessionRefresher {
                 item.path("unlimited_quota").asBoolean(false),
                 item.path("expired_time").asLong(),
                 item.path("key").asText(),
-                item.path("group").asText()
+                item.path("group").asText("default")
         );
     }
 
