@@ -12,6 +12,10 @@ import jakarta.validation.Valid;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.ResponseCookie;
 import org.springframework.http.ResponseEntity;
+
+import com.anji.captcha.model.common.ResponseModel;
+import com.anji.captcha.model.vo.CaptchaVO;
+import com.anji.captcha.service.CaptchaService;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -41,26 +45,31 @@ public class AuthController {
     private final NewApiClient newApiClient;
     private final PortalSessionService sessions;
     private final PortalProperties properties;
-    private final CaptchaService captcha;
+    private final CaptchaService captchaService;
 
 
-    public AuthController(NewApiClient newApiClient, PortalSessionService sessions, PortalProperties properties, CaptchaService captcha) {
+    public AuthController(NewApiClient newApiClient, PortalSessionService sessions, PortalProperties properties, CaptchaService captchaService) {
         this.newApiClient = newApiClient;
         this.sessions = sessions;
         this.properties = properties;
-        this.captcha = captcha;
+        this.captchaService = captchaService;
     }
 
-    @org.springframework.web.bind.annotation.GetMapping("/captcha")
-    public CaptchaResponse captcha() { return captcha.create(); }
-
     @org.springframework.web.bind.annotation.GetMapping("/verification")
-    public ResponseEntity<Void> verification(@org.springframework.web.bind.annotation.RequestParam String email,
-                                             @org.springframework.web.bind.annotation.RequestParam String captchaId,
-                                             @org.springframework.web.bind.annotation.RequestParam String captchaCode) {
-        if (!captcha.verifyAndConsume(captchaId, captchaCode)) throw new IllegalArgumentException("Captcha is invalid or expired");
+    public org.springframework.http.ResponseEntity<Void> verification(
+            @org.springframework.web.bind.annotation.RequestParam String email,
+            @org.springframework.web.bind.annotation.RequestParam String captchaVerification) {
+        if (captchaVerification == null || captchaVerification.isBlank()) {
+            throw new IllegalArgumentException("Captcha is required");
+        }
+        CaptchaVO captchaVO = new CaptchaVO();
+        captchaVO.setCaptchaVerification(captchaVerification);
+        ResponseModel response = captchaService.verification(captchaVO);
+        if (!response.isSuccess()) {
+            throw new IllegalArgumentException("Captcha is invalid or expired");
+        }
         newApiClient.sendEmailVerification(email);
-        return ResponseEntity.noContent().build();
+        return org.springframework.http.ResponseEntity.noContent().build();
     }
 
     @PostMapping({"/login", "/sign-in"})
