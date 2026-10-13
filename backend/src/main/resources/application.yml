@@ -54,6 +54,6 @@ payment:
 aj:
   captcha:
     cache-type: local
-    water-mark: "Portal"
+    water-mark: "ZToken"
     type: default
 
