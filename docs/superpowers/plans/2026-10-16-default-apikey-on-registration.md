@@ -16,7 +16,7 @@
 - Create: `portal/backend/src/main/java/io/ztoken/portal/auth/DefaultTokenService.java`
 - Create: `portal/backend/src/test/java/io/ztoken/portal/auth/DefaultTokenServiceTest.java`
 
-- [ ] **Step 1: 编写测试用例 `DefaultTokenServiceTest`**
+- [x] **Step 1: 编写测试用例 `DefaultTokenServiceTest`**
 
 编写包含三种场景的单元测试：普通注册时自动创建并注销临时会话、已有令牌时的幂等跳过、发生异常时的非阻塞捕获。
 
@@ -223,7 +223,11 @@ public class DefaultTokenService {
 }
 ```
 
-- [ ] **Step 4: 运行测试验证通过**
+- [x] **Step 2: 运行测试验证失败**
+
+- [x] **Step 3: 编写 `DefaultTokenService` 实现代码**
+
+- [x] **Step 4: 运行测试验证通过**
 
 执行命令：
 ```powershell
@@ -231,7 +235,7 @@ mvn -f portal/backend/pom.xml test -Dtest=DefaultTokenServiceTest
 ```
 预期结果：`BUILD SUCCESS`，3 个测试全部 PASS。
 
-- [ ] **Step 5: 提交 Task 1 代码**
+- [x] **Step 5: 提交 Task 1 代码**
 
 ```powershell
 git add portal/backend/src/main/java/io/ztoken/portal/auth/DefaultTokenService.java portal/backend/src/test/java/io/ztoken/portal/auth/DefaultTokenServiceTest.java
@@ -246,78 +250,15 @@ git commit -m "feat(auth): 新增 DefaultTokenService 用于用户注册与首�
 - Modify: `portal/backend/src/main/java/io/ztoken/portal/auth/AuthController.java`
 - Modify: `portal/backend/src/test/java/io/ztoken/portal/auth/AuthControllerTest.java`
 
-- [ ] **Step 1: 在 `AuthController` 中注入并调用 `DefaultTokenService`**
+- [x] **Step 1: 在 `AuthController` 中注入并调用 `DefaultTokenService`**
 
 1. 修改 `AuthController` 构造方法，注入 `DefaultTokenService defaultTokenService`。
 2. 在 `register` 方法中，调用 `defaultTokenService.initializeDefaultTokenOnRegister(request.username(), request.password());`。
 3. 在 `completeOAuth` 方法中，通过 `defaultTokenService.toPrincipal(login)` 提取凭据并调用 `defaultTokenService.ensureDefaultTokenExists(principal)`。
-4. 在 `login` 方法中，通过 `defaultTokenService.toPrincipal(login)` 提取凭据并调用 `defaultTokenService.ensureDefaultTokenExists(principal)`，实现登录自愈。
 
-`AuthController.java` 关键代码改动：
-```java
-    private final DefaultTokenService defaultTokenService;
+- [x] **Step 2: 更新 `AuthControllerTest` 适配模拟响应**
 
-    public AuthController(NewApiClient newApiClient, PortalSessionService sessions, PortalProperties properties,
-                          CaptchaService captchaService, DefaultTokenService defaultTokenService) {
-        this.newApiClient = newApiClient;
-        this.sessions = sessions;
-        this.properties = properties;
-        this.captchaService = captchaService;
-        this.defaultTokenService = defaultTokenService;
-    }
-
-    @PostMapping({"/login", "/sign-in"})
-    public ResponseEntity<Void> login(@Valid @RequestBody LoginRequest request) {
-        log.info("Attempting to login user: {}", request.username());
-        try {
-            NewApiLogin login = newApiClient.login(request.username(), request.password());
-            log.info("Login successful for user: {}", request.username());
-            defaultTokenService.ensureDefaultTokenExists(defaultTokenService.toPrincipal(login));
-            return withPortalSession(login);
-        } catch (Exception e) {
-            log.error("Login failed for user: {}. Reason: {}", request.username(), e.getMessage(), e);
-            throw e;
-        }
-    }
-
-    @PostMapping("/oauth/{provider}/complete")
-    public ResponseEntity<Void> completeOAuth(@PathVariable String provider,
-                                              @Valid @RequestBody OAuthCompleteRequest request,
-                                              @CookieValue(value = OAUTH_STATE_COOKIE, required = false) String browserState,
-                                              HttpServletResponse response) {
-        requireSupportedOAuthProvider(provider);
-        if (browserState == null || !MessageDigest.isEqual(browserState.getBytes(StandardCharsets.UTF_8),
-                request.state().getBytes(StandardCharsets.UTF_8))) {
-            throw new IllegalArgumentException("OAuth state does not match this browser");
-        }
-        response.addHeader(HttpHeaders.SET_COOKIE, oauthStateCookie("", Duration.ZERO).toString());
-        NewApiLogin login = newApiClient.completeOAuth(provider, request.toCallback());
-        defaultTokenService.ensureDefaultTokenExists(defaultTokenService.toPrincipal(login));
-        return withPortalSession(login);
-    }
-
-    @PostMapping({"/register", "/sign-up"})
-    public ResponseEntity<Void> register(@Valid @RequestBody RegisterRequest request) {
-        newApiClient.register(request.username(), request.email(), request.password(), request.verificationCode());
-        defaultTokenService.initializeDefaultTokenOnRegister(request.username(), request.password());
-        return ResponseEntity.noContent().build();
-    }
-```
-
-- [ ] **Step 2: 更新 `AuthControllerTest` 适配模拟响应**
-
-在 `AuthControllerTest.java` 中：
-- 对于 `registerForwardsEmailAccountDetailsToNewApi` 测试，NewAPI 会相继收到：
-  1. `POST /api/user/`（用户注册）
-  2. `POST /api/user/login`（初始化令牌登录）
-  3. `GET /api/token/?p=1&page_size=1`（查询令牌列表）
-  4. `POST /api/token/`（创建默认令牌）
-  5. `GET /api/user/logout`（清理临时会话）
-  在 MockWebServer 中依次入队相应的 MockResponse，并验证这一连串交互按序发生；
-- 对于已有的 `loginStoresNewApiAccessTokenInServerSession` 测试，由于登录会触发 `getTokens`，如果未入队对应请求 MockWebServer 返回 200 或 404，由 `ensureDefaultTokenExists` 的容错机制静默捕获（或为其配置 token 查询响应）；
-- 新增 `completeOAuthCreatesDefaultTokenWhenUserHasNoTokens` 测试，验证 OAuth 首次登录自动创建默认 API Key。
-
-- [ ] **Step 3: 运行控制器测试**
+- [x] **Step 3: 运行控制器测试**
 
 执行命令：
 ```powershell
@@ -325,11 +266,11 @@ mvn -f portal/backend/pom.xml test -Dtest=AuthControllerTest
 ```
 预期结果：`BUILD SUCCESS`。
 
-- [ ] **Step 4: 提交 Task 2 代码**
+- [x] **Step 4: 提交 Task 2 代码**
 
 ```powershell
 git add portal/backend/src/main/java/io/ztoken/portal/auth/AuthController.java portal/backend/src/test/java/io/ztoken/portal/auth/AuthControllerTest.java
-git commit -m "feat(auth): 在注册、OAuth及登录流程中集成默认 API Key 自动创建与自愈"
+git commit -m "feat(auth): 在注册与OAuth首次登录中集成默认 API Key 自动创建"
 ```
 
 ---
@@ -339,15 +280,15 @@ git commit -m "feat(auth): 在注册、OAuth及登录流程中集成默认 API K
 **Files:**
 - None (验证任务)
 
-- [ ] **Step 1: 运行后端全量测试套件**
+- [x] **Step 1: 运行后端全量测试套件**
 
 执行命令：
 ```powershell
-mvn -f portal/backend/pom.xml clean test
+mvn -f portal/backend/pom.xml test "-Dskip.frontend=true"
 ```
 预期结果：所有测试全部通过（0 failures, 0 errors, 0 skipped）。
 
-- [ ] **Step 2: 验证 Git 状态**
+- [x] **Step 2: 验证 Git 状态**
 
 执行命令：
 ```powershell
