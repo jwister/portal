@@ -46,13 +46,16 @@ public class AuthController {
     private final PortalSessionService sessions;
     private final PortalProperties properties;
     private final CaptchaService captchaService;
+    private final DefaultTokenService defaultTokenService;
 
 
-    public AuthController(NewApiClient newApiClient, PortalSessionService sessions, PortalProperties properties, CaptchaService captchaService) {
+    public AuthController(NewApiClient newApiClient, PortalSessionService sessions, PortalProperties properties,
+                          CaptchaService captchaService, DefaultTokenService defaultTokenService) {
         this.newApiClient = newApiClient;
         this.sessions = sessions;
         this.properties = properties;
         this.captchaService = captchaService;
+        this.defaultTokenService = defaultTokenService;
     }
 
     @org.springframework.web.bind.annotation.GetMapping("/verification")
@@ -113,7 +116,9 @@ public class AuthController {
         }
         // 无论上游成功或拒绝，均清除绑定 cookie，避免同一 state 被浏览器重复提交。
         response.addHeader(HttpHeaders.SET_COOKIE, oauthStateCookie("", Duration.ZERO).toString());
-        return withPortalSession(newApiClient.completeOAuth(provider, request.toCallback()));
+        NewApiLogin login = newApiClient.completeOAuth(provider, request.toCallback());
+        defaultTokenService.ensureDefaultTokenExists(defaultTokenService.toPrincipal(login));
+        return withPortalSession(login);
     }
 
     /** OAuth state 同时绑定到当前浏览器，阻止其他浏览器重放授权回调来置换 Portal 会话。 */
@@ -150,6 +155,7 @@ public class AuthController {
     @PostMapping({"/register", "/sign-up"})
     public ResponseEntity<Void> register(@Valid @RequestBody RegisterRequest request) {
         newApiClient.register(request.username(), request.email(), request.password(), request.verificationCode());
+        defaultTokenService.initializeDefaultTokenOnRegister(request.username(), request.password());
         return ResponseEntity.noContent().build();
     }
 

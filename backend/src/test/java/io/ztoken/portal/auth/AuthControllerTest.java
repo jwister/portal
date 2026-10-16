@@ -170,12 +170,20 @@ class AuthControllerTest {
                 .setHeader(HttpHeaders.CONTENT_TYPE, "application/json")
                 .setHeader(HttpHeaders.SET_COOKIE, "new_api_refresh=55555555-5555-5555-5555-555555555555.refresh; Path=/api/user/auth; HttpOnly")
                 .setBody("{\"success\":true,\"data\":{\"access_token\":\"upstream-secret\",\"access_expires_at\":2000000000,\"session\":{\"sid\":\"55555555-5555-5555-5555-555555555555\"},\"user\":{\"id\":7,\"username\":\"alice\"}}}"));
+        NEW_API.enqueue(new MockResponse()
+                .setHeader(HttpHeaders.CONTENT_TYPE, "application/json")
+                .setBody("{\"success\":true,\"data\":{\"page\":1,\"page_size\":1,\"total\":0,\"items\":[]}}"));
+        NEW_API.enqueue(new MockResponse()
+                .setHeader(HttpHeaders.CONTENT_TYPE, "application/json")
+                .setBody("{\"success\":true,\"message\":\"\"}"));
 
         HttpHeaders headers = new HttpHeaders();
         headers.add(HttpHeaders.COOKIE, "PORTAL_OAUTH_STATE=flow-token");
         ResponseEntity<String> response = http.exchange("/api/auth/oauth/github/complete", org.springframework.http.HttpMethod.POST,
                 new HttpEntity<>(Map.of("code", "provider-code", "state", "flow-token"), headers), String.class);
         RecordedRequest request = NEW_API.takeRequest();
+        RecordedRequest tokenQueryRequest = NEW_API.takeRequest();
+        RecordedRequest tokenCreateRequest = NEW_API.takeRequest();
 
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.NO_CONTENT);
         assertThat(response.getHeaders().get(HttpHeaders.SET_COOKIE)).anyMatch(cookie -> cookie.contains("PORTAL_SESSION="));
@@ -183,6 +191,9 @@ class AuthControllerTest {
         assertThat(request.getRequestUrl().encodedPath()).isEqualTo("/api/oauth/github");
         assertThat(request.getRequestUrl().queryParameter("code")).isEqualTo("provider-code");
         assertThat(request.getRequestUrl().queryParameter("state")).isEqualTo("flow-token");
+        assertThat(tokenQueryRequest.getPath()).isEqualTo("/api/token/?p=1&page_size=1");
+        assertThat(tokenCreateRequest.getPath()).isEqualTo("/api/token/");
+        assertThat(tokenCreateRequest.getBody().readUtf8()).contains("\"name\":\"default\"");
     }
 
     @Test
@@ -212,17 +223,43 @@ class AuthControllerTest {
         NEW_API.enqueue(new MockResponse()
                 .setHeader(HttpHeaders.CONTENT_TYPE, "application/json")
                 .setBody("{\"success\":true,\"data\":null}"));
+        NEW_API.enqueue(new MockResponse()
+                .setHeader(HttpHeaders.CONTENT_TYPE, "application/json")
+                .setHeader(HttpHeaders.SET_COOKIE, "new_api_refresh=44444444-4444-4444-4444-444444444444.refresh; Path=/api/user/auth; HttpOnly")
+                .setBody("""
+                        {"success":true,"data":{"access_token":"newapi-access-token","access_expires_at":2000000000,
+                        "session":{"sid":"44444444-4444-4444-4444-444444444444"},"user":{"id":7,"username":"alice"}}}
+                        """));
+        NEW_API.enqueue(new MockResponse()
+                .setHeader(HttpHeaders.CONTENT_TYPE, "application/json")
+                .setBody("{\"success\":true,\"data\":{\"page\":1,\"page_size\":1,\"total\":0,\"items\":[]}}"));
+        NEW_API.enqueue(new MockResponse()
+                .setHeader(HttpHeaders.CONTENT_TYPE, "application/json")
+                .setBody("{\"success\":true,\"message\":\"\"}"));
+        NEW_API.enqueue(new MockResponse()
+                .setHeader(HttpHeaders.CONTENT_TYPE, "application/json")
+                .setBody("{\"success\":true,\"message\":\"\"}"));
 
         ResponseEntity<Void> response = http.postForEntity("/api/auth/register",
                 new RegisterRequest("alice", "alice@example.com", "password", "123456", null, null), Void.class);
 
-        RecordedRequest request = NEW_API.takeRequest();
+        RecordedRequest registerRequest = NEW_API.takeRequest();
+        RecordedRequest loginRequest = NEW_API.takeRequest();
+        RecordedRequest tokenQueryRequest = NEW_API.takeRequest();
+        RecordedRequest tokenCreateRequest = NEW_API.takeRequest();
+        RecordedRequest logoutRequest = NEW_API.takeRequest();
+
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.NO_CONTENT);
-        assertThat(request.getPath()).isEqualTo("/api/user/");
-        assertThat(request.getHeader(HttpHeaders.AUTHORIZATION)).isEqualTo("Bearer test-access-token");
-        assertThat(request.getBody().readUtf8()).contains("\"email\":\"alice@example.com\"")
+        assertThat(registerRequest.getPath()).isEqualTo("/api/user/");
+        assertThat(registerRequest.getHeader(HttpHeaders.AUTHORIZATION)).isEqualTo("Bearer test-access-token");
+        assertThat(registerRequest.getBody().readUtf8()).contains("\"email\":\"alice@example.com\"")
                 .contains("\"username\":\"alice\"")
                 .contains("\"role\":1");
+        assertThat(loginRequest.getPath()).isEqualTo("/api/user/login");
+        assertThat(tokenQueryRequest.getPath()).isEqualTo("/api/token/?p=1&page_size=1");
+        assertThat(tokenCreateRequest.getPath()).isEqualTo("/api/token/");
+        assertThat(tokenCreateRequest.getBody().readUtf8()).contains("\"name\":\"default\"");
+        assertThat(logoutRequest.getPath()).isEqualTo("/api/user/auth/logout");
     }
 
     @Test
