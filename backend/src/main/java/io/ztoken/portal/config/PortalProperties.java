@@ -10,7 +10,6 @@ public class PortalProperties {
     private String sessionKey;
     private Duration sessionTtl = Duration.ofDays(7);
     private boolean sessionSecureCookie;
-    private String sessionCookieDomain;
     private NewApi newApi = new NewApi();
     private String publicApiUrl;
     private String icpRecord;
@@ -47,14 +46,6 @@ public class PortalProperties {
 
     public void setSessionSecureCookie(boolean sessionSecureCookie) {
         this.sessionSecureCookie = sessionSecureCookie;
-    }
-
-    public String getSessionCookieDomain() {
-        return sessionCookieDomain;
-    }
-
-    public void setSessionCookieDomain(String sessionCookieDomain) {
-        this.sessionCookieDomain = sessionCookieDomain;
     }
 
     public NewApi getNewApi() {

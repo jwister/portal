@@ -1,11 +1,5 @@
 package io.ztoken.portal.auth;
 
-import io.ztoken.portal.config.PortalProperties;
-import io.ztoken.portal.newapi.NewApiClient;
-import io.ztoken.portal.newapi.NewApiLogin;
-import io.ztoken.portal.session.NewApiIdentity;
-import io.ztoken.portal.session.PortalSession;
-import io.ztoken.portal.session.PortalSessionService;
 import okhttp3.mockwebserver.MockResponse;
 import okhttp3.mockwebserver.MockWebServer;
 import okhttp3.mockwebserver.RecordedRequest;
@@ -24,16 +18,12 @@ import org.springframework.http.HttpEntity;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
 
-import java.time.Duration;
-import java.util.List;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
 import java.time.Instant;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.when;
 
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 @Execution(ExecutionMode.SAME_THREAD)
@@ -329,45 +319,6 @@ class AuthControllerTest {
         assertThat(refreshRequest.getHeader("X-Auth-Session")).isEqualTo(upstreamSessionId);
         assertThat(retriedRequest.getPath()).isEqualTo("/api/user/self");
         assertThat(retriedRequest.getHeader(HttpHeaders.AUTHORIZATION)).isEqualTo("Bearer renewed-access-token");
-    }
-
-    @Test
-    void loginSetsCookieWithConfiguredDomain() {
-        PortalProperties properties = mock(PortalProperties.class);
-        NewApiClient newApiClient = mock(NewApiClient.class);
-        PortalSessionService sessions = mock(PortalSessionService.class);
-        AuthController controller = new AuthController(newApiClient, sessions, properties, null, null);
-        NewApiLogin testLogin = new NewApiLogin(new NewApiIdentity(1L, "alice"), "enc-token", "enc-refresh", "sid", Instant.now().plusSeconds(900));
-
-        when(properties.getSessionCookieDomain()).thenReturn(".ztoken.cc");
-        when(properties.getSessionTtl()).thenReturn(Duration.ofDays(7));
-        when(properties.isSessionSecureCookie()).thenReturn(false);
-        when(newApiClient.login("alice", "secret123")).thenReturn(testLogin);
-        when(sessions.create(testLogin)).thenReturn(new PortalSession("test-id-1234567890123456789012345678901234567890", 1L, "alice", "enc-token", "enc-refresh", "sid", Instant.now().plusSeconds(900), Instant.now().plusSeconds(604800), Instant.now()));
-
-        ResponseEntity<Void> response = controller.login(new LoginRequest("alice", "secret123"));
-
-        List<String> cookies = response.getHeaders().get(HttpHeaders.SET_COOKIE);
-        assertThat(cookies).isNotNull();
-        assertThat(cookies.get(0)).contains("Domain=.ztoken.cc");
-    }
-
-    @Test
-    void signOutSetsCookieWithConfiguredDomain() {
-        PortalProperties properties = mock(PortalProperties.class);
-        NewApiClient newApiClient = mock(NewApiClient.class);
-        PortalSessionService sessions = mock(PortalSessionService.class);
-        AuthController controller = new AuthController(newApiClient, sessions, properties, null, null);
-
-        when(properties.getSessionCookieDomain()).thenReturn(".ztoken.cc");
-        when(properties.isSessionSecureCookie()).thenReturn(false);
-
-        ResponseEntity<Void> response = controller.signOut("test-session-id");
-
-        List<String> cookies = response.getHeaders().get(HttpHeaders.SET_COOKIE);
-        assertThat(cookies).isNotNull();
-        assertThat(cookies.get(0)).contains("Domain=.ztoken.cc");
-        assertThat(cookies.get(0)).contains("Max-Age=0");
     }
 
 }
