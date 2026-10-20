@@ -183,21 +183,6 @@ public class AuthController {
         }
     }
 
-    @GetMapping("/session/info")
-    public SessionUserInfo sessionInfo(@CookieValue(value = "PORTAL_SESSION", required = false) String sessionId) {
-        if (sessionId == null || sessionId.isBlank()) {
-            throw new io.ztoken.portal.session.UnauthenticatedException();
-        }
-        return sessions.withAuthenticatedPrincipal(sessionId, principal -> {
-            io.ztoken.portal.console.Profile profile = newApiClient.getProfile(principal);
-            String email = profile.email();
-            if (email == null || email.isBlank()) {
-                email = principal.username() + "@ztoken.cc";
-            }
-            return new SessionUserInfo(profile.id(), profile.username(), email);
-        });
-    }
-
     @PostMapping("/sign-out")
     public ResponseEntity<Void> signOut(
             @CookieValue(value = "PORTAL_SESSION", required = false) String sessionId) {
