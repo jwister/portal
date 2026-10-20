@@ -135,13 +135,16 @@ public class AuthController {
     /** 密码与 OAuth 登录共用同一套受保护 cookie 属性，避免认证路径产生会话差异。 */
     private ResponseEntity<Void> withPortalSession(NewApiLogin login) {
         PortalSession session = sessions.create(login);
-        ResponseCookie cookie = ResponseCookie.from("PORTAL_SESSION", session.getId())
+        ResponseCookie.ResponseCookieBuilder cookieBuilder = ResponseCookie.from("PORTAL_SESSION", session.getId())
                 .httpOnly(true)
                 .secure(properties.isSessionSecureCookie())
                 .sameSite("Lax")
                 .path("/")
-                .maxAge(properties.getSessionTtl())
-                .build();
+                .maxAge(properties.getSessionTtl());
+        if (properties.getSessionCookieDomain() != null && !properties.getSessionCookieDomain().isBlank()) {
+            cookieBuilder.domain(properties.getSessionCookieDomain());
+        }
+        ResponseCookie cookie = cookieBuilder.build();
         return ResponseEntity.noContent().header(HttpHeaders.SET_COOKIE, cookie.toString()).build();
     }
 
@@ -190,13 +193,16 @@ public class AuthController {
         } finally {
             sessions.revoke(sessionId);
         }
-        ResponseCookie cookie = ResponseCookie.from("PORTAL_SESSION", "")
+        ResponseCookie.ResponseCookieBuilder cookieBuilder = ResponseCookie.from("PORTAL_SESSION", "")
                 .httpOnly(true)
                 .secure(properties.isSessionSecureCookie())
                 .sameSite("Lax")
                 .path("/")
-                .maxAge(0)
-                .build();
+                .maxAge(0);
+        if (properties.getSessionCookieDomain() != null && !properties.getSessionCookieDomain().isBlank()) {
+            cookieBuilder.domain(properties.getSessionCookieDomain());
+        }
+        ResponseCookie cookie = cookieBuilder.build();
         return ResponseEntity.noContent().header(HttpHeaders.SET_COOKIE, cookie.toString()).build();
     }
 }
