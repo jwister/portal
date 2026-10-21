@@ -20,6 +20,7 @@ portal:
   session-key: ${PORTAL_SESSION_KEY:AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8=}
   session-ttl: ${PORTAL_SESSION_TTL:7d}
   session-secure-cookie: ${PORTAL_SESSION_SECURE_COOKIE:false}
+  session-cookie-domain: ${PORTAL_SESSION_COOKIE_DOMAIN:}
   new-api:
     base-url: https://api.ztoken.cc
     access-token: ${PORTAL_NEWAPI_ACCESS_TOKEN:${PAYMENT_NEWAPI_CREDIT_ACCESS_TOKEN:Lgh3Nj3cprP15x9AsfwLF75qaT/yPA==}}
