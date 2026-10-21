@@ -4,6 +4,7 @@ import io.ztoken.portal.config.PortalProperties;
 import io.ztoken.portal.newapi.NewApiClient;
 import io.ztoken.portal.newapi.NewApiLogin;
 import io.ztoken.portal.session.NewApiIdentity;
+import io.ztoken.portal.session.PortalPrincipal;
 import io.ztoken.portal.session.PortalSession;
 import io.ztoken.portal.session.PortalSessionService;
 import okhttp3.mockwebserver.MockResponse;
@@ -32,6 +33,8 @@ import java.time.Instant;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
@@ -368,6 +371,55 @@ class AuthControllerTest {
         assertThat(cookies).isNotNull();
         assertThat(cookies.get(0)).contains("Domain=.ztoken.cc");
         assertThat(cookies.get(0)).contains("Max-Age=0");
+    }
+
+    @Test
+    void sessionInfoReturnsUserWhenSessionValid() {
+        PortalSessionService sessions = mock(PortalSessionService.class);
+        NewApiClient newApiClient = mock(NewApiClient.class);
+        AuthController controller = new AuthController(newApiClient, sessions, null, null, null);
+
+        String sessionId = "valid-session-id-12345678901234567890123456789012";
+        PortalPrincipal principal = new PortalPrincipal(sessionId, 100L, "alice", "token", "refresh", "sid", Instant.now().plusSeconds(900));
+        when(sessions.withAuthenticatedPrincipal(eq(sessionId), any())).thenAnswer(invocation -> {
+            java.util.function.Function<PortalPrincipal, SessionUserInfo> op = invocation.getArgument(1);
+            return op.apply(principal);
+        });
+        when(newApiClient.getProfile(principal)).thenReturn(new io.ztoken.portal.console.Profile(100L, "alice", "Alice", "alice@example.com", "zh-CN"));
+
+        SessionUserInfo info = controller.sessionInfo(sessionId);
+
+        assertThat(info.userId()).isEqualTo(100L);
+        assertThat(info.username()).isEqualTo("alice");
+        assertThat(info.email()).isEqualTo("alice@example.com");
+    }
+
+    @Test
+    void sessionInfoThrowsUnauthenticatedWhenSessionNull() {
+        AuthController controller = new AuthController(null, null, null, null, null);
+        assertThatThrownBy(() -> controller.sessionInfo(null))
+                .isInstanceOf(io.ztoken.portal.session.UnauthenticatedException.class);
+    }
+
+    @Test
+    void sessionInfoFallsBackToDefaultEmailWhenProfileEmailBlank() {
+        PortalSessionService sessions = mock(PortalSessionService.class);
+        NewApiClient newApiClient = mock(NewApiClient.class);
+        AuthController controller = new AuthController(newApiClient, sessions, null, null, null);
+
+        String sessionId = "valid-session-id-12345678901234567890123456789012";
+        PortalPrincipal principal = new PortalPrincipal(sessionId, 100L, "alice", "token", "refresh", "sid", Instant.now().plusSeconds(900));
+        when(sessions.withAuthenticatedPrincipal(eq(sessionId), any())).thenAnswer(invocation -> {
+            java.util.function.Function<PortalPrincipal, SessionUserInfo> op = invocation.getArgument(1);
+            return op.apply(principal);
+        });
+        when(newApiClient.getProfile(principal)).thenReturn(new io.ztoken.portal.console.Profile(100L, "alice", "Alice", "", "zh-CN"));
+
+        SessionUserInfo info = controller.sessionInfo(sessionId);
+
+        assertThat(info.userId()).isEqualTo(100L);
+        assertThat(info.username()).isEqualTo("alice");
+        assertThat(info.email()).isEqualTo("alice@ztoken.cc");
     }
 
 }
