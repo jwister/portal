@@ -18,7 +18,7 @@
 - Modify: `portal/backend/src/main/java/io/ztoken/portal/auth/AuthController.java`
 - Test: `portal/backend/src/test/java/io/ztoken/portal/auth/AuthControllerTest.java`
 
-- [ ] **Step 1: 编写单元测试验证 Cookie 包含 Domain 属性**
+- [x] **Step 1: 编写单元测试验证 Cookie 包含 Domain 属性**
 
 在 `portal/backend/src/test/java/io/ztoken/portal/auth/AuthControllerTest.java` 中增加针对 `sessionCookieDomain` 的测试用例：
 
@@ -39,7 +39,7 @@ void loginSetsCookieWithConfiguredDomain() {
 }
 ```
 
-- [ ] **Step 2: 运行测试验证失败**
+- [x] **Step 2: 运行测试验证失败**
 
 运行：
 ```powershell
@@ -47,7 +47,7 @@ mvn -f portal/backend/pom.xml test -Dtest=AuthControllerTest#loginSetsCookieWith
 ```
 预期：编译失败或测试失败，提示 `getSessionCookieDomain` 方法不存在或未设置 Domain。
 
-- [ ] **Step 3: 修改 `PortalProperties.java` 与 `application.yml`**
+- [x] **Step 3: 修改 `PortalProperties.java` 与 `application.yml`**
 
 在 `PortalProperties.java` 中增加字段与 getter：
 ```java
@@ -68,7 +68,7 @@ portal:
   session-cookie-domain: ${PORTAL_SESSION_COOKIE_DOMAIN:}
 ```
 
-- [ ] **Step 4: 修改 `AuthController.java` 挂载 Domain 属性**
+- [x] **Step 4: 修改 `AuthController.java` 挂载 Domain 属性**
 
 在 `AuthController.java` 中的 `withPortalSession` 方法：
 ```java
@@ -101,7 +101,7 @@ if (properties.getSessionCookieDomain() != null && !properties.getSessionCookieD
 return ResponseEntity.noContent().header(HttpHeaders.SET_COOKIE, builder.build().toString()).build();
 ```
 
-- [ ] **Step 5: 运行测试验证通过**
+- [x] **Step 5: 运行测试验证通过**
 
 运行：
 ```powershell
@@ -109,7 +109,7 @@ mvn -f portal/backend/pom.xml test -Dtest=AuthControllerTest
 ```
 预期：所有测试 PASS。
 
-- [ ] **Step 6: 提交代码**
+- [x] **Step 6: 提交代码**
 
 ```bash
 git -C portal add backend/src/main/java/io/ztoken/portal/config/PortalProperties.java backend/src/main/resources/application.yml backend/src/main/java/io/ztoken/portal/auth/AuthController.java backend/src/test/java/io/ztoken/portal/auth/AuthControllerTest.java
@@ -125,7 +125,7 @@ git -C portal commit -m "feat(auth): 支持配置 PORTAL_SESSION 跨主域 Cooki
 - Modify: `portal/backend/src/main/java/io/ztoken/portal/auth/AuthController.java`
 - Test: `portal/backend/src/test/java/io/ztoken/portal/auth/AuthControllerTest.java`
 
-- [ ] **Step 1: 编写测试用例**
+- [x] **Step 1: 编写测试用例**
 
 在 `AuthControllerTest.java` 中增加针对 `sessionInfo` 的测试用例：
 ```java
@@ -153,7 +153,7 @@ void sessionInfoThrowsUnauthenticatedWhenSessionNull() {
 }
 ```
 
-- [ ] **Step 2: 运行测试验证失败**
+- [x] **Step 2: 运行测试验证失败**
 
 运行：
 ```powershell
@@ -161,7 +161,7 @@ mvn -f portal/backend/pom.xml test -Dtest=AuthControllerTest#sessionInfoReturnsU
 ```
 预期：FAIL，`SessionUserInfo` 或 `sessionInfo` 方法未定义。
 
-- [ ] **Step 3: 创建 `SessionUserInfo.java`**
+- [x] **Step 3: 创建 `SessionUserInfo.java`**
 
 创建 `portal/backend/src/main/java/io/ztoken/portal/auth/SessionUserInfo.java`：
 ```java
@@ -174,7 +174,7 @@ public record SessionUserInfo(long userId, String username, String email) {
 }
 ```
 
-- [ ] **Step 4: 在 `AuthController.java` 中实现 `sessionInfo` 端点**
+- [x] **Step 4: 在 `AuthController.java` 中实现 `sessionInfo` 端点**
 
 在 `AuthController.java` 中新增端点：
 ```java
@@ -194,7 +194,7 @@ public SessionUserInfo sessionInfo(@CookieValue(value = "PORTAL_SESSION", requir
 }
 ```
 
-- [ ] **Step 5: 运行测试验证通过**
+- [x] **Step 5: 运行测试验证通过**
 
 运行：
 ```powershell
@@ -202,7 +202,7 @@ mvn -f portal/backend/pom.xml test -Dtest=AuthControllerTest
 ```
 预期：PASS。
 
-- [ ] **Step 6: 提交代码**
+- [x] **Step 6: 提交代码**
 
 ```bash
 git -C portal add backend/src/main/java/io/ztoken/portal/auth/SessionUserInfo.java backend/src/main/java/io/ztoken/portal/auth/AuthController.java backend/src/test/java/io/ztoken/portal/auth/AuthControllerTest.java
@@ -218,14 +218,14 @@ git -C portal commit -m "feat(auth): 新增会话信息端点 GET /api/auth/sess
 - Modify: `open-webui/backend/open_webui/config.py`
 - Modify: `open-webui/docker-compose.yaml`
 
-- [ ] **Step 1: 在 `config.py` 增加 `PORTAL_BASE_URL` 配置**
+- [x] **Step 1: 在 `config.py` 增加 `PORTAL_BASE_URL` 配置**
 
 在 `open-webui/backend/open_webui/config.py` 中增加：
 ```python
 PORTAL_BASE_URL = os.getenv('PORTAL_BASE_URL', 'http://ztoken-portal:8084').rstrip('/')
 ```
 
-- [ ] **Step 2: 在 `routers/auths.py` 中实现 `/portal-sync` 端点**
+- [x] **Step 2: 在 `routers/auths.py` 中实现 `/portal-sync` 端点**
 
 在 `open-webui/backend/open_webui/routers/auths.py` 中增加：
 ```python
@@ -282,14 +282,14 @@ async def portal_sync(
     return await create_session_response(request, user, db, response, set_cookie=True, source='portal_sso')
 ```
 
-- [ ] **Step 3: 更新 `docker-compose.yaml` 注入环境变量**
+- [x] **Step 3: 更新 `docker-compose.yaml` 注入环境变量**
 
 在 `open-webui/docker-compose.yaml` 的 `environment` 中补充：
 ```yaml
       - 'PORTAL_BASE_URL=${PORTAL_BASE_URL:-http://host.docker.internal:8084}'
 ```
 
-- [ ] **Step 4: 提交代码**
+- [x] **Step 4: 提交代码**
 
 ```bash
 git -C open-webui add backend/open_webui/config.py backend/open_webui/routers/auths.py docker-compose.yaml
@@ -303,7 +303,7 @@ git -C open-webui commit -m "feat(auth): 新增 GET /api/v1/auths/portal-sync �
 **Files:**
 - Modify: `open-webui/src/routes/+layout.svelte`
 
-- [ ] **Step 1: 在 `+layout.svelte` 中增加静默同步探测**
+- [x] **Step 1: 在 `+layout.svelte` 中增加静默同步探测**
 
 在 `open-webui/src/routes/+layout.svelte` 中，位于 `if (localStorage.token)` 的 else 分支或未登录检查段落加入静默同步：
 ```javascript
@@ -327,11 +327,11 @@ if (!localStorage.token) {
 }
 ```
 
-- [ ] **Step 2: 验证独立访问体验未被破坏**
+- [x] **Step 2: 验证独立访问体验未被破坏**
 
 当没有 `PORTAL_SESSION` Cookie 时，`portal-sync` 返回 204，前端捕获后不产生任何 toast，不跳转，继续渲染现有的未登录对话界面。
 
-- [ ] **Step 3: 提交代码**
+- [x] **Step 3: 提交代码**
 
 ```bash
 git -C open-webui add src/routes/+layout.svelte
@@ -349,7 +349,7 @@ git -C open-webui commit -m "feat(auth): 前端初始化支持静默同步 Porta
 - Modify: `portal/frontend/src/i18n/locales/en-US.json`
 - Test: `portal/frontend/src/features/home/__tests__/home-page.test.tsx`
 
-- [ ] **Step 1: 补充多语言翻译配置**
+- [x] **Step 1: 补充多语言翻译配置**
 
 在 `portal/frontend/src/i18n/locales/zh-CN.json` 中增加：
 ```json
@@ -424,7 +424,7 @@ function ChatboxShowcase() {
 ```
 并在 `HomePage` 渲染树中置于 `reference-hero` 紧下方。
 
-- [ ] **Step 4: 编写 CSS 样式实现微流光边框与玻璃拟态质感**
+- [x] **Step 4: 编写 CSS 样式实现微流光边框与玻璃拟态质感**
 
 ```css
 .reference-chatbox-section {
@@ -494,7 +494,7 @@ function ChatboxShowcase() {
 }
 ```
 
-- [ ] **Step 5: 运行前端单元测试验证通过**
+- [x] **Step 5: 运行前端单元测试验证通过**
 
 运行：
 ```powershell
@@ -502,7 +502,7 @@ npm --prefix portal/frontend test -- -t "chatbox"
 ```
 预期：PASS。
 
-- [ ] **Step 6: 提交代码**
+- [x] **Step 6: 提交代码**
 
 ```bash
 git -C portal add frontend/src/features/home/HomePage.tsx frontend/src/features/home/__tests__/home-page.test.tsx frontend/src/i18n/locales/
@@ -519,11 +519,11 @@ git -C portal commit -m "feat(home): 首页新增 Chatbox 在线聊智能体专�
 - Modify: `portal/frontend/src/i18n/locales/zh-CN.json`
 - Modify: `portal/frontend/src/i18n/locales/en-US.json`
 
-- [ ] **Step 1: 增加多语言词条**
+- [x] **Step 1: 增加多语言词条**
 
 在 `zh-CN.json` 的 `nav` 节点中增加：`"chatbox": "Chatbox"`。
 
-- [ ] **Step 2: 编写测试断言顶栏包含 Chatbox 导航项**
+- [x] **Step 2: 编写测试断言顶栏包含 Chatbox 导航项**
 
 在 `public-header.test.tsx` 中验证顶栏导航中包含目标链接及在新窗口打开的属性。
 
@@ -540,7 +540,7 @@ const navItems: Array<[string, string, boolean?]> = [
 ```
 并在链接渲染逻辑中为带有外部标识的链接渲染特殊的 `AI` 高亮角标并支持新窗口跳转。
 
-- [ ] **Step 4: 运行前端测试验证通过**
+- [x] **Step 4: 运行前端测试验证通过**
 
 运行：
 ```powershell
@@ -548,7 +548,7 @@ npm --prefix portal/frontend test -- -t "PublicHeader"
 ```
 预期：PASS。
 
-- [ ] **Step 5: 提交代码**
+- [x] **Step 5: 提交代码**
 
 ```bash
 git -C portal add frontend/src/components/PublicHeader.tsx frontend/src/components/__tests__/public-header.test.tsx frontend/src/i18n/locales/
@@ -562,7 +562,7 @@ git -C portal commit -m "feat(nav): 公共顶栏增加 Chatbox 直达导航项�
 **Files:**
 - Modify: 无代码修改，执行全量自动化验证
 
-- [ ] **Step 1: 验证 Portal 后端完整测试套件**
+- [x] **Step 1: 验证 Portal 后端完整测试套件**
 
 运行：
 ```powershell
@@ -570,7 +570,7 @@ mvn -f portal/backend/pom.xml clean test
 ```
 预期：BUILD SUCCESS，所有测试无报错。
 
-- [ ] **Step 2: 验证 Portal 前端完整构建与类型检查**
+- [x] **Step 2: 验证 Portal 前端完整构建与类型检查**
 
 运行：
 ```powershell
@@ -578,7 +578,7 @@ npm --prefix portal/frontend run build
 ```
 预期：TypeScript 编译无报错，Vite 打包成功生成静态资源。
 
-- [ ] **Step 3: 整体提交与状态同步**
+- [x] **Step 3: 整体提交与状态同步**
 
 ```bash
 git -C portal status
