@@ -1,6 +1,9 @@
 package io.ztoken.portal.auth;
 
 import io.ztoken.portal.config.PortalProperties;
+import io.ztoken.portal.console.TokenKey;
+import io.ztoken.portal.console.TokenList;
+import io.ztoken.portal.console.TokenSummary;
 import io.ztoken.portal.newapi.NewApiClient;
 import io.ztoken.portal.newapi.NewApiLogin;
 import io.ztoken.portal.session.NewApiIdentity;
@@ -420,6 +423,30 @@ class AuthControllerTest {
         assertThat(info.userId()).isEqualTo(100L);
         assertThat(info.username()).isEqualTo("alice");
         assertThat(info.email()).isEqualTo("alice@ztoken.cc");
+    }
+
+
+    @Test
+    void sessionInfoReturnsApiKeyWhenUserHasToken() {
+        PortalSessionService sessions = mock(PortalSessionService.class);
+        NewApiClient newApiClient = mock(NewApiClient.class);
+        AuthController controller = new AuthController(newApiClient, sessions, null, null, null);
+
+        String sessionId = "valid-session-id-12345678901234567890123456789012";
+        PortalPrincipal principal = new PortalPrincipal(sessionId, 100L, "alice", "token", "refresh", "sid", Instant.now().plusSeconds(900));
+        when(sessions.withAuthenticatedPrincipal(eq(sessionId), any())).thenAnswer(invocation -> {
+            java.util.function.Function<PortalPrincipal, SessionUserInfo> op = invocation.getArgument(1);
+            return op.apply(principal);
+        });
+        when(newApiClient.getProfile(principal)).thenReturn(new io.ztoken.portal.console.Profile(100L, "alice", "Alice", "alice@example.com", "zh-CN"));
+        TokenSummary token = new TokenSummary(1L, "default", true, 0L, 0L, true, -1L, "sk-***", "default");
+        when(newApiClient.getTokens(principal, 1, 20)).thenReturn(new TokenList(1, 20, 1L, java.util.List.of(token)));
+        when(newApiClient.getTokenKey(principal, 1L)).thenReturn(new TokenKey("sk-test-api-key-123"));
+
+        SessionUserInfo info = controller.sessionInfo(sessionId);
+
+        assertThat(info.userId()).isEqualTo(100L);
+        assertThat(info.apiKey()).isEqualTo("sk-test-api-key-123");
     }
 
 }

@@ -1,6 +1,9 @@
 package io.ztoken.portal.auth;
 
 import io.ztoken.portal.config.PortalProperties;
+import io.ztoken.portal.console.TokenKey;
+import io.ztoken.portal.console.TokenList;
+import io.ztoken.portal.console.TokenSummary;
 import io.ztoken.portal.newapi.NewApiClient;
 import io.ztoken.portal.newapi.NewApiLogin;
 import io.ztoken.portal.newapi.NewApiException;
@@ -194,8 +197,35 @@ public class AuthController {
             if (email == null || email.isBlank()) {
                 email = principal.username() + "@ztoken.cc";
             }
-            return new SessionUserInfo(profile.id(), profile.username(), email);
+            String apiKey = resolveUserApiKey(principal);
+            return new SessionUserInfo(profile.id(), profile.username(), email, apiKey);
         });
+    }
+
+    private String resolveUserApiKey(PortalPrincipal principal) {
+        try {
+            TokenList tokens = newApiClient.getTokens(principal, 1, 20);
+            if (tokens == null || tokens.items().isEmpty()) {
+                if (defaultTokenService != null) {
+                    defaultTokenService.ensureDefaultTokenExists(principal);
+                    tokens = newApiClient.getTokens(principal, 1, 20);
+                }
+            }
+            if (tokens != null && tokens.items() != null && !tokens.items().isEmpty()) {
+                TokenSummary chosen = tokens.items().stream()
+                        .filter(TokenSummary::enabled)
+                        .findFirst()
+                        .orElse(tokens.items().get(0));
+                TokenKey key = newApiClient.getTokenKey(principal, chosen.id());
+                if (key != null && key.key() != null && !key.key().isBlank()) {
+                    String raw = key.key().trim();
+                    return raw.startsWith("sk-") ? raw : "sk-" + raw;
+                }
+            }
+        } catch (Exception e) {
+            log.warn("无法为用户 {} 解析可用 API Key: {}", principal.username(), e.getMessage());
+        }
+        return null;
     }
 
     @PostMapping("/sign-out")
