@@ -106,9 +106,9 @@ public class AuthController {
                 .body(Map.of("state", state));
     }
 
-    /** 完成 OAuth 后仅建立 Portal 会话；NewAPI 登录包不会暴露给浏览器。 */
+    /** 完成 OAuth 后建立 Portal 会话，只向前端返回非敏感的本次新建账号标识。 */
     @PostMapping("/oauth/{provider}/complete")
-    public ResponseEntity<Void> completeOAuth(@PathVariable String provider,
+    public ResponseEntity<Map<String, Boolean>> completeOAuth(@PathVariable String provider,
                                               @Valid @RequestBody OAuthCompleteRequest request,
                                               @CookieValue(value = OAUTH_STATE_COOKIE, required = false) String browserState,
                                               HttpServletResponse response) {
@@ -121,7 +121,10 @@ public class AuthController {
         response.addHeader(HttpHeaders.SET_COOKIE, oauthStateCookie("", Duration.ZERO).toString());
         NewApiLogin login = newApiClient.completeOAuth(provider, request.toCallback());
         defaultTokenService.ensureDefaultTokenExists(defaultTokenService.toPrincipal(login));
-        return withPortalSession(login);
+        // 复用原会话 cookie，保留 HttpOnly、SameSite 等认证属性，禁止响应缓存或暴露上游凭据。
+        return ResponseEntity.ok().headers(withPortalSession(login).getHeaders())
+                .header(HttpHeaders.CACHE_CONTROL, "no-store")
+                .body(Map.of("isNewUser", login.isNewUser()));
     }
 
     /** OAuth state 同时绑定到当前浏览器，阻止其他浏览器重放授权回调来置换 Portal 会话。 */

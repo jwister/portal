@@ -416,6 +416,7 @@ class NewApiHttpClientTest {
         RecordedRequest request = NEW_API.takeRequest();
         assertThat(result.identity()).isEqualTo(new NewApiIdentity(7L, "alice"));
         assertThat(result.accessToken()).isEqualTo("oauth-access-token");
+        assertThat(result.isNewUser()).isFalse();
         assertThat(result.refreshToken()).isEqualTo("33333333-3333-3333-3333-333333333333.refresh-3");
         assertThat(request.getMethod()).isEqualTo("GET");
         assertThat(request.getRequestUrl().encodedPath()).isEqualTo("/api/oauth/github");

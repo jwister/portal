@@ -851,7 +851,10 @@ public class NewApiHttpClient implements NewApiClient, NewApiSessionRefresher {
                 || accessExpiresAt <= Instant.now().getEpochSecond()) {
             throw new NewApiException("NewAPI login response did not include a complete session");
         }
-        return new NewApiLogin(identityFrom(user), accessToken, refreshToken, sessionId, Instant.ofEpochSecond(accessExpiresAt));
+        // 只接受上游布尔型 true；旧版本未返回字段时默认 false，避免把普通登录误报为注册。
+        boolean isNewUser = data.path("is_new_user").isBoolean() && data.path("is_new_user").booleanValue();
+        return new NewApiLogin(identityFrom(user), accessToken, refreshToken, sessionId,
+                Instant.ofEpochSecond(accessExpiresAt), isNewUser);
     }
 
     private String refreshCookie(org.springframework.http.ResponseCookie cookie) {

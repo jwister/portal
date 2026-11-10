@@ -180,12 +180,13 @@ class AuthControllerTest {
         assertThat(request.getBody().readUtf8()).contains("\"provider\":\"github\"", "\"intent\":\"login\"");
     }
 
-    @Test
-    void oauthCompletionCreatesPortalSessionWithoutReturningNewApiToken() throws Exception {
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(booleans = {true, false})
+    void oauthCompletionCreatesPortalSessionWithoutReturningNewApiToken(boolean isNewUser) throws Exception {
         NEW_API.enqueue(new MockResponse()
                 .setHeader(HttpHeaders.CONTENT_TYPE, "application/json")
                 .setHeader(HttpHeaders.SET_COOKIE, "new_api_refresh=55555555-5555-5555-5555-555555555555.refresh; Path=/api/user/auth; HttpOnly")
-                .setBody("{\"success\":true,\"data\":{\"access_token\":\"upstream-secret\",\"access_expires_at\":2000000000,\"session\":{\"sid\":\"55555555-5555-5555-5555-555555555555\"},\"user\":{\"id\":7,\"username\":\"alice\"}}}"));
+                .setBody("{\"success\":true,\"data\":{\"is_new_user\":" + isNewUser + ",\"access_token\":\"upstream-secret\",\"access_expires_at\":2000000000,\"session\":{\"sid\":\"55555555-5555-5555-5555-555555555555\"},\"user\":{\"id\":7,\"username\":\"alice\"}}}"));
         NEW_API.enqueue(new MockResponse()
                 .setHeader(HttpHeaders.CONTENT_TYPE, "application/json")
                 .setBody("{\"success\":true,\"data\":{\"page\":1,\"page_size\":1,\"total\":0,\"items\":[]}}"));
@@ -201,9 +202,9 @@ class AuthControllerTest {
         RecordedRequest tokenQueryRequest = NEW_API.takeRequest();
         RecordedRequest tokenCreateRequest = NEW_API.takeRequest();
 
-        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.NO_CONTENT);
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
         assertThat(response.getHeaders().get(HttpHeaders.SET_COOKIE)).anyMatch(cookie -> cookie.contains("PORTAL_SESSION="));
-        assertThat(response.getBody()).isNull();
+        assertThat(response.getBody()).isEqualTo("{\"isNewUser\":" + isNewUser + "}");
         assertThat(request.getRequestUrl().encodedPath()).isEqualTo("/api/oauth/github");
         assertThat(request.getRequestUrl().queryParameter("code")).isEqualTo("provider-code");
         assertThat(request.getRequestUrl().queryParameter("state")).isEqualTo("flow-token");

@@ -59,6 +59,8 @@ class PaymentOrderControllerTest {
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.CREATED);
         assertThat(response.getHeaders().getFirst(HttpHeaders.CACHE_CONTROL)).isEqualTo("no-store");
         assertThat(response.getBody()).containsEntry("amountUsdMinor", 2_550)
+                .containsEntry("conversionValue", 25.5)
+                .containsEntry("conversionCurrency", "USD")
                 .containsEntry("quotaToCredit", 12_750_000)
                 .containsEntry("method", "PAYPAL")
                 .containsEntry("status", "WAITING_PAYMENT");
