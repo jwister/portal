@@ -439,6 +439,69 @@ class NewApiHttpClientTest {
         assertThat(NEW_API.takeRequest().getPath()).isEqualTo("/api/status");
     }
 
+    /** OAuth 的 HTTP 200 业务拒绝也必须可定位，日志与异常不得包含回调凭据或原始响应。 */
+    @ParameterizedTest
+    @org.junit.jupiter.params.provider.CsvSource(value = {
+            "{\"success\":false,\"message\":\"New user registration has been disabled by administrator\"}|注册未开放",
+            "{\"success\":false,\"message_key\":\"Email address is already in use\",\"message\":\"private-user@example.com\"}|邮箱已被占用",
+            "{\"success\":false,\"code\":\"AUTH_FLOW_INVALID\",\"message\":\"private-flow-token\"}|授权流程无效或已过期",
+            "{\"success\":false,\"message\":\"User has been banned\"}|用户已被禁用",
+            "{\"success\":false,\"message\":\"private-user@example.com private-access-token\",\"code\":\"private-error-code\"}|未识别的上游业务拒绝"
+    }, delimiter = '|')
+    void oauthBusinessFailureHasSafeDiagnosticReason(String body, String reason) throws Exception {
+        NEW_API.enqueue(new MockResponse().setHeader(HttpHeaders.CONTENT_TYPE, "application/json")
+                .setBody(body));
+        Logger logger = (Logger) LoggerFactory.getLogger(NewApiHttpClient.class);
+        ListAppender<ILoggingEvent> appender = new ListAppender<>();
+        appender.start();
+        logger.addAppender(appender);
+        try {
+            Throwable error = catchThrowable(() -> client.completeOAuth("oidc",
+                    new OAuthCallback("private-oauth-code", "private-state", null, "private-description")));
+            assertThat(error).isInstanceOf(NewApiException.class);
+            assertThat(error.getMessage()).doesNotContain("private-");
+            assertThat(appender.list).extracting(ILoggingEvent::getFormattedMessage).anySatisfy(message ->
+                    assertThat(message).contains("NewAPI OAuth 回调失败", "provider=oidc", "httpStatus=200", "category=业务拒绝", reason));
+            assertThat(appender.list).allSatisfy(event -> {
+                assertThat(event.getFormattedMessage()).doesNotContain("private-", "@example.com", "access_token", "refresh_token");
+                assertThat(event.getThrowableProxy()).isNull();
+            });
+        } finally {
+            logger.detachAppender(appender);
+            appender.stop();
+            NEW_API.takeRequest();
+        }
+    }
+
+    /** 非 2xx 和成功外壳但缺失会话的数据必须区分，不能都归为泛化拒绝。 */
+    @ParameterizedTest
+    @org.junit.jupiter.params.provider.CsvSource(value = {
+            "502|{\"success\":false,\"message\":\"private-response\"}|HTTP错误",
+            "200|{\"success\":true,\"data\":{\"access_token\":\"private-access-token\"}}|会话解析失败",
+            "200|private-malformed-response|请求异常"
+    }, delimiter = '|')
+    void oauthProtocolFailureHasSafeDiagnosticCategory(int status, String body, String category) throws Exception {
+        NEW_API.enqueue(new MockResponse().setResponseCode(status).setHeader(HttpHeaders.CONTENT_TYPE, "application/json").setBody(body));
+        Logger logger = (Logger) LoggerFactory.getLogger(NewApiHttpClient.class);
+        ListAppender<ILoggingEvent> appender = new ListAppender<>();
+        appender.start();
+        logger.addAppender(appender);
+        try {
+            Throwable error = catchThrowable(() -> client.completeOAuth("oidc", new OAuthCallback("private-code", "private-state", null, null)));
+            assertThat(error).isInstanceOf(NewApiException.class);
+            assertThat(error.getMessage()).doesNotContain("private-");
+            // 响应解析异常的底层原因可含请求 URL 或响应片段，不应继续交给通用异常日志输出。
+            if (category.equals("请求异常")) assertThat(error.getCause()).isNull();
+            assertThat(appender.list).extracting(ILoggingEvent::getFormattedMessage).anySatisfy(message ->
+                    assertThat(message).contains("NewAPI OAuth 回调失败", "provider=oidc", "category=" + category));
+            assertThat(appender.list).allSatisfy(event -> assertThat(event.getFormattedMessage()).doesNotContain("private-"));
+        } finally {
+            logger.detachAppender(appender);
+            appender.stop();
+            NEW_API.takeRequest();
+        }
+    }
+
     @Test
     void registerSendsEmailAndPassword() throws Exception {
         NEW_API.enqueue(new MockResponse()

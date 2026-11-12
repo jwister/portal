@@ -148,9 +148,70 @@ public class NewApiHttpClient implements NewApiClient, NewApiSessionRefresher {
         if (callback == null || callback.state() == null || callback.state().isBlank()) {
             throw new IllegalArgumentException("OAuth state is required");
         }
-        LoginResponse response = loginResponse(client.get(), oauthCallbackUri(provider, callback));
+        LoginResponse response;
+        try {
+            response = loginResponse(client.get(), oauthCallbackUri(provider, callback));
+        } catch (NewApiException exception) {
+            // WebClient 的异常原因可能含带 code/state 的请求 URL，只记录固定类别和异常类型。
+            log.warn("NewAPI OAuth 回调失败: upstream={}, provider={}, category=请求异常, exceptionType={}",
+                    upstreamTarget, provider, exception.getCause() == null ? exception.getClass().getSimpleName()
+                            : exception.getCause().getClass().getSimpleName());
+            throw new NewApiException("NewAPI OAuth request failed");
+        }
+        if (response == null || response.statusCode() < 200 || response.statusCode() >= 300) {
+            logOAuthFailure(provider, response, "HTTP错误", safeOAuthFailureReason(response == null ? null : response.body()));
+        }
         requireSuccessfulLoginResponse(response);
-        return loginFrom(requireData(response.body()), response.refreshToken());
+        JsonNode root = response.body();
+        if (root == null || !root.path("success").asBoolean(false)) {
+            // NewAPI 的业务拒绝可能使用 HTTP 200，必须在通用 requireData 丢失原因前分类。
+            logOAuthFailure(provider, response, "业务拒绝", safeOAuthFailureReason(root));
+            throw new NewApiException("NewAPI rejected the request");
+        }
+        try {
+            return loginFrom(requireData(root), response.refreshToken());
+        } catch (NewApiException exception) {
+            logOAuthFailure(provider, response, "会话解析失败", "上游未返回完整的可用登录会话");
+            throw exception;
+        }
+    }
+
+    /** 日志仅使用受支持的 provider、实际状态码和本地固定说明，不输出任何上游原文。 */
+    private void logOAuthFailure(String provider, LoginResponse response, String category, String reason) {
+        log.warn("NewAPI OAuth 回调失败: upstream={}, provider={}, httpStatus={}, category={}, reason={}",
+                upstreamTarget, provider, response == null ? 0 : response.statusCode(), category, reason);
+    }
+
+    /** 按已知错误码或消息键匹配固定类别，兼容旧版只有 message 的响应；未知内容绝不直接写日志。 */
+    private String safeOAuthFailureReason(JsonNode root) {
+        if (root == null) return "上游响应为空";
+        for (String candidate : List.of(root.path("code").asText(""), root.path("message_key").asText(""),
+                root.path("message").asText(""))) {
+            String reason = switch (candidate) {
+                case "New user registration has been disabled by administrator", "新用户注册已关闭", "当前站点已关闭新用户注册" -> "注册未开放";
+                case "EMAIL_ALREADY_TAKEN", "Email address is already in use", "This email address is already in use.", "邮箱已被使用" -> "邮箱已被占用";
+                case "User has been deleted", "用户已被删除" -> "用户已被删除";
+                case "User has been banned", "用户已被封禁" -> "用户已被禁用";
+                case "AUTH_FLOW_INVALID", "Verification flow expired", "State parameter is empty or mismatched",
+                        "state 为空或不匹配" -> "授权流程无效或已过期";
+                case "{{provider}} login and registration has not been enabled by administrator",
+                        "OIDC login and registration has not been enabled by administrator" -> "第三方登录未启用";
+                case "Failed to get token from {{provider}}, please check settings",
+                        "Failed to get token from OIDC, please check settings" -> "第三方授权码换取令牌失败";
+                case "Unable to connect to {{provider}} server, please try again later",
+                        "Unable to connect to OIDC server, please try again later" -> "无法连接第三方授权服务";
+                case "{{provider}} returned empty user info, please check settings",
+                        "OIDC returned empty user info, please check settings" -> "第三方未返回完整用户信息";
+                case "Failed to get user information" -> "获取第三方用户信息失败";
+                case "AUTH_SESSION_LIMIT" -> "登录会话数量已达上限";
+                case "AUTH_SESSION_ISSUANCE_LIMIT" -> "登录会话创建过于频繁";
+                case "AUTH_INTERNAL_ERROR" -> "NewAPI 内部认证错误";
+                case "Invalid parameters" -> "上游拒绝授权参数";
+                default -> null;
+            };
+            if (reason != null) return reason;
+        }
+        return "未识别的上游业务拒绝";
     }
 
     /** refresh token 仅在服务端 Cookie 请求中使用，响应中的新 cookie 也不会转发给浏览器。 */
