@@ -2,6 +2,7 @@ package io.ztoken.portal.error;
 
 import io.ztoken.portal.newapi.NewApiAuthenticationException;
 import io.ztoken.portal.newapi.NewApiException;
+import io.ztoken.portal.newapi.NewApiRateLimitException;
 import io.ztoken.portal.newapi.NewApiSessionLimitException;
 import io.ztoken.portal.newapi.NewApiEmailVerificationException;
 import io.ztoken.portal.newapi.NewApiUnsupportedException;
@@ -19,6 +20,14 @@ import java.util.Map;
 
 @RestControllerAdvice
 public class ApiExceptionHandler {
+
+    /** 保留上游限流语义和安全等待时间，前端据此停止重复提交。 */
+    @ExceptionHandler(NewApiRateLimitException.class)
+    public ResponseEntity<Map<String, String>> newApiRateLimited(NewApiRateLimitException exception) {
+        ResponseEntity.BodyBuilder response = ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS).cacheControl(CacheControl.noStore());
+        if (exception.getRetryAfterSeconds() != null) response.header("Retry-After", exception.getRetryAfterSeconds().toString());
+        return response.body(Map.of("code", "NEWAPI_RATE_LIMITED", "message", "操作频繁，请稍后重试"));
+    }
 
     @ExceptionHandler(PaymentApiException.class)
     public ResponseEntity<Map<String, String>> paymentFailure(PaymentApiException exception) {

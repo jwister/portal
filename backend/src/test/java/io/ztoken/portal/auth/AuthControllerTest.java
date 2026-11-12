@@ -41,7 +41,7 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
-@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
+@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT, properties = "server.forward-headers-strategy=native")
 @Execution(ExecutionMode.SAME_THREAD)
 @ResourceLock("auth-controller-new-api-mock-server")
 class AuthControllerTest {
@@ -178,6 +178,47 @@ class AuthControllerTest {
                 .contains("PORTAL_OAUTH_STATE=flow-token", "HttpOnly", "Path=/api/auth/oauth", "SameSite=Lax");
         assertThat(request.getPath()).isEqualTo("/api/oauth/state");
         assertThat(request.getBody().readUtf8()).contains("\"provider\":\"github\"", "\"intent\":\"login\"");
+    }
+
+    /** 容器解析代理链后，Portal 只转发最右侧非可信客户端，不能采用伪造的最左侧地址。 */
+    @Test
+    void oauthStateForwardsTheContainerResolvedClientIp() throws Exception {
+        NEW_API.enqueue(new MockResponse().setHeader(HttpHeaders.CONTENT_TYPE, "application/json")
+                .setBody("{\"success\":true,\"data\":{\"flow_token\":\"flow-token\"}}"));
+        HttpHeaders headers = new HttpHeaders();
+        headers.set("X-Forwarded-For", "192.0.2.99, 198.51.100.7");
+        ResponseEntity<String> response = http.exchange("/api/auth/oauth/github/state", org.springframework.http.HttpMethod.POST,
+                new HttpEntity<>(null, headers), String.class);
+        RecordedRequest request = NEW_API.takeRequest();
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
+        assertThat(request.getHeader("X-Forwarded-For")).isEqualTo("198.51.100.7");
+        assertThat(request.getHeader("X-Real-IP")).isEqualTo("198.51.100.7");
+    }
+
+    @Test
+    void oauthStatePreservesUpstreamRateLimitAndRetryAfter() throws Exception {
+        NEW_API.enqueue(new MockResponse().setResponseCode(429).setHeader("Retry-After", "1200")
+                .setBody("private-upstream-response"));
+        ResponseEntity<String> response = http.postForEntity("/api/auth/oauth/github/state", null, String.class);
+        NEW_API.takeRequest();
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.TOO_MANY_REQUESTS);
+        assertThat(response.getHeaders().getFirst("Retry-After")).isEqualTo("1200");
+        assertThat(response.getHeaders().getCacheControl()).isEqualTo("no-store");
+        assertThat(response.getBody()).contains("NEWAPI_RATE_LIMITED").doesNotContain("private-upstream-response");
+    }
+
+    @Test
+    void oauthCallbackPreservesRateLimitWithoutReplayingAuthorizationCode() throws Exception {
+        NEW_API.enqueue(new MockResponse().setResponseCode(429).setHeader("Retry-After", "30"));
+        HttpHeaders headers = new HttpHeaders();
+        headers.set(HttpHeaders.COOKIE, "PORTAL_OAUTH_STATE=flow-token");
+        ResponseEntity<String> response = http.exchange("/api/auth/oauth/oidc/complete", org.springframework.http.HttpMethod.POST,
+                new HttpEntity<>(Map.of("code", "private-code", "state", "flow-token"), headers), String.class);
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.TOO_MANY_REQUESTS);
+        assertThat(response.getHeaders().getFirst("Retry-After")).isEqualTo("30");
+        assertThat(response.getBody()).doesNotContain("private-code", "flow-token");
+        assertThat(NEW_API.takeRequest().getPath()).startsWith("/api/oauth/oidc?");
+        assertThat(NEW_API.takeRequest(100, TimeUnit.MILLISECONDS)).isNull();
     }
 
     @org.junit.jupiter.params.ParameterizedTest

@@ -4,6 +4,7 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.ztoken.portal.config.PortalProperties;
+import io.ztoken.portal.config.NewApiClientIp;
 import io.ztoken.portal.payment.config.PaymentProperties;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpHeaders;
@@ -42,6 +43,7 @@ public class HttpNewApiCreditClient implements NewApiCreditClient {
         this.objectMapper = Objects.requireNonNull(objectMapper, "objectMapper");
         this.requestTimeout = Objects.requireNonNull(requestTimeout, "requestTimeout");
         this.client = WebClient.builder()
+                .defaultRequest(NewApiClientIp::forward)
                 .baseUrl(portalProperties.getNewApi().getBaseUrl())
                 .build();
     }

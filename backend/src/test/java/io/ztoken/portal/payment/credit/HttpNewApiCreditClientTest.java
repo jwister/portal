@@ -24,6 +24,24 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 class HttpNewApiCreditClientTest {
 
+    /** 入账保留服务令牌身份，同时仅传递容器解析的当前请求来源。 */
+    @Test
+    void forwardsResolvedRequestIpWithoutChangingTheCreditServiceIdentity() throws Exception {
+        newApi.enqueue(jsonResponse(200, "{\"success\":true}"));
+        var original = org.springframework.web.context.request.RequestContextHolder.getRequestAttributes();
+        var request = new org.springframework.mock.web.MockHttpServletRequest();
+        request.setRemoteAddr("198.51.100.7");
+        request.addHeader("X-Forwarded-For", "192.0.2.99");
+        org.springframework.web.context.request.RequestContextHolder.setRequestAttributes(
+                new org.springframework.web.context.request.ServletRequestAttributes(request));
+        try {
+            assertThat(client.addQuota(7L, 500_000L)).isEqualTo(CreditResult.SUCCESS);
+            RecordedRequest upstream = newApi.takeRequest();
+            assertThat(upstream.getHeader("X-Forwarded-For")).isEqualTo("198.51.100.7");
+            assertThat(upstream.getHeader(HttpHeaders.AUTHORIZATION)).isEqualTo("Bearer service-credit-token");
+        } finally { org.springframework.web.context.request.RequestContextHolder.setRequestAttributes(original); }
+    }
+
     private final ObjectMapper objectMapper = new ObjectMapper();
     private MockWebServer newApi;
     private PortalProperties portalProperties;

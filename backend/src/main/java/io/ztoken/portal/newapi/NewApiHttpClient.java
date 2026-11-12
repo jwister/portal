@@ -4,6 +4,7 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.ztoken.portal.config.PortalProperties;
+import io.ztoken.portal.config.NewApiClientIp;
 import io.ztoken.portal.console.DashboardSummary;
 import io.ztoken.portal.console.DashboardAnalytics;
 import io.ztoken.portal.console.TokenKey;
@@ -23,7 +24,9 @@ import org.springframework.http.MediaType;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 import org.springframework.web.reactive.function.client.WebClient;
+import org.springframework.web.reactive.function.client.ClientResponse;
 import org.springframework.web.reactive.function.client.WebClientResponseException;
+import reactor.core.publisher.Mono;
 import org.springframework.web.util.UriBuilder;
 import org.springframework.util.LinkedMultiValueMap;
 import org.springframework.util.MultiValueMap;
@@ -68,11 +71,20 @@ public class NewApiHttpClient implements NewApiClient, NewApiSessionRefresher {
      */
     NewApiHttpClient(PortalProperties properties, ObjectMapper objectMapper, Clock clock) {
         String baseUrl = properties.getNewApi().getBaseUrl();
-        this.client = WebClient.builder().baseUrl(baseUrl).build();
+        this.client = WebClient.builder().baseUrl(baseUrl).defaultRequest(NewApiClientIp::forward)
+                .filter((request, next) -> next.exchange(request).flatMap(this::checkRateLimit)).build();
         this.objectMapper = objectMapper;
         this.accessToken = properties.getNewApi().getAccessToken();
         this.upstreamTarget = upstreamTarget(baseUrl);
         this.clock = clock;
+    }
+
+    /** 在读取 JSON 之前识别限流，兼容 NewAPI 返回空体或 HTML 的 429 响应。 */
+    private Mono<ClientResponse> checkRateLimit(ClientResponse response) {
+        if (response.statusCode().value() != 429) return Mono.just(response);
+        NewApiRateLimitException exception = new NewApiRateLimitException(response.headers().asHttpHeaders().getFirst("Retry-After"), clock);
+        log.warn("NewAPI 请求被限流：upstream={}，等待秒数={}", upstreamTarget, exception.getRetryAfterSeconds());
+        return response.releaseBody().then(Mono.error(exception));
     }
 
     @Override
@@ -106,6 +118,7 @@ public class NewApiHttpClient implements NewApiClient, NewApiSessionRefresher {
         } catch (NewApiException exception) {
             throw exception;
         } catch (RuntimeException exception) {
+            if (exception instanceof NewApiRateLimitException) throw exception;
             throw new NewApiException("NewAPI logout request failed");
         }
     }
@@ -152,6 +165,7 @@ public class NewApiHttpClient implements NewApiClient, NewApiSessionRefresher {
         try {
             response = loginResponse(client.get(), oauthCallbackUri(provider, callback));
         } catch (NewApiException exception) {
+            if (exception instanceof NewApiRateLimitException) throw exception;
             // WebClient 的异常原因可能含带 code/state 的请求 URL，只记录固定类别和异常类型。
             log.warn("NewAPI OAuth 回调失败: upstream={}, provider={}, category=请求异常, exceptionType={}",
                     upstreamTarget, provider, exception.getCause() == null ? exception.getClass().getSimpleName()
@@ -246,6 +260,7 @@ public class NewApiHttpClient implements NewApiClient, NewApiSessionRefresher {
         } catch (NewApiException exception) {
             throw exception;
         } catch (RuntimeException exception) {
+            if (exception instanceof NewApiRateLimitException) throw exception;
             throw new NewApiException("NewAPI refresh request failed");
         }
     }
@@ -300,9 +315,11 @@ public class NewApiHttpClient implements NewApiClient, NewApiSessionRefresher {
             }
             log.warn("NewAPI email verification request failed with status {}", exception.getStatusCode().value());
         } catch (NewApiException exception) {
+            if (exception instanceof NewApiRateLimitException) throw exception;
             // The registration flow must not expose SMTP or upstream transport details.
             log.warn("NewAPI email verification request failed: {}", exception.getMessage());
         } catch (RuntimeException exception) {
+            if (exception instanceof NewApiRateLimitException) throw exception;
             log.warn("NewAPI email verification request failed", exception);
         }
         throw new NewApiEmailVerificationException();
@@ -758,6 +775,7 @@ public class NewApiHttpClient implements NewApiClient, NewApiSessionRefresher {
         } catch (WebClientResponseException exception) {
             throw new NewApiException("NewAPI get system status failed", exception);
         } catch (RuntimeException exception) {
+            if (exception instanceof NewApiRateLimitException) throw exception;
             throw new NewApiException("NewAPI get system status failed", exception);
         }
         if (root == null || !root.path("success").asBoolean(true)) {
@@ -800,6 +818,7 @@ public class NewApiHttpClient implements NewApiClient, NewApiSessionRefresher {
                                     response.headers().contentType().orElse(MediaType.APPLICATION_JSON), body)))
                     .block(Duration.ofSeconds(10));
         } catch (RuntimeException exception) {
+            if (exception instanceof NewApiRateLimitException) throw exception;
             log.warn("NewAPI 模型广场请求失败: upstream={}, path={}, exceptionType={}", upstreamTarget, path,
                     exception.getClass().getSimpleName());
             throw new NewApiException("NewAPI model square request failed");
@@ -887,6 +906,7 @@ public class NewApiHttpClient implements NewApiClient, NewApiSessionRefresher {
                             refreshCookie(response.cookies().getFirst("new_api_refresh")))))
                     .block(Duration.ofSeconds(10));
         } catch (RuntimeException exception) {
+            if (exception instanceof NewApiRateLimitException) throw exception;
             throw new NewApiException("NewAPI login request failed", exception);
         }
     }
@@ -899,6 +919,7 @@ public class NewApiHttpClient implements NewApiClient, NewApiSessionRefresher {
                             refreshCookie(response.cookies().getFirst("new_api_refresh")))))
                     .block(Duration.ofSeconds(10));
         } catch (RuntimeException exception) {
+            if (exception instanceof NewApiRateLimitException) throw exception;
             throw new NewApiException("NewAPI OAuth request failed", exception);
         }
     }

@@ -44,6 +44,55 @@ import static org.assertj.core.api.Assertions.catchThrowable;
 @ResourceLock("new-api-mock-server")
 class NewApiHttpClientTest {
 
+    @Test
+    void rateLimitOnlyReflectsValidBoundedRetryTimes() {
+        Clock fixed = Clock.fixed(Instant.parse("2026-11-12T08:00:00Z"), ZoneId.of("UTC"));
+        assertThat(new NewApiRateLimitException("Thu, 12 Nov 2026 08:00:30 GMT", fixed).getRetryAfterSeconds()).isEqualTo(30);
+        assertThat(new NewApiRateLimitException("9999999999", fixed).getRetryAfterSeconds()).isEqualTo(86400);
+        for (String invalid : new String[]{"-10", "private-invalid-header", "1\r\nX-Injected: 1", "Thu, 12 Nov 2026 07:59:00 GMT"}) {
+            assertThat(new NewApiRateLimitException(invalid, fixed).getRetryAfterSeconds()).isNull();
+        }
+    }
+
+    /** 两个并发用户不会串用来源 IP，之后无 HTTP 上下文的任务不继承客户端地址。 */
+    @Test
+    void forwardsClientIpPerRequestWithoutLeakingItToBackgroundWork() throws Exception {
+        PortalProperties properties = new PortalProperties();
+        properties.getNewApi().setBaseUrl(NEW_API.url("/").toString());
+        NewApiHttpClient isolated = new NewApiHttpClient(properties, new ObjectMapper());
+        for (int i = 0; i < 3; i++) NEW_API.enqueue(new MockResponse().setHeader(HttpHeaders.CONTENT_TYPE, "application/json")
+                .setBody("{\"success\":true,\"data\":{\"flow_token\":\"test-flow\"}}"));
+        java.util.concurrent.ExecutorService workers = java.util.concurrent.Executors.newFixedThreadPool(2);
+        try {
+            java.util.List<java.util.concurrent.Callable<String>> requests = java.util.List.of("198.51.100.1", "198.51.100.2").stream()
+                    .<java.util.concurrent.Callable<String>>map(ip -> () -> {
+                        org.springframework.mock.web.MockHttpServletRequest request = new org.springframework.mock.web.MockHttpServletRequest();
+                        // Servlet 的 remoteAddr 已由 Tomcat 可信代理机制解析；业务代码不能再信任原始头。
+                        request.setRemoteAddr(ip);
+                        request.addHeader("X-Forwarded-For", "192.0.2.99");
+                        org.springframework.web.context.request.RequestContextHolder.setRequestAttributes(
+                                new org.springframework.web.context.request.ServletRequestAttributes(request));
+                        try { return isolated.createOAuthState("github"); }
+                        finally { org.springframework.web.context.request.RequestContextHolder.resetRequestAttributes(); }
+                    }).toList();
+            for (var result : workers.invokeAll(requests)) assertThat(result.get()).isEqualTo("test-flow");
+            java.util.Set<String> clientIps = new java.util.HashSet<>();
+            for (int i = 0; i < 2; i++) {
+                RecordedRequest request = NEW_API.takeRequest();
+                clientIps.add(request.getHeader("X-Forwarded-For"));
+                assertThat(request.getHeader("X-Real-IP")).isEqualTo(request.getHeader("X-Forwarded-For"));
+                assertThat(request.getHeader(HttpHeaders.AUTHORIZATION)).isNull();
+            }
+            assertThat(clientIps).containsExactlyInAnyOrder("198.51.100.1", "198.51.100.2");
+            var originalContext = org.springframework.web.context.request.RequestContextHolder.getRequestAttributes();
+            org.springframework.web.context.request.RequestContextHolder.resetRequestAttributes();
+            try {
+                isolated.createOAuthState("github");
+                assertThat(NEW_API.takeRequest().getHeader("X-Forwarded-For")).isNull();
+            } finally { org.springframework.web.context.request.RequestContextHolder.setRequestAttributes(originalContext); }
+        } finally { workers.shutdownNow(); }
+    }
+
     private static final MockWebServer NEW_API = startServer();
 
     @Autowired
@@ -556,13 +605,14 @@ class NewApiHttpClientTest {
     @Test
     void emailVerificationRateLimitIsReportedAsRetryable() throws Exception {
         NEW_API.enqueue(new MockResponse().setResponseCode(429)
+                .setHeader("Retry-After", "20")
                 .setHeader(HttpHeaders.CONTENT_TYPE, "application/json")
                 .setBody("{\"success\":false,\"message\":\"发送过于频繁，请等待 20 秒后再试\"}"));
 
         Throwable thrown = catchThrowable(() -> client.sendEmailVerification("alice@example.com"));
 
-        assertThat(thrown).isInstanceOf(NewApiEmailVerificationException.class)
-                .hasMessage("发送过于频繁，请稍后再试");
+        assertThat(thrown).isInstanceOf(NewApiRateLimitException.class);
+        assertThat(((NewApiRateLimitException) thrown).getRetryAfterSeconds()).isEqualTo(20);
         NEW_API.takeRequest();
     }
 

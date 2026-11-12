@@ -13,6 +13,11 @@ spring:
     enabled: true
 server:
   port: ${PORTAL_PORT:8084}
+  # 复用 Tomcat 的代理链解析。默认只接受其内置受控网段；公网 CDN 直连时按实际地址配置。
+  forward-headers-strategy: native
+  tomcat:
+    remoteip:
+      trusted-proxies: ${PORTAL_TRUSTED_PROXY_PATTERN:}
 portal:
   public-api-url: ${PORTAL_PUBLIC_API_URL:https://api.ztoken.cc}
   icp-record: ${PORTAL_ICP_RECORD:}
