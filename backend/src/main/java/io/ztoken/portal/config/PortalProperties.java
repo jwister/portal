@@ -3,6 +3,7 @@ package io.ztoken.portal.config;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 
 import java.time.Duration;
+import java.util.List;
 
 @ConfigurationProperties(prefix = "portal")
 public class PortalProperties {
@@ -15,6 +16,7 @@ public class PortalProperties {
     private String publicApiUrl;
     private String icpRecord;
     private boolean domesticRegion;
+    private List<String> registrationEmailDomainBlacklist = List.of();
 
     public boolean isDomesticRegion() { return domesticRegion; }
     public void setDomesticRegion(boolean domesticRegion) { this.domesticRegion = domesticRegion; }
@@ -55,6 +57,18 @@ public class PortalProperties {
 
     public void setSessionCookieDomain(String sessionCookieDomain) {
         this.sessionCookieDomain = sessionCookieDomain;
+    }
+
+    public List<String> getRegistrationEmailDomainBlacklist() {
+        return registrationEmailDomainBlacklist;
+    }
+
+    /** 清理配置项两端的空白，并忽略空条目。 */
+    public void setRegistrationEmailDomainBlacklist(List<String> domains) {
+        this.registrationEmailDomainBlacklist = domains.stream()
+                .map(String::strip)
+                .filter(domain -> !domain.isEmpty())
+                .toList();
     }
 
     public NewApi getNewApi() {

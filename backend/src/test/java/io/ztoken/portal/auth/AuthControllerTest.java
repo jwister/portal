@@ -39,6 +39,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT, properties = "server.forward-headers-strategy=native")
@@ -50,6 +51,9 @@ class AuthControllerTest {
 
     @Autowired
     private TestRestTemplate http;
+
+    @Autowired
+    private PortalProperties properties;
 
     @Autowired
     private io.ztoken.portal.session.PortalSessionService sessions;
@@ -72,6 +76,7 @@ class AuthControllerTest {
     @DynamicPropertySource
     static void newApiProperties(DynamicPropertyRegistry registry) {
         registry.add("portal.new-api.base-url", () -> NEW_API.url("/").toString());
+        registry.add("portal.registration-email-domain-blacklist", () -> " PROTON.ME , test-blocked.example ");
     }
 
     @Test
@@ -274,6 +279,30 @@ class AuthControllerTest {
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
         assertThat(response.getBody()).contains("INVALID_AUTH_REQUEST");
         assertThat(NEW_API.takeRequest(100, TimeUnit.MILLISECONDS)).isNull();
+    }
+
+    @Test
+    void emailVerificationRejectsBlockedDomainBeforeCallingNewApi() throws Exception {
+        ResponseEntity<String> response = http.getForEntity(
+                "/api/auth/verification?email={email}&captchaVerification={captcha}",
+                String.class, "alice@proton.me", "unused-captcha");
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
+        assertThat(response.getBody()).contains("该邮箱域名暂不支持注册");
+        assertThat(NEW_API.takeRequest(100, TimeUnit.MILLISECONDS)).isNull();
+    }
+
+    @Test
+    void registrationRejectsBlockedDomainBeforeCallingNewApi() {
+        NewApiClient newApiClient = mock(NewApiClient.class);
+        DefaultTokenService defaultTokenService = mock(DefaultTokenService.class);
+        AuthController controller = new AuthController(newApiClient, sessions, properties, null, defaultTokenService);
+        RegisterRequest request = new RegisterRequest("alice", "alice@TEST-BLOCKED.EXAMPLE", "password", "123456", null, null);
+
+        assertThatThrownBy(() -> controller.register(request))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("该邮箱域名暂不支持注册");
+        verifyNoInteractions(newApiClient, defaultTokenService);
     }
 
     @Test

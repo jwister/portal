@@ -65,6 +65,7 @@ public class AuthController {
     public org.springframework.http.ResponseEntity<Void> verification(
             @org.springframework.web.bind.annotation.RequestParam String email,
             @org.springframework.web.bind.annotation.RequestParam String captchaVerification) {
+        requireRegistrationEmailDomainAllowed(email);
         if (captchaVerification == null || captchaVerification.isBlank()) {
             throw new IllegalArgumentException("Captcha is required");
         }
@@ -163,9 +164,22 @@ public class AuthController {
 
     @PostMapping({"/register", "/sign-up"})
     public ResponseEntity<Void> register(@Valid @RequestBody RegisterRequest request) {
+        requireRegistrationEmailDomainAllowed(request.email());
         newApiClient.register(request.username(), request.email(), request.password(), request.verificationCode());
         defaultTokenService.initializeDefaultTokenOnRegister(request.username(), request.password());
         return ResponseEntity.noContent().build();
+    }
+
+    /** 发码和建号都按完整邮箱域名匹配黑名单，忽略域名大小写。 */
+    private void requireRegistrationEmailDomainAllowed(String email) {
+        int separator = email.lastIndexOf('@');
+        if (separator < 0) {
+            return;
+        }
+        String domain = email.substring(separator + 1).strip();
+        if (properties.getRegistrationEmailDomainBlacklist().stream().anyMatch(domain::equalsIgnoreCase)) {
+            throw new IllegalArgumentException("该邮箱域名暂不支持注册");
+        }
     }
 
     @GetMapping("/me")
